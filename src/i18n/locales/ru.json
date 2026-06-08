@@ -1,0 +1,310 @@
+{
+  "app": { "name": "NeuroForge", "tagline": "Локальный AI-рантайм нового поколения" },
+  "layout": { "online": "Локально" },
+  "language": {
+    "title": "Выберите язык",
+    "subtitle": "Можно изменить в любой момент в настройках",
+    "ru": "Русский", "en": "English", "continue": "Продолжить",
+    "features": { "local": "100% локально", "secure": "Изоляция сети", "innovative": "150+ настроек" }
+  },
+  "nav": {
+    "chats": "Чаты", "agents": "Агенты", "models": "Модели", "memory": "Память",
+    "network": "Сеть", "devices": "Устройства", "settings": "Настройки", "help": "Справка"
+  },
+  "onboarding": {
+    "stepOf": "Шаг {{current}} из {{total}}",
+    "next": "Далее", "back": "Назад", "skip": "Пропустить", "finish": "Начать работу",
+    "tags": {
+      "welcome": "Старт", "local": "Модели", "isolation": "Безопасность",
+      "memory": "Память", "injection": "Инновация", "agents": "Агенты",
+      "permissions": "Права", "innovation": "Передовое", "ready": "Готово"
+    },
+    "welcome": {
+      "title": "Добро пожаловать в NeuroForge",
+      "desc": "Платформа нового поколения для локального запуска нейросетей с полным контролем над данными, ресурсами и поведением ИИ.",
+      "feat1": "Кроссплатформенность: Windows и Linux",
+      "feat2": "150+ настроек производительности и безопасности",
+      "feat3": "Полная русификация интерфейса"
+    },
+    "local": {
+      "title": "Локальные нейросети",
+      "desc": "Запускайте модели с Hugging Face или с диска. Поддержка GGUF, ONNX, Safetensors, PT и других форматов.",
+      "feat1": "Hugging Face Hub и локальные пути",
+      "feat2": "Управление RAM, CPU и GPU",
+      "feat3": "Оптимизация: Flash Attention, KV-cache"
+    },
+    "isolation": {
+      "title": "Изоляция и безопасность",
+      "desc": "Три режима сети: полная изоляция, только API (белый список) или открытый доступ. Каждый запрос виден в мониторе.",
+      "feat1": "Нейросеть не выйдет в сеть без разрешения",
+      "feat2": "Монитор всех HTTP-запросов в реальном времени",
+      "feat3": "Защита от prompt injection и утечек"
+    },
+    "memory": {
+      "title": "Двухуровневая память",
+      "desc": "Краткосрочная (STM) и долгосрочная (LTM) память с семантическим поиском и переносом между чатами и моделями.",
+      "feat1": "STM — контекст текущего диалога",
+      "feat2": "LTM — факты, переносимые между чатами",
+      "feat3": "Авто-консолидация STM → LTM"
+    },
+    "injection": {
+      "title": "Глобальные вводные",
+      "desc": "Уникальная функция: текст, автоматически добавляемый к КАЖДОМУ сообщению — префикс, суффикс, скрытый контекст.",
+      "feat1": "Системный префикс и суффикс пользователя",
+      "feat2": "Подмешивание сводки памяти и времени",
+      "feat3": "Переопределение для каждого агента"
+    },
+    "agents": {
+      "title": "Команды агентов",
+      "desc": "10 стратегий оркестровки, 12 ролей, 14 инструментов — полный Agent Studio для многомодельных команд.",
+      "feat1": "Последовательная, параллельная, иерархическая, MapReduce и др.",
+      "feat2": "Права: интернет, файлы, делегирование, вето, память",
+      "feat3": "Монитор оркестровки в реальном времени"
+    },
+    "permissions": {
+      "title": "Права и лимиты",
+      "desc": "У каждого чата и агента — свои разрешения: интернет, устройства, файлы, инструменты. Контроль RAM, CPU и токенов.",
+      "feat1": "Права на чат: STM, LTM, CHAT_ONLY / MODEL_SHARED / GLOBAL",
+      "feat2": "Лимиты операций, тайм-ауты, порог консенсуса",
+      "feat3": "79+ настроек в 9 категориях"
+    },
+    "innovation": {
+      "title": "Инновационные технологии",
+      "desc": "NeuroForge включает передовые алгоритмы: нейропластичная память, квантовые слои контекста, голографическое сжатие.",
+      "feat1": "Когнитивный балансировщик нагрузки",
+      "feat2": "Синаптическая маршрутизация запросов",
+      "feat3": "Мета-познание и dream-консолидация",
+      "chips": { "cognitive": "Когнитивный AI", "quantum": "Квант. контекст", "holographic": "Голография" }
+    },
+    "ready": {
+      "title": "Всё готово!",
+      "desc": "NeuroForge настроен и готов к работе. Все параметры можно изменить в разделе «Настройки» — там более 150 опций.",
+      "feat1": "Сброс настроек по умолчанию в один клик",
+      "feat2": "Справка с описанием каждой функции"
+    }
+  },
+  "chat": {
+    "newChat": "Новый чат", "placeholder": "Введите сообщение...", "send": "Отправить",
+    "attach": "Прикрепить", "stm": "STM", "ltm": "LTM", "internet": "Интернет",
+    "tokens": "Токены", "latency": "Задержка", "offline": "Без интернета",
+    "camera": "Камера", "mic": "Микрофон",
+    "permsTitle": "Права чата", "systemPrompt": "Системные инструкции чата",
+    "perm": {
+      "internet": "Интернет", "stm": "STM", "ltm": "LTM", "camera": "Камера",
+      "microphone": "Микрофон", "screen": "Экран", "files": "Файлы", "tools": "Инструменты"
+    },
+    "permTip": {
+      "internet": "Разрешить веб-поиск и HTTP для этого чата",
+      "stm": "Краткосрочная память (5–200 сообщений)",
+      "ltm": "Долгосрочная память между сессиями",
+      "camera": "Захват с камеры", "microphone": "Запись с микрофона",
+      "screen": "Захват экрана", "files": "Чтение и запись файлов",
+      "tools": "Инструменты агента (калькулятор, JSON и др.)"
+    }
+  },
+  "settings": {
+    "title": "Настройки", "save": "Сохранить", "saved": "Сохранено",
+    "reset": "Сбросить по умолчанию", "resetConfirm": "Сбросить все настройки?",
+    "search": "Поиск настроек...", "language": "Язык интерфейса",
+    "sections": { "hardware": "Железо", "optimization": "Оптимизация" },
+    "tabs": {
+      "ram": "Память и ОЗУ", "cpu": "ЦП и многопоточность",
+      "inference": "Вывод по умолчанию", "injection": "Системные инструкции",
+      "memory": "Память ИИ", "internet": "Интернет и веб",
+      "permissions": "Права по умолчанию", "appearance": "Внешний вид",
+      "advanced": "Расширенные + агенты",
+      "innovation": "Инновации", "system": "Система", "performance": "Производительность",
+      "network": "Сеть", "security": "Безопасность", "devices": "Устройства",
+      "agents": "Агенты", "models": "Модели", "ui": "Интерфейс"
+    },
+    "system": {
+      "ramLimit": "Лимит RAM (МБ)", "ramLimitDesc": "Максимальный объём оперативной памяти для приложения",
+      "ramSoft": "Мягкий лимит (%)", "cpuCores": "Ядра CPU", "cpuCoresDesc": "Через запятую, например: 0,1,2,3",
+      "cpuAffinity": "Привязка CPU", "gpuLayers": "Слои GPU", "gpuMemory": "VRAM (МБ)",
+      "threads": "Потоки", "batchSize": "Батч", "mmap": "Memory-map", "mlock": "Mlock RAM",
+      "hugePages": "Huge Pages", "prefetchModels": "Предзагрузка моделей",
+      "priority": "Приоритет", "ioPriority": "Приоритет I/O", "swap": "Swap",
+      "diskCache": "Дисковый кэш", "oomPolicy": "Политика OOM",
+      "vramReserve": "Резерв VRAM (МБ)", "vramReserveDesc": "Зарезервированная видеопамять",
+      "thermal": "Троттлинг (°C)"
+    },
+    "innovation": {
+      "badge": "NEW", "title": "Инновационные технологии NeuroForge",
+      "desc": "Передовые алгоритмы управления контекстом, памятью и когнитивной нагрузкой нейросетей.",
+      "cognitive": "Когнитивный слой", "context": "Контекст", "streaming": "Потоковая обработка", "advanced": "Продвинутое",
+      "cognitiveLoadBalancer": "Когнитивный балансировщик",
+      "cognitiveLoadBalancerDesc": "Автоматически распределяет нагрузку между моделями по когнитивной сложности запроса",
+      "cognitiveThreshold": "Порог нагрузки",
+      "neuroplastic": "Нейропластичная память",
+      "neuroplasticDesc": "Память адаптируется к стилю общения пользователя",
+      "adaptationRate": "Скорость адаптации",
+      "synapticRouting": "Синаптическая маршрутизация",
+      "synapticRoutingDesc": "Оптимальный путь обработки через граф нейросетей",
+      "synapticPriority": "Приоритет пути",
+      "contextDna": "Context DNA",
+      "contextDnaDesc": "Уникальный «генетический код» контекста каждого чата",
+      "dnaMutation": "Мутация DNA",
+      "holographic": "Голографический контекст",
+      "holographicDesc": "Сжатие контекста в многомерное голографическое представление",
+      "holographicDims": "Размерность проекции",
+      "quantumLayers": "Квантовые слои контекста",
+      "quantumEntangle": "Квантовая запутанность",
+      "thoughtStream": "Поток мыслей",
+      "thoughtStreamDesc": "Промежуточные рассуждения модели в реальном времени",
+      "streamBuffer": "Буфер (мс)",
+      "attentionCascade": "Каскад внимания",
+      "cascadeDepth": "Глубина каскада",
+      "emotionMirror": "Эмоциональное зеркало",
+      "emotionIntensity": "Интенсивность",
+      "neuralMesh": "Neural Mesh Sync",
+      "neuralMeshDesc": "Синхронизация между устройствами в локальной сети",
+      "dreamConsolidation": "Dream-консолидация",
+      "dreamDesc": "Консолидация памяти в фоне при простое",
+      "dreamSchedule": "Расписание",
+      "crossModal": "Кросс-модальное слияние",
+      "visionWeight": "Вес зрения", "audioWeight": "Вес аудио",
+      "predictivePrefetch": "Предиктивная предзагрузка",
+      "neuralFirewall": "Нейро-файрвол",
+      "firewallSens": "Чувствительность",
+      "metaCognition": "Мета-познание",
+      "metaCognitionDesc": "Модель анализирует качество собственных ответов",
+      "echoBreaker": "Анти-эхокамера",
+      "echoBreakerDesc": "Предотвращает однообразие ответов",
+      "chronosync": "ChronoSync память",
+      "swarm": "Роевой интеллект",
+      "latentNav": "Навигация в латентном пространстве",
+      "whisperMode": "Режим шёпота"
+    },
+    "performance": {
+      "turbo": "Турбо-режим", "turboDesc": "Максимальная производительность за счёт RAM",
+      "turboBoost": "Буст RAM (%)", "dynamicBatch": "Динамический батчинг",
+      "pipeline": "Конвейерная параллельность", "pipelineStages": "Стадии",
+      "continuousBatch": "Непрерывный батчинг", "prefixCache": "Кэш префиксов",
+      "kvOffload": "KV-cache offload", "kvDevice": "Устройство offload",
+      "mixedPrecision": "Смешанная точность", "compileGraph": "Компиляция графа",
+      "warmup": "Прогрев (токены)", "idlePower": "Энергосбережение",
+      "latencyTarget": "Целевая задержка (мс)", "queueDepth": "Глубина очереди"
+    },
+    "security": {
+      "encryptSettings": "Шифровать настройки", "encryptMemory": "Шифровать память",
+      "confirmInternet": "Подтверждать интернет", "confirmDevice": "Подтверждать устройства",
+      "auditLog": "Журнал аудита", "sandbox": "Изоляция процессов",
+      "promptShield": "Защита от injection", "shieldAggro": "Агрессивность",
+      "exfilGuard": "Защита от утечек", "clipboard": "Санитизация буфера",
+      "modelIntegrity": "Проверка целостности модели", "autoLock": "Автоблокировка (мин)"
+    },
+    "memory": {
+      "stmSection": "Краткосрочная (STM)", "ltmSection": "Долгосрочная (LTM)", "transferSection": "Перенос",
+      "stmEnabled": "STM включена", "stmMaxTokens": "Макс. токенов",
+      "stmMaxMessages": "Сообщений STM (5–200)", "stmMaxMessagesDesc": "Недавний контекст каждого чата",
+      "stmTtl": "TTL (мин)",
+      "workingSlots": "Слоты рабочей памяти", "ltmEnabled": "LTM включена",
+      "ltmMaxEntries": "Макс. записей", "episodic": "Эпизодическая память",
+      "procedural": "Процедурная память", "graph": "Граф памяти",
+      "forgettingCurve": "Кривая забывания", "transferPolicy": "Политика переноса",
+      "crossChat": "Между чатами", "crossModel": "Между моделями",
+      "autoConsolidate": "Авто-консолидация", "encryption": "Шифрование",
+      "semanticSearch": "Семантический поиск", "recallTopK": "Top-K"
+    },
+    "network": {
+      "isolation": "Изоляция", "isolationFull": "Полная", "isolationApi": "Только API", "isolationNone": "Открытый",
+      "allowInternet": "Интернет", "offlineFallback": "Офлайн-fallback",
+      "apiEndpoints": "Белый список API", "proxy": "Прокси", "tor": "Tor",
+      "egressFilter": "Фильтр исходящих", "rateLimit": "Лимит (RPM)",
+      "logRequests": "Логировать", "blockPrivate": "Блок. приватные IP",
+      "tls": "TLS", "doh": "DNS over HTTPS"
+    },
+    "injection": {
+      "title": "Глобальные вводные в каждое сообщение",
+      "desc": "Текст, автоматически добавляемый к каждому сообщению.",
+      "enabled": "Включить", "systemPrefix": "Системный префикс",
+      "systemPrefixDesc": "Добавляется перед каждым сообщением пользователя",
+      "userSuffix": "Суффикс", "hiddenContext": "Скрытый контекст",
+      "hiddenContextDesc": "Невидимый для пользователя, видимый модели",
+      "injectMemory": "Сводка памяти", "injectDevice": "Состояние устройств",
+      "injectTime": "Время", "injectLocale": "Язык"
+    },
+    "inference": { "section": "Параметры инференса" },
+    "devices": {
+      "section": "Устройства ввода/вывода",
+      "camera": "Камера", "microphone": "Микрофон", "screen": "Экран",
+      "virtualDisplay": "Виртуальный дисплей", "resolution": "Разрешение",
+      "maxAttachment": "Макс. вложение (МБ)", "ocr": "OCR", "transcribe": "Транскрибация", "frameRate": "FPS"
+    },
+    "agents": { "addGroup": "Добавить группу" },
+    "models": { "formats": "GGUF, ONNX, Safetensors, PT, BIN, GGML", "localPath": "Путь к модели", "add": "Загрузить" }
+  },
+  "memory": {
+    "title": "Память", "stm": "STM", "ltm": "LTM", "transfer": "Перенести",
+    "fromChat": "Из чата", "toChat": "В чат", "consolidate": "Консолидировать STM→LTM",
+    "accessLevel": "Уровень доступа памяти", "importance": "Важность",
+    "autoSummary": "Авто-суммирование", "retention": "Период хранения"
+  },
+  "network": {
+    "title": "Сетевой монитор", "fetch": "Тест", "blocked": "Заблокировано", "allowed": "Разрешено", "noLogs": "Нет запросов",
+    "ddgDesc": "Поиск через DuckDuckGo Instant Answer API с логированием в панели активности",
+    "ddgTip": "Требуется разрешение интернета в настройках сети",
+    "ddgPlaceholder": "Поисковый запрос...", "ddgSearch": "Искать"
+  },
+  "models": {
+    "hfTab": "Hugging Face", "loadedTab": "Загруженные", "none": "Нет загруженных моделей",
+    "hfTitle": "Браузер Hugging Face", "hfDesc": "Поиск и загрузка моделей с Hub",
+    "hfSearch": "Поиск моделей...", "hfSearchBtn": "Найти", "hfSearchTip": "Поиск по Hugging Face Hub (GGUF, Safetensors и др.)",
+    "hfLoad": "Загрузить", "load": "Загрузить", "hfPopular": "Популярные", "downloads": "загрузок"
+  },
+  "help": {
+    "title": "Справка", "intro": "NeuroForge — локальный AI-рантайм: 79+ настроек в 9 категориях, Agent Studio, память ИИ, изоляция сети.",
+    "featureMatrix": "Контрольный список функций",
+    "sections": {
+      "system": "RAM, CPU, GPU, приоритеты и турбо-режим.",
+      "network": "Изоляция, DuckDuckGo, монитор HTTP в реальном времени.",
+      "memory": "STM (5–200 сообщений), LTM с важностью, CHAT_ONLY / MODEL_SHARED / GLOBAL.",
+      "injection": "Системная подсказка в начале каждого сообщения + глобальные вводные.",
+      "agents": "Раздел «Агенты»: 10 стратегий, 12 ролей, 14 инструментов, права и ресурсы.",
+      "devices": "Камера, микрофон, экран, файлы — многорежимный ввод.",
+      "reset": "Сброс всех настроек к значениям по умолчанию."
+    },
+    "features": {
+      "orchestration": "10 стратегий оркестровки",
+      "roles": "12 ролей агентов",
+      "tools": "14 инструментов агента",
+      "permissions": "Права: интернет, камера, микрофон, файлы, вето",
+      "resources": "Ресурсы: RAM, CPU, токены, температура",
+      "groupSettings": "Группа: раунды, тайм-аут, консенсус, конфликты",
+      "triggers": "Условия срабатывания агента",
+      "monitor": "Монитор оркестровки в реальном времени",
+      "memoryLevels": "3 уровня памяти",
+      "settings79": "79+ настроек в 9 категориях",
+      "onboarding9": "9-шаговый онбординг",
+      "tooltips": "Подсказки для настроек",
+      "hf": "Браузер Hugging Face",
+      "m3": "Material 3 UI"
+    }
+  },
+  "agents": {
+    "title": "Команды агентов ИИ",
+    "subtitle": "Многомодельная командная работа: роли, инструменты, оркестровка, права",
+    "tabs": { "groups": "Группы", "editor": "Редактор", "monitor": "Монитор" },
+    "addGroup": "Новая группа", "newGroup": "Новая команда",
+    "groupName": "Название группы", "groupSettings": "Настройки группы",
+    "orchestration": "Стратегия оркестровки", "conflictMode": "Разрешение конфликтов",
+    "maxRounds": "Макс. раундов", "timeout": "Тайм-аут (сек)", "consensus": "Порог консенсуса",
+    "feedbackLoops": "Петли обратной связи", "taskDecomposition": "Декомпозиция задач",
+    "membersTitle": "Агенты команды", "members": "агентов", "addMember": "Добавить агента",
+    "role": "Роль", "trigger": "Условие срабатывания", "tools": "Инструменты",
+    "permissions": "Права доступа", "systemPrompt": "Системная роль", "systemPromptPh": "Инструкции для этой роли...",
+    "maxTokens": "Макс. токенов", "runTeam": "Запустить команду", "prompt": "Задача для команды",
+    "results": "Результаты", "monitorTitle": "Монитор оркестровки",
+    "monitorDesc": "События выполнения в реальном времени: старт, ответы агентов, ошибки",
+    "clearMonitor": "Очистить", "noEvents": "Запустите команду — события появятся здесь",
+    "tip": {
+      "orchestration": "10 режимов: sequential, round_robin, parallel, hierarchical, voting, debate, chain_of_thought, smart_router, map_reduce, expert_panel",
+      "conflict": "6 режимов: лидер, голосование, консенсус, слияние, повтор, эскалация"
+    },
+    "perm": {
+      "internet": "Интернет", "camera": "Камера", "microphone": "Микрофон", "screen": "Экран",
+      "files": "Файлы", "tools": "Инструменты", "canDelegate": "Делегирование",
+      "veto": "Вето", "stm": "STM", "ltm": "LTM", "sharedMemory": "Общая память"
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "neuroforge",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "NeuroForge — локальный AI-рантайм с изоляцией, памятью и мульти-агентами",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+  "@tauri-apps/api": "^2.2.0",
+  "@tauri-apps/plugin-dialog": "^2.2.0",
+  "@tauri-apps/plugin-fs": "^2.2.0",
+  "@tauri-apps/plugin-shell": "^2.2.0",
+    "i18next": "^24.2.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "^15.4.1",
+    "zustand": "^5.0.3"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.0.7"
+  }
+}
