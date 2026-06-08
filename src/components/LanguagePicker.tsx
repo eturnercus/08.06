@@ -1,5 +1,11 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store/appStore";
+import "../styles/welcome.css";
+
+const LANGUAGES = [
+  { code: "ru", flag: "🇷🇺", native: "Русский", sub: "Russian" },
+  { code: "en", flag: "🇬🇧", native: "English", sub: "Английский" },
+] as const;
 
 export function LanguagePicker() {
   const { t, i18n } = useTranslation();
@@ -12,44 +18,41 @@ export function LanguagePicker() {
   };
 
   return (
-    <div className="language-screen">
-      <div className="language-card card">
-        <div className="language-logo">NF</div>
-        <h1>{t("language.title")}</h1>
-        <p className="subtitle">{t("language.subtitle")}</p>
-        <div className="language-buttons">
-          <button className="btn-lang" onClick={() => select("ru")}>
-            <span className="flag">🇷🇺</span>
-            {t("language.ru")}
-          </button>
-          <button className="btn-lang" onClick={() => select("en")}>
-            <span className="flag">🇬🇧</span>
-            {t("language.en")}
-          </button>
+    <div className="lang-screen">
+      <div className="lang-bg" />
+      <div className="lang-inner">
+        <div className="lang-logo-block">
+          <div className="lang-logo">NF</div>
+          <h1>{t("app.name")}</h1>
+          <p>{t("app.tagline")}</p>
         </div>
+
+        <div className="lang-card">
+          <h2>{t("language.title")}</h2>
+          <p className="lang-sub">{t("language.subtitle")}</p>
+
+          <div className="lang-list">
+            {LANGUAGES.map((l) => (
+              <button type="button" key={l.code} className="lang-item" onClick={() => select(l.code)}>
+                <span className="lang-item-flag">{l.flag}</span>
+                <div className="lang-item-text">
+                  <div className="lang-item-native">{l.native}</div>
+                  <div className="lang-item-sub">{l.sub}</div>
+                </div>
+                <span className="lang-item-arrow">→</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="lang-feats">
+            <span>{t("language.features.local")}</span>
+            <span>{t("language.features.secure")}</span>
+            <span>{t("language.features.innovative")}</span>
+          </div>
+        </div>
+
+        <p className="lang-ver mono">v1.0.0</p>
       </div>
-      <style>{`
-        .language-screen {
-          display: flex; align-items: center; justify-content: center;
-          height: 100vh; background: radial-gradient(ellipse at 50% 0%, #1e1b4b 0%, var(--bg) 60%);
-        }
-        .language-card { text-align: center; max-width: 420px; width: 90%; padding: 40px 32px; }
-        .language-logo {
-          width: 64px; height: 64px; border-radius: 16px; background: var(--accent);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 24px; font-weight: 800; color: white; margin: 0 auto 20px;
-        }
-        h1 { font-size: 22px; margin-bottom: 8px; }
-        .subtitle { color: var(--text2); margin-bottom: 28px; }
-        .language-buttons { display: flex; flex-direction: column; gap: 12px; }
-        .btn-lang {
-          display: flex; align-items: center; gap: 12px; padding: 14px 20px;
-          background: var(--bg3); border: 1px solid var(--border); border-radius: var(--radius);
-          color: var(--text); font-size: 16px; transition: border-color 0.15s;
-        }
-        .btn-lang:hover { border-color: var(--accent); }
-        .flag { font-size: 24px; }
-      `}</style>
     </div>
   );
 }

@@ -17,9 +17,116 @@ pub struct AppSettings {
     pub ui: UiSettings,
     pub advanced: AdvancedSettings,
     pub global_message_injection: GlobalMessageInjection,
+    #[serde(default)]
+    pub innovation: InnovationSettings,
+    #[serde(default)]
+    pub security: SecuritySettings,
+    #[serde(default)]
+    pub performance: PerformanceSettings,
     pub per_chat_overrides: HashMap<String, ChatOverride>,
     pub agent_groups: Vec<AgentGroupConfig>,
     pub custom_models: Vec<CustomModelEntry>,
+}
+
+/// Передовые инновационные настройки NeuroForge
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InnovationSettings {
+    pub cognitive_load_balancer: bool,
+    pub cognitive_load_threshold: f32,
+    pub neuroplastic_memory: bool,
+    pub neuroplastic_adaptation_rate: f32,
+    pub synaptic_routing: bool,
+    pub synaptic_path_priority: String,
+    pub context_dna: bool,
+    pub context_dna_mutation_rate: f32,
+    pub thought_streaming: bool,
+    pub thought_stream_buffer_ms: u32,
+    pub emotion_mirror: bool,
+    pub emotion_mirror_intensity: f32,
+    pub neural_mesh_sync: bool,
+    pub neural_mesh_peers: Vec<String>,
+    pub quantum_context_layers: u32,
+    pub quantum_entanglement_strength: f32,
+    pub attention_cascade: bool,
+    pub attention_cascade_depth: u32,
+    pub dream_consolidation: bool,
+    pub dream_consolidation_schedule: String,
+    pub persona_fluidity: bool,
+    pub persona_blend_ratio: f32,
+    pub cross_modal_fusion: bool,
+    pub cross_modal_weight_vision: f32,
+    pub cross_modal_weight_audio: f32,
+    pub predictive_prefetch: bool,
+    pub prefetch_horizon_tokens: u32,
+    pub neural_firewall: bool,
+    pub firewall_sensitivity: f32,
+    pub ambient_context_harvest: bool,
+    pub ambient_harvest_interval_sec: u32,
+    pub temporal_anchoring: bool,
+    pub temporal_anchor_window_min: u32,
+    pub holographic_context: bool,
+    pub holographic_projection_dims: u32,
+    pub swarm_intelligence: bool,
+    pub swarm_particle_count: u32,
+    pub meta_cognition_loop: bool,
+    pub meta_cognition_interval: u32,
+    pub resonance_tuning: bool,
+    pub resonance_frequency_hz: f32,
+    pub latent_space_navigation: bool,
+    pub latent_navigation_steps: u32,
+    pub echo_chamber_breaker: bool,
+    pub echo_diversity_boost: f32,
+    pub neural_whisper_mode: bool,
+    pub whisper_token_budget: u32,
+    pub chronosync_memory: bool,
+    pub chronosync_granularity: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SecuritySettings {
+    pub encrypt_settings: bool,
+    pub encrypt_memory_at_rest: bool,
+    pub require_confirmation_internet: bool,
+    pub require_confirmation_device: bool,
+    pub audit_log_enabled: bool,
+    pub audit_log_retention_days: u32,
+    pub sandbox_process_isolation: bool,
+    pub api_key_vault: bool,
+    pub auto_lock_minutes: u32,
+    pub biometric_unlock: bool,
+    pub network_fingerprint_check: bool,
+    pub model_integrity_verify: bool,
+    pub prompt_injection_shield: bool,
+    pub shield_aggressiveness: f32,
+    pub data_exfiltration_guard: bool,
+    pub clipboard_sanitization: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerformanceSettings {
+    pub turbo_mode: bool,
+    pub turbo_ram_boost_percent: u8,
+    pub dynamic_batching: bool,
+    pub dynamic_batch_max: u32,
+    pub pipeline_parallelism: bool,
+    pub pipeline_stages: u32,
+    pub kv_cache_offload: bool,
+    pub kv_offload_device: String,
+    pub continuous_batching: bool,
+    pub prefix_caching: bool,
+    pub prefix_cache_ttl_min: u32,
+    pub tensor_parallel_shards: u32,
+    pub mixed_precision: String,
+    pub compile_graph: bool,
+    pub warmup_tokens: u32,
+    pub idle_power_save: bool,
+    pub idle_power_threshold_min: u32,
+    pub priority_queue_inference: bool,
+    pub max_queue_depth: u32,
+    pub latency_target_ms: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -42,6 +149,18 @@ pub struct SystemSettings {
     pub temp_dir: String,
     pub auto_gc_interval_sec: u32,
     pub oom_policy: String,
+    #[serde(default)]
+    pub vram_reserve_mb: u64,
+    #[serde(default)]
+    pub cpu_boost_cores: Vec<u32>,
+    #[serde(default)]
+    pub thermal_throttle_c: u32,
+    #[serde(default)]
+    pub io_priority: String,
+    #[serde(default)]
+    pub huge_pages: bool,
+    #[serde(default)]
+    pub prefetch_models: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -60,6 +179,16 @@ pub struct NetworkSettings {
     pub tls_verify: bool,
     pub websocket_enabled: bool,
     pub huggingface_mirror: String,
+    #[serde(default)]
+    pub tor_enabled: bool,
+    #[serde(default)]
+    pub egress_filter_mode: String,
+    #[serde(default)]
+    pub rate_limit_rpm: u32,
+    #[serde(default)]
+    pub circuit_breaker_threshold: u32,
+    #[serde(default)]
+    pub offline_fallback: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -82,6 +211,18 @@ pub struct MemorySettings {
     pub recall_top_k: u32,
     pub semantic_search: bool,
     pub decay_rate: f32,
+    #[serde(default)]
+    pub episodic_memory: bool,
+    #[serde(default)]
+    pub procedural_memory: bool,
+    #[serde(default)]
+    pub working_memory_slots: u32,
+    #[serde(default)]
+    pub memory_graph_enabled: bool,
+    #[serde(default)]
+    pub graph_max_edges: u32,
+    #[serde(default)]
+    pub forgetting_curve: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -233,6 +374,112 @@ pub struct CustomModelEntry {
     pub parameters: HashMap<String, serde_json::Value>,
 }
 
+impl Default for InnovationSettings {
+    fn default() -> Self {
+        Self {
+            cognitive_load_balancer: true,
+            cognitive_load_threshold: 0.75,
+            neuroplastic_memory: true,
+            neuroplastic_adaptation_rate: 0.05,
+            synaptic_routing: true,
+            synaptic_path_priority: "adaptive".into(),
+            context_dna: true,
+            context_dna_mutation_rate: 0.02,
+            thought_streaming: true,
+            thought_stream_buffer_ms: 120,
+            emotion_mirror: false,
+            emotion_mirror_intensity: 0.5,
+            neural_mesh_sync: false,
+            neural_mesh_peers: vec![],
+            quantum_context_layers: 4,
+            quantum_entanglement_strength: 0.3,
+            attention_cascade: true,
+            attention_cascade_depth: 6,
+            dream_consolidation: true,
+            dream_consolidation_schedule: "idle".into(),
+            persona_fluidity: false,
+            persona_blend_ratio: 0.3,
+            cross_modal_fusion: true,
+            cross_modal_weight_vision: 0.4,
+            cross_modal_weight_audio: 0.35,
+            predictive_prefetch: true,
+            prefetch_horizon_tokens: 256,
+            neural_firewall: true,
+            firewall_sensitivity: 0.7,
+            ambient_context_harvest: false,
+            ambient_harvest_interval_sec: 300,
+            temporal_anchoring: true,
+            temporal_anchor_window_min: 60,
+            holographic_context: true,
+            holographic_projection_dims: 512,
+            swarm_intelligence: false,
+            swarm_particle_count: 8,
+            meta_cognition_loop: true,
+            meta_cognition_interval: 10,
+            resonance_tuning: false,
+            resonance_frequency_hz: 7.83,
+            latent_space_navigation: true,
+            latent_navigation_steps: 3,
+            echo_chamber_breaker: true,
+            echo_diversity_boost: 0.25,
+            neural_whisper_mode: false,
+            whisper_token_budget: 64,
+            chronosync_memory: true,
+            chronosync_granularity: "message".into(),
+        }
+    }
+}
+
+impl Default for SecuritySettings {
+    fn default() -> Self {
+        Self {
+            encrypt_settings: false,
+            encrypt_memory_at_rest: false,
+            require_confirmation_internet: true,
+            require_confirmation_device: true,
+            audit_log_enabled: true,
+            audit_log_retention_days: 30,
+            sandbox_process_isolation: true,
+            api_key_vault: true,
+            auto_lock_minutes: 0,
+            biometric_unlock: false,
+            network_fingerprint_check: true,
+            model_integrity_verify: true,
+            prompt_injection_shield: true,
+            shield_aggressiveness: 0.6,
+            data_exfiltration_guard: true,
+            clipboard_sanitization: true,
+        }
+    }
+}
+
+impl Default for PerformanceSettings {
+    fn default() -> Self {
+        Self {
+            turbo_mode: false,
+            turbo_ram_boost_percent: 15,
+            dynamic_batching: true,
+            dynamic_batch_max: 32,
+            pipeline_parallelism: true,
+            pipeline_stages: 4,
+            kv_cache_offload: false,
+            kv_offload_device: "cpu".into(),
+            continuous_batching: true,
+            prefix_caching: true,
+            prefix_cache_ttl_min: 60,
+            tensor_parallel_shards: 1,
+            mixed_precision: "bf16".into(),
+            compile_graph: true,
+            warmup_tokens: 128,
+            idle_power_save: true,
+            idle_power_threshold_min: 5,
+            priority_queue_inference: true,
+            max_queue_depth: 16,
+            latency_target_ms: 200,
+        }
+    }
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -257,6 +504,12 @@ impl Default for AppSettings {
                 temp_dir: String::new(),
                 auto_gc_interval_sec: 300,
                 oom_policy: "graceful_degrade".into(),
+                vram_reserve_mb: 512,
+                cpu_boost_cores: vec![],
+                thermal_throttle_c: 85,
+                io_priority: "normal".into(),
+                huge_pages: false,
+                prefetch_models: true,
             },
             network: NetworkSettings {
                 isolation_mode: "api_only".into(),
@@ -275,6 +528,11 @@ impl Default for AppSettings {
                 tls_verify: true,
                 websocket_enabled: false,
                 huggingface_mirror: String::new(),
+                tor_enabled: false,
+                egress_filter_mode: "strict".into(),
+                rate_limit_rpm: 60,
+                circuit_breaker_threshold: 10,
+                offline_fallback: true,
             },
             memory: MemorySettings {
                 stm_enabled: true,
@@ -294,6 +552,12 @@ impl Default for AppSettings {
                 recall_top_k: 8,
                 semantic_search: true,
                 decay_rate: 0.01,
+                episodic_memory: true,
+                procedural_memory: true,
+                working_memory_slots: 7,
+                memory_graph_enabled: true,
+                graph_max_edges: 50000,
+                forgetting_curve: "ebbinghaus".into(),
             },
             inference: InferenceSettings {
                 default_backend: "gguf".into(),
@@ -377,6 +641,9 @@ impl Default for AppSettings {
                 inject_locale: true,
                 per_agent_overrides: HashMap::new(),
             },
+            innovation: InnovationSettings::default(),
+            security: SecuritySettings::default(),
+            performance: PerformanceSettings::default(),
             per_chat_overrides: HashMap::new(),
             agent_groups: vec![],
             custom_models: vec![],

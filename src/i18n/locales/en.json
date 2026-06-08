@@ -1,194 +1,224 @@
 {
-  "app": {
-    "name": "NeuroForge",
-    "tagline": "Next-generation local AI runtime"
-  },
+  "app": { "name": "NeuroForge", "tagline": "Next-generation local AI runtime" },
+  "layout": { "online": "Local" },
   "language": {
-    "title": "Choose language / Выберите язык",
-    "subtitle": "You can change the language in settings",
-    "ru": "Русский",
-    "en": "English",
-    "continue": "Continue"
+    "title": "Choose language",
+    "subtitle": "You can change it anytime in settings",
+    "ru": "Русский", "en": "English", "continue": "Continue",
+    "features": { "local": "100% local", "secure": "Network isolation", "innovative": "150+ settings" }
   },
   "nav": {
-    "chats": "Chats",
-    "agents": "Agents",
-    "models": "Models",
-    "memory": "Memory",
-    "network": "Network",
-    "devices": "Devices",
-    "settings": "Settings",
-    "help": "Help"
+    "chats": "Chats", "agents": "Agents", "models": "Models", "memory": "Memory",
+    "network": "Network", "devices": "Devices", "settings": "Settings", "help": "Help"
   },
   "onboarding": {
-    "welcome": "Welcome to NeuroForge",
-    "step1": "Local neural networks from Hugging Face and your drives",
-    "step2": "Network isolation: full, API-only, or open access",
-    "step3": "Long-term and short-term memory with cross-chat transfer",
-    "step4": "Agent teams with different permissions and roles",
-    "step5": "Global per-message injections — innovative feature",
-    "next": "Next",
-    "skip": "Skip",
-    "finish": "Get started"
-  },
-  "chat": {
-    "newChat": "New chat",
-    "placeholder": "Type a message...",
-    "send": "Send",
-    "attach": "Attach",
-    "attachImage": "Image",
-    "attachAudio": "Audio",
-    "attachVideo": "Video",
-    "stm": "Short-term memory",
-    "ltm": "Long-term memory",
-    "internet": "Internet",
-    "camera": "Camera",
-    "mic": "Microphone",
-    "screen": "Screen",
-    "tokens": "Tokens",
-    "latency": "Latency"
-  },
-  "settings": {
-    "title": "Settings",
-    "save": "Save",
-    "reset": "Reset to defaults",
-    "resetConfirm": "Reset all settings to factory defaults?",
-    "language": "Interface language",
-    "tabs": {
-      "system": "System",
-      "network": "Network",
-      "memory": "Memory",
-      "inference": "Inference",
-      "devices": "Devices",
-      "injection": "Global injections",
-      "agents": "Agent groups",
-      "models": "Models",
-      "ui": "Interface",
-      "advanced": "Advanced"
+    "stepOf": "Step {{current}} of {{total}}",
+    "next": "Next", "back": "Back", "skip": "Skip", "finish": "Get started",
+    "tags": {
+      "welcome": "Start", "local": "Models", "isolation": "Security",
+      "memory": "Memory", "injection": "Innovation", "agents": "Agents",
+      "innovation": "Advanced", "ready": "Ready"
     },
-    "system": {
-      "ramLimit": "RAM limit (MB)",
-      "ramSoft": "Soft RAM limit (%)",
-      "cpuCores": "CPU cores (comma-separated)",
-      "cpuAffinity": "CPU affinity mode",
-      "gpuLayers": "GPU layers",
-      "gpuMemory": "GPU memory (MB)",
-      "threads": "Threads",
-      "batchSize": "Batch size",
-      "mmap": "Memory-mapped files",
-      "mlock": "Lock in RAM (mlock)",
-      "numa": "NUMA node (-1 = auto)",
-      "priority": "Process priority",
-      "swap": "Swap usage",
-      "diskCache": "Disk cache (MB)",
-      "autoGc": "GC interval (sec)",
-      "oomPolicy": "OOM policy"
+    "welcome": {
+      "title": "Welcome to NeuroForge",
+      "desc": "A next-gen platform for running neural networks locally with full control over data, resources, and AI behavior.",
+      "feat1": "Cross-platform: Windows and Linux",
+      "feat2": "150+ performance and security settings",
+      "feat3": "Full localization (RU/EN)"
     },
-    "network": {
-      "isolation": "Isolation mode",
-      "isolationFull": "Full isolation",
-      "isolationApi": "API only (whitelist)",
-      "isolationNone": "No isolation",
-      "allowInternet": "Allow internet globally",
-      "apiEndpoints": "Allowed APIs (one per line)",
-      "proxy": "Proxy URL",
-      "doh": "DNS over HTTPS",
-      "timeout": "Timeout (sec)",
-      "maxRequests": "Max concurrent requests",
-      "logRequests": "Log all requests",
-      "blockPrivate": "Block private IPs",
-      "tls": "TLS verification",
-      "hfMirror": "Hugging Face mirror"
+    "local": {
+      "title": "Local neural networks",
+      "desc": "Run models from Hugging Face or disk. Supports GGUF, ONNX, Safetensors, PT and more.",
+      "feat1": "Hugging Face Hub and local paths",
+      "feat2": "RAM, CPU and GPU management",
+      "feat3": "Flash Attention, KV-cache optimization"
+    },
+    "isolation": {
+      "title": "Isolation and security",
+      "desc": "Three network modes: full isolation, API-only whitelist, or open access. Every request is visible in the monitor.",
+      "feat1": "AI cannot reach the network without permission",
+      "feat2": "Real-time HTTP request monitor",
+      "feat3": "Prompt injection and exfiltration protection"
     },
     "memory": {
-      "stmEnabled": "Short-term memory (STM)",
-      "stmMaxTokens": "STM max tokens",
-      "stmTtl": "STM TTL (min)",
-      "ltmEnabled": "Long-term memory (LTM)",
-      "ltmMaxEntries": "LTM max entries",
-      "ltmPersistence": "LTM persistence",
-      "transferPolicy": "Transfer policy",
-      "crossChat": "Cross-chat transfer",
-      "crossModel": "Cross-model transfer",
-      "autoConsolidate": "Auto consolidate STM→LTM",
-      "encryption": "Memory encryption",
-      "recallTopK": "Recall top-K",
-      "semanticSearch": "Semantic search",
-      "decayRate": "Decay rate"
+      "title": "Dual-layer memory",
+      "desc": "Short-term (STM) and long-term (LTM) memory with semantic search and cross-chat/model transfer.",
+      "feat1": "STM — current dialogue context",
+      "feat2": "LTM — facts transferable between chats",
+      "feat3": "Auto consolidate STM → LTM"
+    },
+    "injection": {
+      "title": "Global injections",
+      "desc": "Unique feature: text automatically added to EVERY message — prefix, suffix, hidden context.",
+      "feat1": "System prefix and user suffix",
+      "feat2": "Memory summary and timestamp injection",
+      "feat3": "Per-agent overrides"
+    },
+    "agents": {
+      "title": "Agent teams",
+      "desc": "Combine neural networks into groups with roles: coordinator, researcher, executor. Each has its own permissions.",
+      "feat1": "Orchestration: round-robin, parallel, supervisor",
+      "feat2": "Different rights: internet, camera, memory",
+      "feat3": "Shared memory within team"
+    },
+    "innovation": {
+      "title": "Innovative technologies",
+      "desc": "NeuroForge includes cutting-edge algorithms: neuroplastic memory, quantum context layers, holographic compression.",
+      "feat1": "Cognitive load balancer",
+      "feat2": "Synaptic request routing",
+      "feat3": "Meta-cognition and dream consolidation",
+      "chips": { "cognitive": "Cognitive AI", "quantum": "Quantum context", "holographic": "Holographic" }
+    },
+    "ready": {
+      "title": "All set!",
+      "desc": "NeuroForge is ready. All parameters can be changed in Settings — 150+ options available.",
+      "feat1": "One-click reset to defaults",
+      "feat2": "Help with description of every feature"
+    }
+  },
+  "chat": {
+    "newChat": "New chat", "placeholder": "Type a message...", "send": "Send",
+    "attach": "Attach", "stm": "STM", "ltm": "LTM", "internet": "Internet",
+    "tokens": "Tokens", "latency": "Latency"
+  },
+  "settings": {
+    "title": "Settings", "save": "Save", "saved": "Saved",
+    "reset": "Reset to defaults", "resetConfirm": "Reset all settings?",
+    "search": "Search settings...", "language": "Interface language",
+    "sections": { "hardware": "Hardware", "optimization": "Optimization" },
+    "tabs": {
+      "innovation": "Innovation", "system": "System", "performance": "Performance",
+      "memory": "Memory", "network": "Network", "security": "Security",
+      "injection": "Global injections", "inference": "Inference", "devices": "Devices",
+      "agents": "Agents", "models": "Models", "ui": "Interface", "advanced": "Advanced"
+    },
+    "system": {
+      "ramLimit": "RAM limit (MB)", "ramLimitDesc": "Maximum RAM for the application",
+      "ramSoft": "Soft limit (%)", "cpuCores": "CPU cores", "cpuCoresDesc": "Comma-separated: 0,1,2,3",
+      "cpuAffinity": "CPU affinity", "gpuLayers": "GPU layers", "gpuMemory": "VRAM (MB)",
+      "threads": "Threads", "batchSize": "Batch", "mmap": "Memory-map", "mlock": "Mlock RAM",
+      "hugePages": "Huge Pages", "prefetchModels": "Prefetch models",
+      "priority": "Priority", "ioPriority": "I/O priority", "swap": "Swap",
+      "diskCache": "Disk cache", "oomPolicy": "OOM policy",
+      "vramReserve": "VRAM reserve (MB)", "vramReserveDesc": "Reserved video memory",
+      "thermal": "Thermal throttle (°C)"
+    },
+    "innovation": {
+      "badge": "NEW", "title": "NeuroForge innovative technologies",
+      "desc": "Cutting-edge algorithms for context, memory, and cognitive load management.",
+      "cognitive": "Cognitive layer", "context": "Context", "streaming": "Streaming", "advanced": "Advanced",
+      "cognitiveLoadBalancer": "Cognitive load balancer",
+      "cognitiveLoadBalancerDesc": "Automatically distributes load across models by query complexity",
+      "cognitiveThreshold": "Load threshold",
+      "neuroplastic": "Neuroplastic memory",
+      "neuroplasticDesc": "Memory adapts to user's communication style",
+      "adaptationRate": "Adaptation rate",
+      "synapticRouting": "Synaptic routing",
+      "synapticRoutingDesc": "Optimal processing path through neural network graph",
+      "synapticPriority": "Path priority",
+      "contextDna": "Context DNA",
+      "contextDnaDesc": "Unique genetic code of each chat's context",
+      "dnaMutation": "DNA mutation rate",
+      "holographic": "Holographic context",
+      "holographicDesc": "Compress context into holographic multi-dimensional representation",
+      "holographicDims": "Projection dims",
+      "quantumLayers": "Quantum context layers",
+      "quantumEntangle": "Quantum entanglement",
+      "thoughtStream": "Thought streaming",
+      "thoughtStreamDesc": "Intermediate model reasoning in real time",
+      "streamBuffer": "Buffer (ms)",
+      "attentionCascade": "Attention cascade",
+      "cascadeDepth": "Cascade depth",
+      "emotionMirror": "Emotion mirror",
+      "emotionIntensity": "Intensity",
+      "neuralMesh": "Neural Mesh Sync",
+      "neuralMeshDesc": "Sync between devices on local network",
+      "dreamConsolidation": "Dream consolidation",
+      "dreamDesc": "Background memory consolidation when idle",
+      "dreamSchedule": "Schedule",
+      "crossModal": "Cross-modal fusion",
+      "visionWeight": "Vision weight", "audioWeight": "Audio weight",
+      "predictivePrefetch": "Predictive prefetch",
+      "neuralFirewall": "Neural firewall",
+      "firewallSens": "Sensitivity",
+      "metaCognition": "Meta-cognition",
+      "metaCognitionDesc": "Model analyzes quality of its own responses",
+      "echoBreaker": "Echo chamber breaker",
+      "echoBreakerDesc": "Prevents repetitive responses",
+      "chronosync": "ChronoSync memory",
+      "swarm": "Swarm intelligence",
+      "latentNav": "Latent space navigation",
+      "whisperMode": "Whisper mode"
+    },
+    "performance": {
+      "turbo": "Turbo mode", "turboDesc": "Maximum performance at RAM cost",
+      "turboBoost": "RAM boost (%)", "dynamicBatch": "Dynamic batching",
+      "pipeline": "Pipeline parallelism", "pipelineStages": "Stages",
+      "continuousBatch": "Continuous batching", "prefixCache": "Prefix cache",
+      "kvOffload": "KV-cache offload", "kvDevice": "Offload device",
+      "mixedPrecision": "Mixed precision", "compileGraph": "Graph compilation",
+      "warmup": "Warmup tokens", "idlePower": "Idle power save",
+      "latencyTarget": "Latency target (ms)", "queueDepth": "Queue depth"
+    },
+    "security": {
+      "encryptSettings": "Encrypt settings", "encryptMemory": "Encrypt memory",
+      "confirmInternet": "Confirm internet", "confirmDevice": "Confirm devices",
+      "auditLog": "Audit log", "sandbox": "Process isolation",
+      "promptShield": "Injection shield", "shieldAggro": "Aggressiveness",
+      "exfilGuard": "Exfiltration guard", "clipboard": "Clipboard sanitization",
+      "modelIntegrity": "Model integrity check", "autoLock": "Auto-lock (min)"
+    },
+    "memory": {
+      "stmSection": "Short-term (STM)", "ltmSection": "Long-term (LTM)", "transferSection": "Transfer",
+      "stmEnabled": "STM enabled", "stmMaxTokens": "Max tokens", "stmTtl": "TTL (min)",
+      "workingSlots": "Working memory slots", "ltmEnabled": "LTM enabled",
+      "ltmMaxEntries": "Max entries", "episodic": "Episodic memory",
+      "procedural": "Procedural memory", "graph": "Memory graph",
+      "forgettingCurve": "Forgetting curve", "transferPolicy": "Transfer policy",
+      "crossChat": "Cross-chat", "crossModel": "Cross-model",
+      "autoConsolidate": "Auto-consolidate", "encryption": "Encryption",
+      "semanticSearch": "Semantic search", "recallTopK": "Top-K"
+    },
+    "network": {
+      "isolation": "Isolation", "isolationFull": "Full", "isolationApi": "API only", "isolationNone": "Open",
+      "allowInternet": "Internet", "offlineFallback": "Offline fallback",
+      "apiEndpoints": "API whitelist", "proxy": "Proxy", "tor": "Tor",
+      "egressFilter": "Egress filter", "rateLimit": "Rate limit (RPM)",
+      "logRequests": "Log requests", "blockPrivate": "Block private IPs",
+      "tls": "TLS", "doh": "DNS over HTTPS"
     },
     "injection": {
       "title": "Global per-message injections",
-      "desc": "Innovative feature: text automatically added to every user message and/or system context.",
-      "enabled": "Enable global injections",
-      "systemPrefix": "System prefix",
-      "userSuffix": "User suffix",
-      "hiddenContext": "Hidden context",
-      "injectMemory": "Inject memory summary",
-      "injectDevice": "Inject device state",
-      "injectTime": "Inject timestamp",
-      "injectLocale": "Inject locale"
+      "desc": "Text automatically added to every message.",
+      "enabled": "Enable", "systemPrefix": "System prefix",
+      "systemPrefixDesc": "Added before every user message",
+      "userSuffix": "Suffix", "hiddenContext": "Hidden context",
+      "hiddenContextDesc": "Invisible to user, visible to model",
+      "injectMemory": "Memory summary", "injectDevice": "Device state",
+      "injectTime": "Timestamp", "injectLocale": "Locale"
     },
+    "inference": { "section": "Inference parameters" },
     "devices": {
-      "camera": "Camera",
-      "microphone": "Microphone",
-      "screen": "Screen capture",
-      "virtualDisplay": "Display extension (virtual display)",
-      "resolution": "Virtual display resolution",
-      "maxAttachment": "Max attachment size (MB)",
-      "ocr": "OCR on images",
-      "transcribe": "Audio transcription",
-      "frameRate": "Frame rate"
+      "section": "Input/output devices",
+      "camera": "Camera", "microphone": "Microphone", "screen": "Screen",
+      "virtualDisplay": "Virtual display", "resolution": "Resolution",
+      "maxAttachment": "Max attachment (MB)", "ocr": "OCR", "transcribe": "Transcription", "frameRate": "FPS"
     },
-    "agents": {
-      "title": "Agent groups",
-      "addGroup": "Add group",
-      "orchestration": "Orchestration mode",
-      "sharedMemory": "Shared memory",
-      "parallel": "Parallel execution",
-      "maxRounds": "Max rounds"
-    },
-    "models": {
-      "title": "Custom models",
-      "add": "Add model",
-      "formats": "Supported formats: GGUF, ONNX, Safetensors, PT, BIN, GGML",
-      "localPath": "Local path",
-      "hfRepo": "Hugging Face repository"
-    }
+    "agents": { "addGroup": "Add group" },
+    "models": { "formats": "GGUF, ONNX, Safetensors, PT, BIN, GGML", "localPath": "Model path", "add": "Load" }
   },
   "memory": {
-    "title": "Memory management",
-    "stm": "Short-term (STM)",
-    "ltm": "Long-term (LTM)",
-    "transfer": "Transfer memory",
-    "fromChat": "From chat",
-    "toChat": "To chat",
-    "consolidate": "Consolidate STM→LTM",
-    "transfers": "Transfer history"
+    "title": "Memory", "stm": "STM", "ltm": "LTM", "transfer": "Transfer",
+    "fromChat": "From chat", "toChat": "To chat", "consolidate": "Consolidate STM→LTM"
   },
-  "network": {
-    "title": "Network monitor",
-    "fetch": "Test request",
-    "blocked": "Blocked",
-    "allowed": "Allowed",
-    "noLogs": "No requests yet"
-  },
+  "network": { "title": "Network monitor", "fetch": "Test", "blocked": "Blocked", "allowed": "Allowed", "noLogs": "No requests" },
   "help": {
-    "title": "Help",
-    "intro": "NeuroForge is a cross-platform app for running neural networks locally.",
+    "title": "Help", "intro": "NeuroForge — local AI runtime with 150+ settings.",
     "sections": {
-      "system": "System: manage RAM, CPU cores, GPU, and process priorities.",
-      "network": "Network: three isolation modes. In API-only mode, the AI can only reach whitelisted endpoints (e.g. Hugging Face). All requests are visible in the network monitor.",
-      "memory": "Memory: STM holds recent chat context. LTM stores long-term facts with semantic search. Memory can be transferred between chats and models.",
-      "injection": "Global injections: unique feature — text added to every message (prefix, suffix, hidden context, memory summary).",
-      "agents": "Agents: combine neural networks into groups with roles (coordinator, researcher, executor). Each agent has its own internet, device, and memory permissions.",
-      "devices": "Devices: camera, microphone, screen capture and extension. Permissions are set globally and per chat.",
-      "reset": "Reset: the 'Reset to defaults' button in settings restores all parameters."
+      "system": "RAM, CPU, GPU, priorities.", "network": "Isolation and request monitor.",
+      "memory": "STM/LTM with transfer.", "injection": "Global injections.",
+      "agents": "Agent teams.", "devices": "Camera, mic, screen.", "reset": "Reset settings."
     }
   },
-  "agents": {
-    "title": "Agent teams",
-    "runTeam": "Run team",
-    "prompt": "Task for the team",
-    "results": "Results"
-  }
+  "agents": { "title": "Agent teams", "runTeam": "Run", "prompt": "Task", "results": "Results" }
 }
