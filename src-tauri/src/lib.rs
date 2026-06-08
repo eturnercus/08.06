@@ -1,5 +1,6 @@
 mod agents;
 mod devices;
+mod gguf_runner;
 mod inference;
 mod memory;
 mod network;
@@ -42,9 +43,18 @@ fn reset_settings_cmd(state: State<'_, AppState>) -> AppSettings {
 }
 
 #[tauri::command]
-fn send_chat(state: State<'_, AppState>, request: ChatRequest) -> inference::ChatResponse {
+async fn send_chat(
+    state: State<'_, AppState>,
+    request: ChatRequest,
+) -> Result<inference::ChatResponse, String> {
     let settings = state.settings.lock().clone();
-    state.inference.chat(&settings, &state.memory, &request)
+    let inference = Arc::clone(&state.inference);
+    let memory = Arc::clone(&state.memory);
+    tauri::async_runtime::spawn_blocking(move || {
+        inference.chat(&settings, &memory, &request)
+    })
+    .await
+    .map_err(|e| format!("inference task: {e}"))
 }
 
 #[tauri::command]

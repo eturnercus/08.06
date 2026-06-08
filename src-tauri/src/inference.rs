@@ -1,10 +1,11 @@
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::gguf_runner::{GgufRuntime, GenerateParams, is_legacy_stub};
 use crate::memory::MemoryStore;
 use crate::settings::AppSettings;
 
@@ -73,6 +74,7 @@ pub struct ChatResponse {
 pub struct InferenceEngine {
     loaded_models: RwLock<HashMap<String, ModelInfo>>,
     client: Client,
+    gguf: Mutex<Option<GgufRuntime>>,
 }
 
 pub fn models_directory() -> PathBuf {
@@ -89,6 +91,7 @@ fn sanitize_repo(repo: &str) -> String {
 
 impl InferenceEngine {
     pub fn new() -> Self {
+        let gguf = GgufRuntime::new().ok();
         let engine = Self {
             loaded_models: RwLock::new(HashMap::new()),
             client: Client::builder()
@@ -96,6 +99,7 @@ impl InferenceEngine {
                 .timeout(std::time::Duration::from_secs(600))
                 .build()
                 .unwrap_or_default(),
+            gguf: Mutex::new(gguf),
         };
         engine.scan_directory();
         engine
@@ -314,6 +318,76 @@ impl InferenceEngine {
         Ok(Self::verify_file(Path::new(&m.path)))
     }
 
+    fn build_system_prompt(
+        settings: &AppSettings,
+        override_cfg: Option<&crate::settings::ChatOverride>,
+        ltm_enabled: bool,
+        memory: &MemoryStore,
+        chat_id: &str,
+        user_message: &str,
+        chat_system: Option<&str>,
+    ) -> (String, bool) {
+        let mut parts = Vec::new();
+        let mut injection_applied = false;
+
+        if let Some(sp) = chat_system {
+            if !sp.is_empty() {
+                parts.push(sp.to_string());
+            }
+        }
+
+        if settings.global_message_injection.enabled {
+            injection_applied = true;
+            let inj = &settings.global_message_injection;
+            if !inj.system_prefix.is_empty() {
+                parts.push(inj.system_prefix.clone());
+            }
+            if let Some(custom) = override_cfg.and_then(|o| o.custom_injection.as_ref()) {
+                parts.push(custom.clone());
+            }
+            if !inj.hidden_context.is_empty() {
+                parts.push(inj.hidden_context.clone());
+            }
+            if inj.inject_memory_summary && ltm_enabled {
+                let recalled = memory.recall_ltm(chat_id, user_message, settings.memory.recall_top_k);
+                if !recalled.is_empty() {
+                    let summary: String = recalled
+                        .iter()
+                        .map(|e| e.content.clone())
+                        .collect::<Vec<_>>()
+                        .join(" | ");
+                    parts.push(format!("Память: {summary}"));
+                }
+            }
+        }
+
+        (parts.join("\n"), injection_applied)
+    }
+
+    fn attachment_note(request: &ChatRequest) -> Option<String> {
+        if request.attachments.is_empty() {
+            return None;
+        }
+        let list: String = request
+            .attachments
+            .iter()
+            .map(|a| {
+                let kind = if a.mime_type.starts_with("audio/") {
+                    "аудио"
+                } else if a.mime_type.starts_with("image/") {
+                    "изображение"
+                } else if a.mime_type.starts_with("video/") {
+                    "видео"
+                } else {
+                    "файл"
+                };
+                format!("{kind}: {}", a.name)
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        Some(format!("Вложения пользователя: {list}"))
+    }
+
     pub fn chat(
         &self,
         settings: &AppSettings,
@@ -330,130 +404,92 @@ impl InferenceEngine {
             .and_then(|o| o.ltm_enabled)
             .unwrap_or(settings.memory.ltm_enabled);
 
-        let model_name = self
-            .loaded_models
-            .read()
-            .get(&request.model_id)
+        let model_info = self.loaded_models.read().get(&request.model_id).cloned();
+        let model_name = model_info
+            .as_ref()
             .map(|m| m.name.clone())
             .unwrap_or_else(|| request.model_id.clone());
+        let model_path = model_info
+            .as_ref()
+            .map(|m| m.path.clone())
+            .unwrap_or_default();
+        let model_format = model_info
+            .as_ref()
+            .map(|m| m.format.clone())
+            .unwrap_or_else(|| "gguf".into());
 
-        let mut injection_applied = false;
-        let mut full_message = request.message.clone();
+        let temp = request.temperature.unwrap_or(settings.inference.temperature);
+        let max_tok = request
+            .max_tokens
+            .unwrap_or(settings.inference.context_length)
+            .min(4096);
 
-        if let Some(sp) = &request.system_prompt {
-            if !sp.is_empty() {
-                full_message = format!("[system] {sp}\n{full_message}");
-            }
+        let (system_prompt, injection_applied) = Self::build_system_prompt(
+            settings,
+            override_cfg,
+            ltm_enabled,
+            memory,
+            &request.chat_id,
+            &request.message,
+            request.system_prompt.as_deref(),
+        );
+
+        let mut user_turn = request.message.clone();
+        if let Some(note) = Self::attachment_note(request) {
+            user_turn = format!("{user_turn}\n[{note}]");
         }
 
-        if settings.global_message_injection.enabled {
-            injection_applied = true;
-            let inj = &settings.global_message_injection;
-            if !inj.system_prefix.is_empty() {
-                full_message = format!("{}\n{}", inj.system_prefix, full_message);
-            }
-            if let Some(custom) = override_cfg.and_then(|o| o.custom_injection.as_ref()) {
-                full_message = format!("{}\n{}", custom, full_message);
-            }
-            if !inj.hidden_context.is_empty() {
-                full_message = format!("[ctx] {}\n{}", inj.hidden_context, full_message);
-            }
-            if inj.inject_memory_summary && ltm_enabled {
-                let recalled = memory.recall_ltm(
-                    &request.chat_id,
-                    &request.message,
-                    settings.memory.recall_top_k,
-                );
-                if !recalled.is_empty() {
-                    let summary: String = recalled
-                        .iter()
-                        .map(|e| e.content.clone())
-                        .collect::<Vec<_>>()
-                        .join(" | ");
-                    full_message = format!("[memory] {}\n{}", summary, full_message);
+        let mut messages: Vec<(String, String)> = Vec::new();
+        if !system_prompt.is_empty() {
+            messages.push(("system".into(), system_prompt));
+        }
+
+        if stm_enabled {
+            for entry in memory.get_stm(&request.chat_id) {
+                if is_legacy_stub(&entry.content) {
+                    continue;
                 }
+                let role = if entry.role == "assistant" {
+                    "assistant"
+                } else {
+                    "user"
+                };
+                messages.push((role.into(), entry.content.clone()));
             }
         }
+
+        messages.push(("user".into(), user_turn.clone()));
+
+        let response_content = if model_path.is_empty() || request.model_id == "default" {
+            "Выберите локальную GGUF-модель в свойствах чата (панель слева) или загрузите её в разделе «Модели».".into()
+        } else if model_format != "gguf" && model_format != "ggml" {
+            format!(
+                "Формат «{model_format}» пока не поддерживается для вывода. Используйте файл .gguf."
+            )
+        } else if let Some(runtime) = self.gguf.lock().as_ref() {
+            match runtime.generate(GenerateParams {
+                model_path: model_path.clone(),
+                messages,
+                temperature: temp,
+                max_tokens: max_tok,
+                n_ctx: settings.inference.context_length.max(2048),
+                threads: settings.system.thread_count.max(1),
+                gpu_layers: settings.system.gpu_layers,
+            }) {
+                Ok(text) => text,
+                Err(err) => format!("Ошибка инференса ({model_name}): {err}"),
+            }
+        } else {
+            "Не удалось инициализировать движок llama.cpp. Пересоберите приложение с поддержкой GGUF.".into()
+        };
 
         if stm_enabled {
             memory.add_stm(
                 &request.chat_id,
                 "user",
-                &full_message,
+                &request.message,
                 settings.memory.stm_max_tokens,
             );
-        }
-
-        let attachment_info: String = request
-            .attachments
-            .iter()
-            .map(|a| {
-                let media = if a.mime_type.starts_with("audio/") {
-                    "🎤 аудио"
-                } else if a.mime_type.starts_with("image/") {
-                    "📷 изображение"
-                } else if a.mime_type.starts_with("video/") {
-                    "🎬 видео"
-                } else {
-                    "📎 файл"
-                };
-                format!("{media}: {} ({}B)", a.name, a.size_bytes)
-            })
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        let stm_context = if stm_enabled {
-            memory
-                .get_stm(&request.chat_id)
-                .iter()
-                .map(|e| format!("[{}] {}", e.role, e.content))
-                .collect::<Vec<_>>()
-                .join("\n")
-        } else {
-            String::new()
-        };
-
-        let temp = request.temperature.unwrap_or(settings.inference.temperature);
-        let max_tok = request.max_tokens.unwrap_or(settings.inference.context_length);
-
-        let model_path = self
-            .loaded_models
-            .read()
-            .get(&request.model_id)
-            .map(|m| m.path.clone())
-            .unwrap_or_default();
-
-        let response_content = format!(
-            "NeuroForge | Модель: {model_name}\n\
-             Путь: {}\n\
-             Backend: {} | temp: {temp:.2} | max_tokens: {max_tok}\n\
-             RAM: {}MB | Потоки: {}\n\
-             Вложения: {}\n\
-             STM: {} | LTM: {}\n\
-             ---\n\
-             Ответ на: \"{}\"\n\
-             Контекст STM ({} сообщ.): {}",
-            if model_path.is_empty() {
-                "встроенная".into()
-            } else {
-                model_path
-            },
-            settings.inference.default_backend,
-            settings.system.ram_limit_mb,
-            settings.system.thread_count,
-            if attachment_info.is_empty() {
-                "нет".into()
-            } else {
-                attachment_info
-            },
-            if stm_enabled { "вкл" } else { "выкл" },
-            if ltm_enabled { "вкл" } else { "выкл" },
-            request.message.chars().take(200).collect::<String>(),
-            memory.get_stm(&request.chat_id).len(),
-            stm_context.chars().take(300).collect::<String>()
-        );
-
-        if stm_enabled {
             memory.add_stm(
                 &request.chat_id,
                 "assistant",
@@ -473,7 +509,16 @@ impl InferenceEngine {
             );
         }
 
-        let tokens_used = (full_message.len() + response_content.len()) as u32 / 4;
+        tracing::info!(
+            model = %model_name,
+            path = %model_path,
+            temp = temp,
+            max_tokens = max_tok,
+            latency_ms = start.elapsed().as_millis(),
+            "chat inference"
+        );
+
+        let tokens_used = (request.message.len() + response_content.len()) as u32 / 4;
         ChatResponse {
             content: response_content,
             tokens_used,

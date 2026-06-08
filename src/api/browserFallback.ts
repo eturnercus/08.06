@@ -47,3 +47,11 @@ export function browserListModels(): ModelInfo[] {
     verified: true,
   }];
 }
+
+export function browserSendChat(message: string): { content: string; tokensUsed: number; latencyMs: number } {
+  return {
+    content: `Превью без Tauri: для реального ответа модели запустите собранное приложение. Вы написали: «${message.slice(0, 200)}»`,
+    tokensUsed: Math.max(1, Math.round(message.length / 4)),
+    latencyMs: 12,
+  };
+}

@@ -103,7 +103,10 @@ export function ChatView() {
         {loading && (
           <div className="bubble-row assistant">
             <div className="bubble-avatar">🤖</div>
-            <div className="bubble typing"><span /><span /><span /></div>
+            <div className="bubble">
+              <div className="bubble-text" style={{ opacity: 0.85 }}>{t("chat.generating")}</div>
+              <div className="typing" style={{ border: "none", padding: "8px 0 0" }}><span /><span /><span /></div>
+            </div>
           </div>
         )}
       </div>
