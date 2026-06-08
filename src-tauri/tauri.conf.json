@@ -40,7 +40,8 @@
     "longDescription": "NeuroForge © 2026 eturnercus. Кроссплатформенный локальный AI-рантайм: Agent Studio (10 стратегий оркестровки, 12 ролей, 14 инструментов), STM/LTM память (CHAT_ONLY/MODEL_SHARED/GLOBAL), 79+ настроек в 9 категориях, изоляция сети, DuckDuckGo, Hugging Face, Material 3 UI, RU/EN. Все права защищены — см. COPYRIGHT.md и LICENSE.",
     "category": "DeveloperTool",
     "resources": {
-      "bin/llama/": "llama/"
+      "bin/llama/": "llama/",
+      "bin/dlls/": "./"
     },
     "linux": {
       "deb": {
