@@ -6,6 +6,8 @@ mod llama_cli;
 mod memory;
 mod network;
 mod settings;
+mod settings_engine;
+mod storage_crypto;
 
 use agents::AgentOrchestrator;
 use inference::{ChatRequest, InferenceEngine};
@@ -32,6 +34,10 @@ fn get_settings(state: State<'_, AppState>) -> AppSettings {
 #[tauri::command]
 fn update_settings(state: State<'_, AppState>, settings: AppSettings) -> Result<(), String> {
     save_settings(&settings)?;
+    state
+        .memory
+        .set_encrypt_at_rest(settings.security.encrypt_memory_at_rest);
+    settings_engine::audit_log(&settings, "settings", "settings updated");
     *state.settings.lock() = settings;
     Ok(())
 }
@@ -82,6 +88,10 @@ async fn agent_fetch(
             allow_internet: allow,
             isolation_mode: settings.network.isolation_mode.clone(),
             api_endpoints: settings.network.api_only_endpoints.clone(),
+            data_exfiltration_guard: settings.security.data_exfiltration_guard,
+            audit_enabled: settings.security.audit_log_enabled,
+            block_private_ips: settings.network.block_private_ips,
+            network_fingerprint_check: settings.security.network_fingerprint_check,
         })
         .await
 }
@@ -149,9 +159,17 @@ async fn run_agent_team(
     prompt: String,
 ) -> Result<agents::AgentTask, String> {
     let settings = state.settings.lock().clone();
+    let inference = Arc::clone(&state.inference);
     state
         .agents
-        .run_team_task(&settings, &group_id, &prompt, &state.memory, &state.network)
+        .run_team_task(
+            &settings,
+            &group_id,
+            &prompt,
+            &state.memory,
+            &state.network,
+            &inference,
+        )
         .await
 }
 
@@ -162,7 +180,10 @@ fn list_agent_tasks(state: State<'_, AppState>) -> Vec<agents::AgentTask> {
 
 #[tauri::command]
 fn load_model(state: State<'_, AppState>, path: String, name: String) -> Result<inference::ModelInfo, String> {
-    state.inference.load_model(&path, &name)
+    let settings = state.settings.lock();
+    state
+        .inference
+        .load_model(&path, &name, settings.security.model_integrity_verify)
 }
 
 #[tauri::command]
@@ -185,7 +206,10 @@ fn scan_local_models(state: State<'_, AppState>) -> Vec<inference::ModelInfo> {
 
 #[tauri::command]
 fn verify_model(state: State<'_, AppState>, model_id: String) -> Result<bool, String> {
-    state.inference.verify_model(&model_id)
+    let settings = state.settings.lock();
+    state
+        .inference
+        .verify_model(&model_id, settings.security.model_integrity_verify)
 }
 
 #[tauri::command]
@@ -235,9 +259,11 @@ fn get_system_info(state: State<'_, AppState>) -> serde_json::Value {
 pub fn run() {
     tracing_subscriber::fmt::init();
     let settings = load_settings();
+    let memory = Arc::new(MemoryStore::new());
+    memory.set_encrypt_at_rest(settings.security.encrypt_memory_at_rest);
     let app_state = AppState {
         settings: Mutex::new(settings),
-        memory: Arc::new(MemoryStore::new()),
+        memory,
         network: Arc::new(NetworkManager::new()),
         inference: Arc::new(InferenceEngine::new()),
         agents: Arc::new(AgentOrchestrator::new()),

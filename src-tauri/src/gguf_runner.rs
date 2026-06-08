@@ -26,6 +26,7 @@ use crate::llama_cli::{
     LlamaCliRunner,
 };
 
+#[cfg(feature = "embedded-llama")]
 const BATCH_SIZE: usize = 512;
 
 pub struct GenerateParams {
@@ -45,6 +46,8 @@ pub struct GenerateParams {
     pub oom_policy: String,
     pub kv_offload: bool,
     pub model_size_bytes: u64,
+    pub prefer_embedded: bool,
+    pub prefer_cli: bool,
 }
 
 #[cfg(feature = "embedded-llama")]
@@ -238,13 +241,43 @@ fn generate_with_best_backend_inner(
         );
     }
 
-    #[cfg(feature = "embedded-llama")]
-    if let Some(rt) = embedded {
-        if let Ok(text) = rt.generate(p.clone_for_embedded()) {
+    let try_embedded_first = p.prefer_embedded && !p.prefer_cli;
+    let try_cli_first = p.prefer_cli && !p.prefer_embedded;
+
+    if try_cli_first {
+        if let Ok(text) = run_cli_backend(&p) {
             return Ok(text);
+        }
+        #[cfg(feature = "embedded-llama")]
+        if let Some(rt) = embedded {
+            if let Ok(text) = rt.generate(p.clone_for_embedded()) {
+                return Ok(text);
+            }
+        }
+    } else {
+        #[cfg(feature = "embedded-llama")]
+        if try_embedded_first {
+            if let Some(rt) = embedded {
+                if let Ok(text) = rt.generate(p.clone_for_embedded()) {
+                    return Ok(text);
+                }
+            }
+        }
+        if let Ok(text) = run_cli_backend(&p) {
+            return Ok(text);
+        }
+        #[cfg(feature = "embedded-llama")]
+        if let Some(rt) = embedded {
+            if let Ok(text) = rt.generate(p.clone_for_embedded()) {
+                return Ok(text);
+            }
         }
     }
 
+    Err("Не удалось выполнить инференс ни через embedded, ни через llama-cli.".into())
+}
+
+fn run_cli_backend(p: &GenerateParams) -> Result<String, String> {
     let gpu_layers =
         resolve_gpu_layers(p.gpu_layers, p.gpu_memory_mb, p.vram_reserve_mb, p.model_size_bytes);
     let mlock = resolve_mlock(p.mlock_enabled, &p.swap_usage, &p.oom_policy);
@@ -260,7 +293,7 @@ fn generate_with_best_backend_inner(
         + "\nassistant:";
 
     LlamaCliRunner::generate(&LlamaCliConfig {
-        model_path: p.model_path,
+        model_path: p.model_path.clone(),
         prompt,
         temperature: p.temperature,
         max_tokens: p.max_tokens,
@@ -292,6 +325,8 @@ impl GenerateParams {
             oom_policy: self.oom_policy.clone(),
             kv_offload: self.kv_offload,
             model_size_bytes: self.model_size_bytes,
+            prefer_embedded: self.prefer_embedded,
+            prefer_cli: self.prefer_cli,
         }
     }
 }
@@ -315,6 +350,8 @@ impl Clone for GenerateParams {
             oom_policy: self.oom_policy.clone(),
             kv_offload: self.kv_offload,
             model_size_bytes: self.model_size_bytes,
+            prefer_embedded: self.prefer_embedded,
+            prefer_cli: self.prefer_cli,
         }
     }
 }
