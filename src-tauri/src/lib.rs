@@ -2,6 +2,7 @@ mod agents;
 mod devices;
 mod gguf_runner;
 mod inference;
+mod llama_cli;
 mod memory;
 mod network;
 mod settings;

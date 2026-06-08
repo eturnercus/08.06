@@ -1,21 +1,32 @@
+#[cfg(feature = "embedded-llama")]
 use llama_cpp_4::context::params::LlamaContextParams;
+#[cfg(feature = "embedded-llama")]
 use llama_cpp_4::llama_backend::LlamaBackend;
+#[cfg(feature = "embedded-llama")]
 use llama_cpp_4::llama_batch::LlamaBatch;
+#[cfg(feature = "embedded-llama")]
 use llama_cpp_4::model::params::LlamaModelParams;
+#[cfg(feature = "embedded-llama")]
 use llama_cpp_4::model::{AddBos, LlamaChatMessage, LlamaModel, Special};
+#[cfg(feature = "embedded-llama")]
 use llama_cpp_4::sampling::LlamaSampler;
+#[cfg(feature = "embedded-llama")]
 use parking_lot::Mutex;
+#[cfg(feature = "embedded-llama")]
 use std::collections::HashMap;
+#[cfg(feature = "embedded-llama")]
 use std::num::NonZeroU32;
+#[cfg(feature = "embedded-llama")]
 use std::path::Path;
+#[cfg(feature = "embedded-llama")]
 use std::sync::Arc;
 
-const BATCH_SIZE: usize = 512;
+use crate::llama_cli::{
+    resolve_context_len, resolve_gpu_layers, resolve_mmap, resolve_mlock, LlamaCliConfig,
+    LlamaCliRunner,
+};
 
-pub struct GgufRuntime {
-    backend: LlamaBackend,
-    models: Mutex<HashMap<String, Arc<LlamaModel>>>,
-}
+const BATCH_SIZE: usize = 512;
 
 pub struct GenerateParams {
     pub model_path: String,
@@ -25,8 +36,24 @@ pub struct GenerateParams {
     pub n_ctx: u32,
     pub threads: u32,
     pub gpu_layers: u32,
+    pub gpu_memory_mb: u64,
+    pub vram_reserve_mb: u64,
+    pub ram_limit_mb: u64,
+    pub mmap_enabled: bool,
+    pub mlock_enabled: bool,
+    pub swap_usage: String,
+    pub oom_policy: String,
+    pub kv_offload: bool,
+    pub model_size_bytes: u64,
 }
 
+#[cfg(feature = "embedded-llama")]
+pub struct GgufRuntime {
+    backend: LlamaBackend,
+    models: Mutex<HashMap<String, Arc<LlamaModel>>>,
+}
+
+#[cfg(feature = "embedded-llama")]
 impl GgufRuntime {
     pub fn new() -> Result<Self, String> {
         let mut backend = LlamaBackend::init().map_err(|e| format!("llama backend: {e}"))?;
@@ -37,12 +64,19 @@ impl GgufRuntime {
         })
     }
 
-    fn load_model(&self, path: &str, gpu_layers: u32) -> Result<Arc<LlamaModel>, String> {
-        let key = path.to_string();
+    fn load_model(
+        &self,
+        path: &str,
+        gpu_layers: u32,
+        mlock: bool,
+    ) -> Result<Arc<LlamaModel>, String> {
+        let key = format!("{path}|{gpu_layers}|{mlock}");
         if let Some(m) = self.models.lock().get(&key) {
             return Ok(Arc::clone(m));
         }
-        let params = LlamaModelParams::default().with_n_gpu_layers(gpu_layers);
+        let params = LlamaModelParams::default()
+            .with_n_gpu_layers(gpu_layers)
+            .with_use_mlock(mlock);
         let model = LlamaModel::load_from_file(&self.backend, Path::new(path), &params)
             .map_err(|e| format!("Не удалось загрузить GGUF: {e}"))?;
         let arc = Arc::new(model);
@@ -51,16 +85,21 @@ impl GgufRuntime {
     }
 
     pub fn generate(&self, p: GenerateParams) -> Result<String, String> {
-        let path_lower = p.model_path.to_lowercase();
-        if path_lower.contains("mmproj") {
+        if p.model_path.to_lowercase().contains("mmproj") {
             return Err(
-                "Файл mmproj — это проектор для изображений, а не языковая модель. \
-                 Выберите основной .gguf файл модели (без mmproj в имени)."
+                "Файл mmproj — проектор для изображений, а не языковая модель. \
+                 Выберите основной .gguf (без mmproj в имени)."
                     .into(),
             );
         }
 
-        let model = self.load_model(&p.model_path, p.gpu_layers)?;
+        let gpu_layers =
+            resolve_gpu_layers(p.gpu_layers, p.gpu_memory_mb, p.vram_reserve_mb, p.model_size_bytes);
+        let mlock = resolve_mlock(p.mlock_enabled, &p.swap_usage, &p.oom_policy);
+        let _mmap = resolve_mmap(p.mmap_enabled, &p.swap_usage);
+        let n_ctx = resolve_context_len(p.n_ctx, p.ram_limit_mb, &p.swap_usage);
+
+        let model = self.load_model(&p.model_path, gpu_layers, mlock)?;
 
         let chat: Vec<LlamaChatMessage> = p
             .messages
@@ -90,12 +129,14 @@ impl GgufRuntime {
                 s
             });
 
-        let n_ctx = NonZeroU32::new(p.n_ctx.max(2048)).unwrap_or(NonZeroU32::new(2048).unwrap());
+        let n_ctx_nz =
+            NonZeroU32::new(n_ctx.max(2048)).unwrap_or(NonZeroU32::new(2048).unwrap());
         let threads = p.threads.max(1) as i32;
         let ctx_params = LlamaContextParams::default()
-            .with_n_ctx(Some(n_ctx))
+            .with_n_ctx(Some(n_ctx_nz))
             .with_n_threads(threads)
-            .with_n_threads_batch(threads);
+            .with_n_threads_batch(threads)
+            .with_offload_kqv(p.kv_offload);
 
         let mut ctx = model
             .new_context(&self.backend, ctx_params)
@@ -108,7 +149,10 @@ impl GgufRuntime {
         let max_tokens = p.max_tokens.clamp(16, 4096) as i32;
         let n_ctx_i = ctx.n_ctx() as i32;
         if tokens.len() as i32 >= n_ctx_i {
-            return Err("Промпт слишком длинный для контекста модели".into());
+            return Err(
+                "Промпт слишком длинный для контекста. Уменьшите историю или max tokens в настройках чата."
+                    .into(),
+            );
         }
 
         let mut batch = LlamaBatch::new(BATCH_SIZE, 1);
@@ -123,7 +167,7 @@ impl GgufRuntime {
             .map_err(|e| format!("decode prompt: {e}"))?;
 
         let temp = p.temperature.clamp(0.0, 2.0);
-        let mut sampler = if temp < 0.05 {
+        let sampler = if temp < 0.05 {
             LlamaSampler::chain_simple([LlamaSampler::greedy()])
         } else {
             LlamaSampler::chain_simple([LlamaSampler::temp(temp), LlamaSampler::dist(0xDEADBEEF)])
@@ -159,11 +203,119 @@ impl GgufRuntime {
         let trimmed = output.trim().to_string();
         if trimmed.is_empty() {
             return Err(
-                "Модель не сгенерировала текст. Проверьте файл модели, RAM и выберите не mmproj."
+                "Модель не сгенерировала текст. Попробуйте Q4-квантизацию, включите подкачку (swap) \
+                 в настройках или уменьшите контекст."
                     .into(),
             );
         }
         Ok(trimmed)
+    }
+}
+
+#[cfg(feature = "embedded-llama")]
+pub fn generate_with_best_backend(
+    embedded: Option<&GgufRuntime>,
+    p: GenerateParams,
+) -> Result<String, String> {
+    generate_with_best_backend_inner(embedded, p)
+}
+
+#[cfg(not(feature = "embedded-llama"))]
+pub fn generate_with_best_backend(p: GenerateParams) -> Result<String, String> {
+    generate_with_best_backend_inner(None, p)
+}
+
+fn generate_with_best_backend_inner(
+    #[cfg(feature = "embedded-llama")] embedded: Option<&GgufRuntime>,
+    #[cfg(not(feature = "embedded-llama"))] _embedded: Option<()>,
+    p: GenerateParams,
+) -> Result<String, String> {
+    if p.model_path.to_lowercase().contains("mmproj") {
+        return Err(
+            "Файл mmproj — проектор для изображений, не языковая модель. \
+             Скачайте основной .gguf без mmproj в имени."
+                .into(),
+        );
+    }
+
+    #[cfg(feature = "embedded-llama")]
+    if let Some(rt) = embedded {
+        if let Ok(text) = rt.generate(p.clone_for_embedded()) {
+            return Ok(text);
+        }
+    }
+
+    let gpu_layers =
+        resolve_gpu_layers(p.gpu_layers, p.gpu_memory_mb, p.vram_reserve_mb, p.model_size_bytes);
+    let mlock = resolve_mlock(p.mlock_enabled, &p.swap_usage, &p.oom_policy);
+    let mmap = resolve_mmap(p.mmap_enabled, &p.swap_usage);
+    let n_ctx = resolve_context_len(p.n_ctx, p.ram_limit_mb, &p.swap_usage);
+
+    let prompt = p
+        .messages
+        .iter()
+        .map(|(role, content)| format!("{role}: {content}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+        + "\nassistant:";
+
+    LlamaCliRunner::generate(&LlamaCliConfig {
+        model_path: p.model_path,
+        prompt,
+        temperature: p.temperature,
+        max_tokens: p.max_tokens,
+        n_ctx,
+        threads: p.threads,
+        gpu_layers,
+        mlock,
+        mmap,
+    })
+}
+
+impl GenerateParams {
+    #[cfg(feature = "embedded-llama")]
+    fn clone_for_embedded(&self) -> GenerateParams {
+        GenerateParams {
+            model_path: self.model_path.clone(),
+            messages: self.messages.clone(),
+            temperature: self.temperature,
+            max_tokens: self.max_tokens,
+            n_ctx: self.n_ctx,
+            threads: self.threads,
+            gpu_layers: self.gpu_layers,
+            gpu_memory_mb: self.gpu_memory_mb,
+            vram_reserve_mb: self.vram_reserve_mb,
+            ram_limit_mb: self.ram_limit_mb,
+            mmap_enabled: self.mmap_enabled,
+            mlock_enabled: self.mlock_enabled,
+            swap_usage: self.swap_usage.clone(),
+            oom_policy: self.oom_policy.clone(),
+            kv_offload: self.kv_offload,
+            model_size_bytes: self.model_size_bytes,
+        }
+    }
+}
+
+impl Clone for GenerateParams {
+    fn clone(&self) -> Self {
+        GenerateParams {
+            model_path: self.model_path.clone(),
+            messages: self.messages.clone(),
+            temperature: self.temperature,
+            max_tokens: self.max_tokens,
+            n_ctx: self.n_ctx,
+            threads: self.threads,
+            gpu_layers: self.gpu_layers,
+            gpu_memory_mb: self.gpu_memory_mb,
+            vram_reserve_mb: self.vram_reserve_mb,
+            ram_limit_mb: self.ram_limit_mb,
+            mmap_enabled: self.mmap_enabled,
+            mlock_enabled: self.mlock_enabled,
+            swap_usage: self.swap_usage.clone(),
+            oom_policy: self.oom_policy.clone(),
+            kv_offload: self.kv_offload,
+            model_size_bytes: self.model_size_bytes,
+        }
     }
 }
 

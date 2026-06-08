@@ -1,11 +1,15 @@
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
+#[cfg(feature = "embedded-llama")]
+use parking_lot::Mutex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::gguf_runner::{GgufRuntime, GenerateParams, is_legacy_stub};
+use crate::gguf_runner::{generate_with_best_backend, GenerateParams, is_legacy_stub};
+#[cfg(feature = "embedded-llama")]
+use crate::gguf_runner::GgufRuntime;
 use crate::memory::MemoryStore;
 use crate::settings::AppSettings;
 
@@ -74,6 +78,7 @@ pub struct ChatResponse {
 pub struct InferenceEngine {
     loaded_models: RwLock<HashMap<String, ModelInfo>>,
     client: Client,
+    #[cfg(feature = "embedded-llama")]
     gguf: Mutex<Option<GgufRuntime>>,
 }
 
@@ -91,7 +96,6 @@ fn sanitize_repo(repo: &str) -> String {
 
 impl InferenceEngine {
     pub fn new() -> Self {
-        let gguf = GgufRuntime::new().ok();
         let engine = Self {
             loaded_models: RwLock::new(HashMap::new()),
             client: Client::builder()
@@ -99,7 +103,8 @@ impl InferenceEngine {
                 .timeout(std::time::Duration::from_secs(600))
                 .build()
                 .unwrap_or_default(),
-            gguf: Mutex::new(gguf),
+            #[cfg(feature = "embedded-llama")]
+            gguf: Mutex::new(GgufRuntime::new().ok()),
         };
         engine.scan_directory();
         engine
@@ -146,6 +151,14 @@ impl InferenceEngine {
                 Self::walk_models(root, &path, out);
             } else if let Some(fmt) = Self::detect_format(path.to_str().unwrap_or("")) {
                 let size = fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+                let stem = path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                if stem.contains("mmproj") {
+                    continue;
+                }
                 let name = path
                     .file_stem()
                     .and_then(|s| s.to_str())
@@ -417,6 +430,7 @@ impl InferenceEngine {
             .as_ref()
             .map(|m| m.format.clone())
             .unwrap_or_else(|| "gguf".into());
+        let model_size_bytes = model_info.as_ref().map(|m| m.size_bytes).unwrap_or(0);
 
         let temp = request.temperature.unwrap_or(settings.inference.temperature);
         let max_tok = request
@@ -466,8 +480,8 @@ impl InferenceEngine {
             format!(
                 "Формат «{model_format}» пока не поддерживается для вывода. Используйте файл .gguf."
             )
-        } else if let Some(runtime) = self.gguf.lock().as_ref() {
-            match runtime.generate(GenerateParams {
+        } else {
+            let gen = GenerateParams {
                 model_path: model_path.clone(),
                 messages,
                 temperature: temp,
@@ -475,12 +489,29 @@ impl InferenceEngine {
                 n_ctx: settings.inference.context_length.max(2048),
                 threads: settings.system.thread_count.max(1),
                 gpu_layers: settings.system.gpu_layers,
-            }) {
+                gpu_memory_mb: settings.system.gpu_memory_mb,
+                vram_reserve_mb: settings.system.vram_reserve_mb,
+                ram_limit_mb: settings.system.ram_limit_mb,
+                mmap_enabled: settings.system.mmap_enabled,
+                mlock_enabled: settings.system.mlock_enabled,
+                swap_usage: settings.system.swap_usage.clone(),
+                oom_policy: settings.system.oom_policy.clone(),
+                kv_offload: settings.performance.kv_cache_offload,
+                model_size_bytes,
+            };
+            #[cfg(feature = "embedded-llama")]
+            {
+                let gguf_guard = self.gguf.lock();
+                match generate_with_best_backend(gguf_guard.as_ref(), gen) {
+                    Ok(text) => text,
+                    Err(err) => format!("Ошибка инференса ({model_name}): {err}"),
+                }
+            }
+            #[cfg(not(feature = "embedded-llama"))]
+            match generate_with_best_backend(gen) {
                 Ok(text) => text,
                 Err(err) => format!("Ошибка инференса ({model_name}): {err}"),
             }
-        } else {
-            "Не удалось инициализировать движок llama.cpp. Пересоберите приложение с поддержкой GGUF.".into()
         };
 
         if stm_enabled {

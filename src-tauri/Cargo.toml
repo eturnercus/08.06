@@ -13,6 +13,10 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
+[features]
+default = ["embedded-llama"]
+embedded-llama = ["dep:llama-cpp-4", "dep:encoding_rs"]
+
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
@@ -32,8 +36,8 @@ tracing-subscriber = "0.3"
 sha2 = "0.10"
 base64 = "0.22"
 urlencoding = "2"
-llama-cpp-4 = { version = "0.3.1", features = ["openmp", "prebuilt"] }
-encoding_rs = "0.8.35"
+llama-cpp-4 = { version = "0.3.1", features = ["openmp", "prebuilt"], optional = true }
+encoding_rs = { version = "0.8.35", optional = true }
 
 [profile.release]
 lto = true
