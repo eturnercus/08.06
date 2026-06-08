@@ -1,4 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
+import {
+  browserGetSettings,
+  browserListModels,
+  browserUpdateSettings,
+  isTauri,
+} from "./browserFallback";
 
 export interface AppSettings {
   language: string;
@@ -64,16 +70,43 @@ export interface AgentMember {
   systemPrompt?: string;
 }
 
+export interface ModelInfo {
+  id: string;
+  name: string;
+  path?: string;
+  format: string;
+  source: string;
+  loaded: boolean;
+  sizeBytes?: number;
+  verified?: boolean;
+  downloadProgress?: number;
+}
+
+export interface DownloadResult {
+  success: boolean;
+  model?: ModelInfo;
+  message: string;
+  bytesDownloaded: number;
+  verified: boolean;
+}
+
 export const api = {
-  getSettings: () => invoke<AppSettings>("get_settings"),
-  updateSettings: (s: AppSettings) => invoke<void>("update_settings", { settings: s }),
+  getSettings: () =>
+    isTauri() ? invoke<AppSettings>("get_settings") : Promise.resolve(browserGetSettings()),
+  updateSettings: (s: AppSettings) =>
+    isTauri()
+      ? invoke<void>("update_settings", { settings: s })
+      : (browserUpdateSettings(s), Promise.resolve()),
   resetSettings: () => invoke<AppSettings>("reset_settings_cmd"),
   sendChat: (request: {
     chatId: string;
     modelId: string;
     message: string;
+    systemPrompt?: string;
+    temperature?: number;
+    maxTokens?: number;
     attachments: { name: string; mimeType: string; sizeBytes: number; dataBase64?: string }[];
-  }) => invoke<{ content: string; tokensUsed: number; latencyMs: number; memoryRecalled: number; injectionApplied: boolean }>("send_chat", { request }),
+  }) => invoke<{ content: string; tokensUsed: number; latencyMs: number; memoryRecalled: number; injectionApplied: boolean; modelId: string }>("send_chat", { request }),
   agentFetch: (url: string, chatId?: string, agentId?: string) =>
     invoke<NetworkLog>("agent_fetch", { url, chatId, agentId }),
   getNetworkLogs: () => invoke<NetworkLog[]>("get_network_logs"),
@@ -93,9 +126,16 @@ export const api = {
   runAgentTeam: (groupId: string, prompt: string) =>
     invoke<AgentTask>("run_agent_team", { groupId, prompt }),
   listAgentTasks: () => invoke<AgentTask[]>("list_agent_tasks"),
-  loadModel: (path: string, name: string) => invoke("load_model", { path, name }),
-  loadHuggingfaceModel: (repo: string) => invoke("load_huggingface_model", { repo }),
-  listModels: () => invoke<ModelInfo[]>("list_models"),
+  loadModel: (path: string, name: string) => invoke<ModelInfo>("load_model", { path, name }),
+  downloadHuggingfaceModel: (repo: string) => invoke<DownloadResult>("download_huggingface_model", { repo }),
+  scanLocalModels: () => invoke<ModelInfo[]>("scan_local_models"),
+  verifyModel: (modelId: string) => invoke<boolean>("verify_model", { modelId }),
+  listModels: () =>
+    isTauri() ? invoke<ModelInfo[]>("list_models") : Promise.resolve(browserListModels()),
+  getModelsDirectory: () =>
+    isTauri()
+      ? invoke<string>("get_models_directory")
+      : Promise.resolve("~/.local/share/neuroforge/models"),
   getDeviceStatus: () => invoke<DeviceStatus>("get_device_status"),
   captureScreen: () => invoke("capture_screen"),
   captureAudio: () => invoke("capture_audio"),
@@ -137,14 +177,6 @@ export interface AgentTask {
   prompt: string;
   orchestrationMode?: string;
   rounds: { roundNumber: number; messages: { agentName: string; role: string; content: string; usedInternet: boolean; toolsUsed?: string[] }[] }[];
-}
-
-export interface ModelInfo {
-  id: string;
-  name: string;
-  format: string;
-  source: string;
-  loaded: boolean;
 }
 
 export interface DeviceStatus {

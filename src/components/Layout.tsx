@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store/appStore";
 import { api } from "../api/tauri";
 import { ChatSidebar } from "./chats/ChatSidebar";
+import i18n from "../i18n";
 
 const NAV: { key: string; icon: string }[] = [
   { key: "chats", icon: "💬" },
@@ -16,9 +17,18 @@ const NAV: { key: string; icon: string }[] = [
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { t } = useTranslation();
-  const { activeView, setActiveView } = useAppStore();
+  const { t, i18n: i18nInst } = useTranslation();
+  const { activeView, setActiveView, settings, setSettings } = useAppStore();
   const [sys, setSys] = useState<Record<string, unknown>>({});
+
+  const switchLang = async (lang: "ru" | "en") => {
+    i18n.changeLanguage(lang);
+    localStorage.setItem("neuroforge-lang", lang);
+    if (!settings) return;
+    const updated = { ...settings, language: lang };
+    await api.updateSettings(updated as never);
+    setSettings(updated);
+  };
 
   useEffect(() => {
     api.getSystemInfo().then(setSys).catch(() => {});
@@ -49,6 +59,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="m3-main">
         <header className="m3-topbar">
           <h1>{t(`nav.${activeView}`)}</h1>
+          <div className="lang-switch">
+            <button type="button" className={i18nInst.language === "ru" ? "active" : ""} onClick={() => switchLang("ru")}>RU</button>
+            <button type="button" className={i18nInst.language === "en" ? "active" : ""} onClick={() => switchLang("en")}>EN</button>
+          </div>
           <span className="m3-chip">RAM {String(sys.ramLimitMb ?? "—")} MB</span>
           <span className="m3-chip">{String(sys.platform ?? "linux")}</span>
         </header>

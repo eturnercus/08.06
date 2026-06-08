@@ -62,12 +62,24 @@ interface AppStore {
   addMessage: (chatId: string, msg: ChatMessage) => void;
   pushMonitorEvent: (e: MonitorEvent) => void;
   clearMonitor: () => void;
+  loadChats: () => void;
+  persistChats: () => void;
 }
 
+const CHATS_KEY = "neuroforge-chats";
+const ACTIVE_KEY = "neuroforge-active-chat";
+
 const defaultPerms = (): ChatPermissions => ({
-  internet: false, stm: true, ltm: true, camera: false,
-  microphone: false, screen: false, files: true, tools: true,
+  internet: false, stm: true, ltm: true, camera: true,
+  microphone: true, screen: false, files: true, tools: true,
 });
+
+const persist = (chats: Chat[], activeChatId: string | null) => {
+  try {
+    localStorage.setItem(CHATS_KEY, JSON.stringify(chats));
+    if (activeChatId) localStorage.setItem(ACTIVE_KEY, activeChatId);
+  } catch { /* quota */ }
+};
 
 export const useAppStore = create<AppStore>((set, get) => ({
   phase: "language",
@@ -83,6 +95,20 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setActiveView: (v) => set({ activeView: v }),
   setOnboardingStep: (n) => set({ onboardingStep: n }),
   setSelectedGroupId: (id) => set({ selectedGroupId: id }),
+  loadChats: () => {
+    try {
+      const raw = localStorage.getItem(CHATS_KEY);
+      const active = localStorage.getItem(ACTIVE_KEY);
+      if (raw) {
+        const chats = JSON.parse(raw) as Chat[];
+        set({ chats, activeChatId: active && chats.some((c) => c.id === active) ? active : chats[0]?.id ?? null });
+      }
+    } catch { /* ignore */ }
+  },
+  persistChats: () => {
+    const { chats, activeChatId } = get();
+    persist(chats, activeChatId);
+  },
   addChat: () => {
     const id = `chat-${Date.now()}`;
     const n = get().chats.length + 1;
@@ -98,20 +124,31 @@ export const useAppStore = create<AppStore>((set, get) => ({
       maxTokens: 4096,
       temperature: 0.7,
     };
-    set((s) => ({ chats: [...s.chats, chat], activeChatId: id }));
+    set((s) => {
+      const chats = [...s.chats, chat];
+      persist(chats, id);
+      return { chats, activeChatId: id };
+    });
     return id;
   },
-  setActiveChat: (id) => set({ activeChatId: id }),
+  setActiveChat: (id) => {
+    set({ activeChatId: id });
+    persist(get().chats, id);
+  },
   updateChat: (id, patch) =>
-    set((s) => ({
-      chats: s.chats.map((c) => (c.id === id ? { ...c, ...patch } : c)),
-    })),
+    set((s) => {
+      const chats = s.chats.map((c) => (c.id === id ? { ...c, ...patch } : c));
+      persist(chats, s.activeChatId);
+      return { chats };
+    }),
   addMessage: (chatId, msg) =>
-    set((s) => ({
-      chats: s.chats.map((c) =>
+    set((s) => {
+      const chats = s.chats.map((c) =>
         c.id === chatId ? { ...c, messages: [...c.messages, msg] } : c
-      ),
-    })),
+      );
+      persist(chats, s.activeChatId);
+      return { chats };
+    }),
   pushMonitorEvent: (e) =>
     set((s) => ({ monitorEvents: [e, ...s.monitorEvents].slice(0, 200) })),
   clearMonitor: () => set({ monitorEvents: [] }),

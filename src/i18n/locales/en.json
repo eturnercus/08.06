@@ -87,7 +87,19 @@
     "newChat": "New chat", "placeholder": "Type a message...", "send": "Send",
     "attach": "Attach", "stm": "STM", "ltm": "LTM", "internet": "Internet",
     "tokens": "Tokens", "latency": "Latency", "offline": "No internet",
-    "camera": "Camera", "mic": "Microphone",
+    "camera": "Camera", "mic": "Microphone", "stopMic": "Stop",
+    "settingsTitle": "Chat properties", "chatTitle": "Title",
+    "temperature": "Temperature", "maxTokens": "Max tokens", "ramLimit": "RAM (MB)",
+    "agentGroup": "Agent team", "noAgentGroup": "No team",
+    "systemPromptPh": "Local instructions for this chat only...",
+    "welcomeHint": "Pick a model in the left panel. Camera and mic buttons are below.",
+    "mediaOnly": "[media attachment]", "enableCamera": "Enable camera in chat permissions",
+    "enableMic": "Enable microphone in chat permissions",
+    "cameraError": "Camera: {{err}}", "micError": "Microphone: {{err}}",
+    "capture": "Capture", "cancel": "Cancel",
+    "live": "Camera + mic", "liveHint": "Live preview — send video frame and voice to chat",
+    "sendLive": "Send to chat", "enableLive": "Enable camera and microphone in chat permissions",
+    "liveError": "Live: {{err}}",
     "permsTitle": "Chat permissions", "systemPrompt": "Chat system instructions",
     "perm": {
       "internet": "Internet", "stm": "STM", "ltm": "LTM", "camera": "Camera",
@@ -247,9 +259,20 @@
     "ddgPlaceholder": "Search query...", "ddgSearch": "Search"
   },
   "models": {
-    "hfTab": "Hugging Face", "loadedTab": "Loaded", "none": "No loaded models",
-    "hfTitle": "Hugging Face browser", "hfDesc": "Search and load models from Hub",
-    "hfSearch": "Search models...", "hfSearchBtn": "Search", "hfSearchTip": "Search Hugging Face Hub (GGUF, Safetensors, etc.)",
+    "localTab": "Local", "hfTab": "Hugging Face", "allTab": "All models",
+    "loadedTab": "Loaded", "none": "No loaded models", "noneLocal": "Put GGUF/ONNX files in the models folder or click Browse",
+    "select": "Neural network for chat", "selectTip": "Choose a loaded local model or built-in default",
+    "builtin": "Built-in", "verified": "Verified",
+    "localTitle": "Local models", "localDesc": "Models folder on disk:",
+    "localHint": "Copy .gguf, .onnx, .safetensors files here or pick a file via Browse.",
+    "browse": "Browse file", "openFolder": "Open folder", "scan": "Scan folder", "verify": "Verify",
+    "copyPath": "Copy path", "pathCopied": "Path copied",
+    "loadedOk": "Model \"{{name}}\" loaded", "scanResult": "Found {{count}} models",
+    "verifyOk": "\"{{name}}\" — file OK", "verifyFail": "\"{{name}}\" — file missing or corrupt",
+    "download": "Download", "downloading": "Downloading...",
+    "hfTitle": "Hugging Face browser", "hfDesc": "Search GGUF models on Hub",
+    "hfDownloadNote": "Real download: file is saved to models folder and verified by size.",
+    "hfSearch": "Search models...", "hfSearchBtn": "Search", "hfSearchTip": "Search for gguf-tagged models",
     "hfLoad": "Load", "load": "Load", "hfPopular": "Popular", "downloads": "downloads"
   },
   "help": {
@@ -262,7 +285,8 @@
       "injection": "System prompt prepended to each message + global injections.",
       "agents": "Agents section: 10 strategies, 12 roles, 14 tools, permissions and resources.",
       "devices": "Camera, microphone, screen, files — multi-mode input.",
-      "reset": "Reset all settings to defaults."
+      "reset": "Reset all settings to defaults.",
+      "models": "Models tab: folder ~/.local/share/neuroforge/models (Linux). Drop .gguf files there or download from Hugging Face. Each chat and agent member has its own model selector."
     },
     "features": {
       "orchestration": "10 orchestration strategies",
@@ -293,7 +317,7 @@
     "membersTitle": "Team agents", "members": "agents", "addMember": "Add agent",
     "role": "Role", "trigger": "Trigger condition", "tools": "Tools",
     "permissions": "Permissions", "systemPrompt": "System role", "systemPromptPh": "Instructions for this role...",
-    "maxTokens": "Max tokens", "runTeam": "Run team", "prompt": "Task for the team",
+    "maxTokens": "Max tokens", "model": "Neural network (model)", "runTeam": "Run team", "prompt": "Task for the team",
     "results": "Results", "monitorTitle": "Orchestration monitor",
     "monitorDesc": "Real-time execution events: start, agent replies, errors",
     "clearMonitor": "Clear", "noEvents": "Run a team task — events will appear here",

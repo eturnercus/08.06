@@ -1,28 +1,48 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store/appStore";
+import { useModels } from "../hooks/useModels";
 import { api } from "../api/tauri";
+import { MediaCapture, MediaAttachment } from "./chat/MediaCapture";
 
 export function ChatView() {
   const { t } = useTranslation();
   const { chats, activeChatId, addChat, addMessage } = useAppStore();
+  const { models } = useModels();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const [attachments, setAttachments] = useState<{ name: string; mimeType: string; sizeBytes: number }[]>([]);
+  const [attachments, setAttachments] = useState<MediaAttachment[]>([]);
 
   const chat = chats.find((c) => c.id === activeChatId);
+  const modelName = models.find((m) => m.id === chat?.modelId)?.name ?? chat?.modelId;
 
   const handleSend = async () => {
-    if (!input.trim() || !chat) return;
+    if ((!input.trim() && attachments.length === 0) || !chat) return;
     setLoading(true);
-    addMessage(chat.id, { role: "user", content: input });
+    const userText = input.trim() || t("chat.mediaOnly");
+    addMessage(chat.id, { role: "user", content: userText });
     try {
       const resp = await api.sendChat({
-        chatId: chat.id, modelId: chat.modelId, message: input,
-        attachments: attachments.map((a) => ({ ...a, mimeType: a.mimeType })),
+        chatId: chat.id,
+        modelId: chat.modelId,
+        message: userText,
+        systemPrompt: chat.systemPrompt || undefined,
+        temperature: chat.temperature,
+        maxTokens: chat.maxTokens,
+        attachments: attachments.map((a) => ({
+          name: a.name,
+          mimeType: a.mimeType,
+          sizeBytes: a.sizeBytes,
+          dataBase64: a.dataBase64,
+        })),
       });
-      addMessage(chat.id, { role: "assistant", content: resp.content, tokens: resp.tokensUsed, latencyMs: resp.latencyMs });
+      addMessage(chat.id, {
+        role: "assistant",
+        content: resp.content,
+        tokens: resp.tokensUsed,
+        latencyMs: resp.latencyMs,
+      });
       setInput("");
       setAttachments([]);
     } catch (e) {
@@ -36,7 +56,7 @@ export function ChatView() {
       <div className="chat-empty">
         <div className="chat-empty-icon">💬</div>
         <h2>{t("chat.newChat")}</h2>
-        <button className="btn btn-primary btn-lg" onClick={() => addChat()}>{t("chat.newChat")}</button>
+        <button type="button" className="m3-filled-btn" onClick={() => addChat()}>{t("chat.newChat")}</button>
       </div>
     );
   }
@@ -47,21 +67,24 @@ export function ChatView() {
         <div className="chat-title-wrap">
           <h2>{chat.title}</h2>
           <div className="chat-badges">
+            <span className="badge badge-purple">🧠 {modelName}</span>
             {chat.permissions.stm && <span className="badge badge-blue">{t("chat.stm")}</span>}
             {chat.permissions.ltm && <span className="badge badge-cyan">{t("chat.ltm")}</span>}
             {chat.permissions.internet
               ? <span className="badge badge-green">{t("chat.internet")}</span>
               : <span className="badge badge-red">{t("chat.offline")}</span>}
+            {chat.permissions.camera && <span className="badge badge-green">📷</span>}
+            {chat.permissions.microphone && <span className="badge badge-green">🎤</span>}
           </div>
         </div>
-        <button className="btn btn-secondary" onClick={() => addChat()}>+ {t("chat.newChat")}</button>
+        <button type="button" className="m3-outlined-btn" onClick={() => addChat()}>+ {t("chat.newChat")}</button>
       </div>
 
       <div className="chat-messages scroll-y">
         {chat.messages.length === 0 && (
           <div className="chat-welcome">
             <span className="chat-welcome-icon">🧠</span>
-            <p>NeuroForge</p>
+            <p>{t("chat.welcomeHint")}</p>
           </div>
         )}
         {chat.messages.map((m, i) => (
@@ -87,71 +110,60 @@ export function ChatView() {
 
       {attachments.length > 0 && (
         <div className="chat-att">
-          {attachments.map((a, i) => <span key={i} className="badge badge-blue">{a.name}</span>)}
+          {attachments.map((a, i) => (
+            <span key={i} className="badge badge-blue">
+              {a.previewUrl ? <img src={a.previewUrl} alt="" className="att-thumb" /> : null}
+              {a.name}
+            </span>
+          ))}
         </div>
       )}
 
       <div className="chat-composer">
-        <input ref={fileRef} type="file" multiple hidden onChange={(e) => {
+        <input ref={fileRef} type="file" multiple hidden onChange={async (e) => {
           const files = e.target.files;
           if (!files) return;
-          setAttachments((prev) => [...prev, ...Array.from(files).map((f) => ({
-            name: f.name, mimeType: f.type || "application/octet-stream", sizeBytes: f.size,
-          }))]);
+          const next: MediaAttachment[] = [];
+          for (const f of Array.from(files)) {
+            const buf = await f.arrayBuffer();
+            const bytes = new Uint8Array(buf);
+            let binary = "";
+            bytes.forEach((b) => { binary += String.fromCharCode(b); });
+            const dataBase64 = btoa(binary);
+            const previewUrl = f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined;
+            next.push({
+              name: f.name,
+              mimeType: f.type || "application/octet-stream",
+              sizeBytes: f.size,
+              dataBase64,
+              previewUrl,
+            });
+          }
+          setAttachments((prev) => [...prev, ...next]);
+          e.target.value = "";
         }} accept="image/*,audio/*,video/*,.pdf" />
-        <button className="composer-btn" onClick={() => fileRef.current?.click()} title={t("chat.attach")}>📎</button>
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={t("chat.placeholder")}
-          rows={1}
-          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-        />
-        <button className="btn btn-primary composer-send" onClick={handleSend} disabled={loading || !input.trim()}>
-          {t("chat.send")}
-        </button>
+        <div className="chat-composer-row">
+          <div className="composer-tools">
+            <button type="button" className="composer-media-btn" onClick={() => fileRef.current?.click()} title={t("chat.attach")}>📎</button>
+            <MediaCapture
+              cameraEnabled={chat.permissions.camera}
+              micEnabled={chat.permissions.microphone}
+              onAttach={(a) => setAttachments((p) => [...p, a])}
+            />
+          </div>
+          <textarea
+            className="m3-input composer-input"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={t("chat.placeholder")}
+            rows={2}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+          />
+          <button type="button" className="m3-filled-btn composer-send" onClick={handleSend} disabled={loading || (!input.trim() && attachments.length === 0)}>
+            {t("chat.send")}
+          </button>
+        </div>
       </div>
-
-      <style>{`
-        .chat { display: flex; flex-direction: column; height: 100%; }
-        .chat-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 16px; }
-        .chat-empty-icon { font-size: 48px; opacity: 0.5; }
-        .chat-toolbar { display: flex; align-items: center; gap: 16px; padding: 12px 24px; border-bottom: 1px solid var(--border); }
-        .chat-title-wrap { flex: 1; }
-        .chat-title-wrap h2 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
-        .chat-badges { display: flex; gap: 6px; flex-wrap: wrap; }
-        .chat-messages { flex: 1; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
-        .chat-welcome { text-align: center; margin: auto; color: var(--text-muted); }
-        .chat-welcome-icon { font-size: 40px; display: block; margin-bottom: 8px; }
-        .bubble-row { display: flex; gap: 10px; max-width: 82%; }
-        .bubble-row.user { align-self: flex-end; flex-direction: row-reverse; }
-        .bubble-avatar { width: 32px; height: 32px; border-radius: 10px; background: var(--bg-surface); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; border: 1px solid var(--border); }
-        .bubble { min-width: 0; }
-        .bubble-text {
-          padding: 12px 16px; border-radius: var(--radius); line-height: 1.55;
-          white-space: pre-wrap; word-break: break-word; font-size: 14px;
-        }
-        .user .bubble-text { background: linear-gradient(135deg, var(--accent), #5b4fd4); color: white; border-bottom-right-radius: 4px; }
-        .assistant .bubble-text { background: var(--bg-surface); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
-        .bubble-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; padding: 0 4px; }
-        .typing { display: flex; gap: 4px; padding: 16px 20px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius); }
-        .typing span { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: bounce 1.2s infinite; }
-        .typing span:nth-child(2) { animation-delay: 0.15s; }
-        .typing span:nth-child(3) { animation-delay: 0.3s; }
-        @keyframes bounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.4; } 40% { transform: translateY(-6px); opacity: 1; } }
-        .chat-att { padding: 6px 24px; display: flex; gap: 6px; flex-wrap: wrap; }
-        .chat-composer {
-          display: flex; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--border);
-          background: var(--bg-elevated); align-items: flex-end;
-        }
-        .composer-btn {
-          width: 40px; height: 40px; border-radius: var(--radius-sm);
-          background: var(--bg-surface); border: 1px solid var(--border);
-          font-size: 18px; display: flex; align-items: center; justify-content: center;
-        }
-        .chat-composer textarea { flex: 1; resize: none; min-height: 40px; max-height: 120px; }
-        .composer-send { height: 40px; }
-      `}</style>
     </div>
   );
 }

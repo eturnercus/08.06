@@ -155,11 +155,26 @@ fn load_model(state: State<'_, AppState>, path: String, name: String) -> Result<
 }
 
 #[tauri::command]
-fn load_huggingface_model(
+async fn download_huggingface_model(
     state: State<'_, AppState>,
     repo: String,
-) -> Result<inference::ModelInfo, String> {
-    state.inference.load_huggingface(&repo)
+) -> Result<inference::DownloadResult, String> {
+    state.inference.download_huggingface(&repo).await
+}
+
+#[tauri::command]
+fn get_models_directory() -> String {
+    inference::models_directory().to_string_lossy().to_string()
+}
+
+#[tauri::command]
+fn scan_local_models(state: State<'_, AppState>) -> Vec<inference::ModelInfo> {
+    state.inference.scan_directory()
+}
+
+#[tauri::command]
+fn verify_model(state: State<'_, AppState>, model_id: String) -> Result<bool, String> {
+    state.inference.verify_model(&model_id)
 }
 
 #[tauri::command]
@@ -237,7 +252,10 @@ pub fn run() {
             run_agent_team,
             list_agent_tasks,
             load_model,
-            load_huggingface_model,
+            download_huggingface_model,
+            get_models_directory,
+            scan_local_models,
+            verify_model,
             list_models,
             get_device_status,
             capture_screen,
