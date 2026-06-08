@@ -3,6 +3,60 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
 
+#[cfg(windows)]
+fn dll_folder_ready(dir: &Path) -> bool {
+    ["llama.dll", "ggml.dll", "ggml-base.dll"]
+        .iter()
+        .any(|name| dir.join(name).is_file())
+}
+
+#[cfg(not(windows))]
+fn dll_folder_ready(_dir: &Path) -> bool {
+    true
+}
+
+/// Ensures Windows can find llama.dll for embedded llama-cpp and llama-cli subprocesses.
+#[cfg(windows)]
+pub fn setup_windows_dll_paths() {
+    let Ok(exe) = std::env::current_exe() else {
+        return;
+    };
+    let Some(exe_dir) = exe.parent() else {
+        return;
+    };
+
+    let mut prefixes: Vec<PathBuf> = Vec::new();
+    for sub in ["", "dlls", "llama", "resources/llama", "resources/dlls"] {
+        let dir = if sub.is_empty() {
+            exe_dir.to_path_buf()
+        } else {
+            exe_dir.join(sub)
+        };
+        if dll_folder_ready(&dir) {
+            prefixes.push(dir);
+        }
+    }
+
+    if prefixes.is_empty() {
+        return;
+    }
+
+    let old_path = std::env::var("PATH").unwrap_or_default();
+    let mut new_path = prefixes
+        .iter()
+        .map(|p| p.display().to_string())
+        .collect::<Vec<_>>()
+        .join(";");
+    if !old_path.is_empty() {
+        new_path.push(';');
+        new_path.push_str(&old_path);
+    }
+    let _ = std::env::set_var("PATH", new_path);
+}
+
+#[cfg(not(windows))]
+pub fn setup_windows_dll_paths() {}
+
 pub struct LlamaCliConfig {
     pub model_path: String,
     pub prompt: String,
@@ -38,7 +92,21 @@ impl LlamaCliRunner {
             candidates.push(cwd.join("src-tauri").join("bin").join("llama").join("llama-cli.exe"));
             candidates.push(cwd.join("bin").join("llama").join("llama-cli.exe"));
         }
-        candidates.into_iter().find(|p| p.is_file())
+        for path in candidates {
+            if !path.is_file() {
+                continue;
+            }
+            let parent = path.parent().unwrap_or(Path::new("."));
+            if !dll_folder_ready(parent) {
+                tracing::warn!(
+                    "llama-cli найден без DLL рядом ({}). Запустите scripts\\download-llama-win.ps1",
+                    parent.display()
+                );
+                continue;
+            }
+            return Some(path);
+        }
+        None
     }
 
     fn build_command(bin: &Path, cfg: &LlamaCliConfig) -> Result<Command, String> {
@@ -87,6 +155,18 @@ impl LlamaCliRunner {
         } else {
             cmd.arg("--no-mmap");
         }
+
+        if let Some(parent) = bin.parent() {
+            cmd.current_dir(parent);
+            #[cfg(windows)]
+            {
+                let path = std::env::var("PATH").unwrap_or_default();
+                cmd.env(
+                    "PATH",
+                    format!("{};{}", parent.display(), path),
+                );
+            }
+        }
         Ok(cmd)
     }
 
@@ -99,7 +179,9 @@ impl LlamaCliRunner {
         mut on_delta: Option<&mut dyn FnMut(&str)>,
     ) -> Result<String, String> {
         let bin = Self::find_binary().ok_or_else(|| {
-            "llama-cli не найден. Запустите scripts\\download-llama-win.ps1 или соберите с LLVM/MSVC."
+            "llama-cli не найден (или рядом нет llama.dll/ggml.dll). \
+             Запустите: powershell -ExecutionPolicy Bypass -File scripts\\download-llama-win.ps1 \
+             Затем пересоберите: build-windows.bat"
                 .to_string()
         })?;
 

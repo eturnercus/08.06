@@ -246,7 +246,14 @@ if not exist "%ROOT%\src-tauri\bin\llama\llama-cli.exe" (
     echo [FAIL] llama-cli.exe not found after download.
     exit /b 1
 )
-echo [ OK ] llama-cli.exe ready
+if not exist "%ROOT%\src-tauri\bin\llama\llama.dll" (
+    if not exist "%ROOT%\src-tauri\bin\llama\ggml.dll" (
+        echo [FAIL] llama.dll / ggml.dll not found next to llama-cli.exe.
+        echo        Re-run download or use CPU build: scripts\download-llama-win.ps1 -Variant cpu
+        exit /b 1
+    )
+)
+echo [ OK ] llama-cli.exe + runtime DLLs ready
 exit /b 0
 
 :show_help

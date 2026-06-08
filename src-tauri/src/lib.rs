@@ -270,6 +270,7 @@ fn get_system_info(state: State<'_, AppState>) -> serde_json::Value {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tracing_subscriber::fmt::init();
+    llama_cli::setup_windows_dll_paths();
     let settings = load_settings();
     let memory = Arc::new(MemoryStore::new());
     memory.set_encrypt_at_rest(settings.security.encrypt_memory_at_rest);
