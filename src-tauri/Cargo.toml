@@ -1,8 +1,9 @@
 [package]
 name = "neuroforge"
 version = "1.0.0"
-description = "NeuroForge — локальный AI-рантайм"
-authors = ["NeuroForge Team"]
+description = "NeuroForge — локальный AI-рантайм (© 2026 eturnercus)"
+authors = ["eturnercus"]
+license-file = "../LICENSE"
 edition = "2021"
 
 [lib]
