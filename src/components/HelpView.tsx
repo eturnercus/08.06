@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 
-const SECTIONS = ["system", "network", "memory", "injection", "agents", "devices", "reset"] as const;
+const SECTIONS = ["system", "network", "memory", "injection", "agents", "devices", "models", "reset"] as const;
 
 const FEATURE_KEYS = [
   "orchestration", "roles", "tools", "permissions", "resources", "groupSettings",

@@ -31,25 +31,25 @@ function MainRouter() {
 }
 
 export default function App() {
-  const { phase, setPhase, setSettings, addChat, settings } = useAppStore();
+  const { phase, setPhase, setSettings, addChat, settings, loadChats } = useAppStore();
 
   useEffect(() => {
     const init = async () => {
       try {
         const s = await api.getSettings();
         setSettings(s);
-        if (s.language) {
-          i18n.changeLanguage(s.language);
-          localStorage.setItem("neuroforge-lang", s.language);
-        }
-        const lang = localStorage.getItem("neuroforge-lang");
-        if (s.firstRunCompleted) {
-          setPhase("app");
-        } else if (lang) {
-          setPhase("onboarding");
-        } else {
+        loadChats();
+
+        if (!s.firstRunCompleted || !s.language) {
           setPhase("language");
+        } else {
+          if (s.language) {
+            i18n.changeLanguage(s.language);
+            localStorage.setItem("neuroforge-lang", s.language);
+          }
+          setPhase("app");
         }
+
         if (useAppStore.getState().chats.length === 0) {
           addChat();
           const groups = s.agentGroups;
@@ -68,7 +68,7 @@ export default function App() {
 
   if (phase === "language") return <LanguagePicker />;
   if (phase === "onboarding") return <Onboarding />;
-  if (!settings) return <div style={{ padding: 40, textAlign: "center" }}>Loading...</div>;
+  if (!settings) return <div className="app-loading">Loading...</div>;
 
   return (
     <Layout>

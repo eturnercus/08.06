@@ -8,6 +8,8 @@ import {
   CONFLICT_MODES, TRIGGER_CONDITIONS,
 } from "../../constants/agents";
 import { OrchestrationMonitor } from "./OrchestrationMonitor";
+import { ModelSelect } from "../models/ModelSelect";
+import { useModels } from "../../hooks/useModels";
 
 function newMember(): AgentMember {
   return {
@@ -35,6 +37,8 @@ export function AgentStudio() {
   const { t, i18n } = useTranslation();
   const lang = i18n.language === "ru" ? "ru" : "en";
   const { settings, setSettings, selectedGroupId, setSelectedGroupId, pushMonitorEvent } = useAppStore();
+  const { models } = useModels();
+  const modelLabel = (id: string) => models.find((m) => m.id === id)?.name ?? id;
   const [tab, setTab] = useState<"groups" | "editor" | "monitor">("groups");
   const [runPrompt, setRunPrompt] = useState("");
   const [running, setRunning] = useState(false);
@@ -149,7 +153,9 @@ export function AgentStudio() {
                   </p>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {g.members.slice(0, 4).map((m) => (
-                      <span key={m.id} className="m3-chip">{AGENT_ROLES.find((r) => r.id === m.role)?.[lang] || m.role}</span>
+                      <span key={m.id} className="m3-chip" title={modelLabel(m.modelId)}>
+                        {AGENT_ROLES.find((r) => r.id === m.role)?.[lang] || m.role} · {modelLabel(m.modelId).slice(0, 14)}
+                      </span>
                     ))}
                   </div>
                 </div>
@@ -258,6 +264,12 @@ function MemberEditor({
       </div>
       {open && (
         <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+          <ModelSelect
+            label={t("agents.model")}
+            value={member.modelId}
+            onChange={(modelId) => onChange({ modelId })}
+          />
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
               <label className="form-label">{t("agents.role")}</label>

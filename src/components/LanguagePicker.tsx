@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store/appStore";
+import { api } from "../api/tauri";
 import "../styles/welcome.css";
 
 const LANGUAGES = [
@@ -9,11 +10,15 @@ const LANGUAGES = [
 
 export function LanguagePicker() {
   const { t, i18n } = useTranslation();
-  const setPhase = useAppStore((s) => s.setPhase);
+  const { setPhase, settings, setSettings } = useAppStore();
 
-  const select = (lang: string) => {
+  const select = async (lang: string) => {
     i18n.changeLanguage(lang);
     localStorage.setItem("neuroforge-lang", lang);
+    const base = settings ?? (await api.getSettings());
+    const updated = { ...base, language: lang };
+    await api.updateSettings(updated as never);
+    setSettings(updated);
     setPhase("onboarding");
   };
 
@@ -51,7 +56,7 @@ export function LanguagePicker() {
           </div>
         </div>
 
-        <p className="lang-ver mono">v1.0.0</p>
+        <p className="lang-ver mono">v1.0.0 · eturnercus</p>
       </div>
     </div>
   );
