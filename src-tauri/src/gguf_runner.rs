@@ -25,6 +25,7 @@ use crate::llama_cli::{
     resolve_context_len, resolve_gpu_layers, resolve_mmap, resolve_mlock, LlamaCliConfig,
     LlamaCliRunner,
 };
+use crate::stream_sink::TokenSink;
 
 #[cfg(feature = "embedded-llama")]
 const BATCH_SIZE: usize = 512;
@@ -87,7 +88,11 @@ impl GgufRuntime {
         Ok(arc)
     }
 
-    pub fn generate(&self, p: GenerateParams) -> Result<String, String> {
+    pub fn generate(
+        &self,
+        p: GenerateParams,
+        mut stream: Option<&mut dyn TokenSink>,
+    ) -> Result<String, String> {
         if p.model_path.to_lowercase().contains("mmproj") {
             return Err(
                 "Файл mmproj — проектор для изображений, а не языковая модель. \
@@ -193,6 +198,9 @@ impl GgufRuntime {
             let mut piece = String::with_capacity(32);
             let _ = decoder.decode_to_string(&bytes, &mut piece, false);
             output.push_str(&piece);
+            if let Some(s) = stream.as_mut() {
+                s.push(&piece);
+            }
 
             batch.clear();
             batch
@@ -219,65 +227,107 @@ impl GgufRuntime {
 pub fn generate_with_best_backend(
     embedded: Option<&GgufRuntime>,
     p: GenerateParams,
+    stream: Option<&mut dyn TokenSink>,
 ) -> Result<String, String> {
-    generate_with_best_backend_inner(embedded, p)
+    match stream {
+        Some(sink) => generate_with_best_backend_streaming(embedded, p, sink),
+        None => generate_with_best_backend_blocking(embedded, p),
+    }
 }
 
 #[cfg(not(feature = "embedded-llama"))]
-pub fn generate_with_best_backend(p: GenerateParams) -> Result<String, String> {
-    generate_with_best_backend_inner(None, p)
+pub fn generate_with_best_backend(
+    p: GenerateParams,
+    stream: Option<&mut dyn TokenSink>,
+) -> Result<String, String> {
+    match stream {
+        Some(sink) => generate_with_best_backend_streaming(None, p, sink),
+        None => generate_with_best_backend_blocking(None, p),
+    }
 }
 
-fn generate_with_best_backend_inner(
-    #[cfg(feature = "embedded-llama")] embedded: Option<&GgufRuntime>,
-    #[cfg(not(feature = "embedded-llama"))] _embedded: Option<()>,
-    p: GenerateParams,
-) -> Result<String, String> {
-    if p.model_path.to_lowercase().contains("mmproj") {
+fn mmproj_guard(path: &str) -> Result<(), String> {
+    if path.to_lowercase().contains("mmproj") {
         return Err(
             "Файл mmproj — проектор для изображений, не языковая модель. \
              Скачайте основной .gguf без mmproj в имени."
                 .into(),
         );
     }
+    Ok(())
+}
 
-    let try_embedded_first = p.prefer_embedded && !p.prefer_cli;
+fn generate_with_best_backend_streaming(
+    #[cfg(feature = "embedded-llama")] embedded: Option<&GgufRuntime>,
+    #[cfg(not(feature = "embedded-llama"))] _embedded: Option<()>,
+    p: GenerateParams,
+    sink: &mut dyn TokenSink,
+) -> Result<String, String> {
+    mmproj_guard(&p.model_path)?;
     let try_cli_first = p.prefer_cli && !p.prefer_embedded;
 
     if try_cli_first {
-        if let Ok(text) = run_cli_backend(&p) {
+        if let Ok(text) = run_cli_backend(&p, Some(sink)) {
             return Ok(text);
         }
         #[cfg(feature = "embedded-llama")]
         if let Some(rt) = embedded {
-            if let Ok(text) = rt.generate(p.clone_for_embedded()) {
+            if let Ok(text) = rt.generate(p.clone_for_embedded(), Some(sink)) {
                 return Ok(text);
             }
         }
     } else {
         #[cfg(feature = "embedded-llama")]
-        if try_embedded_first {
-            if let Some(rt) = embedded {
-                if let Ok(text) = rt.generate(p.clone_for_embedded()) {
-                    return Ok(text);
-                }
-            }
-        }
-        if let Ok(text) = run_cli_backend(&p) {
-            return Ok(text);
-        }
-        #[cfg(feature = "embedded-llama")]
         if let Some(rt) = embedded {
-            if let Ok(text) = rt.generate(p.clone_for_embedded()) {
+            if let Ok(text) = rt.generate(p.clone_for_embedded(), Some(sink)) {
                 return Ok(text);
             }
+        }
+        if let Ok(text) = run_cli_backend(&p, Some(sink)) {
+            return Ok(text);
         }
     }
 
     Err("Не удалось выполнить инференс ни через embedded, ни через llama-cli.".into())
 }
 
-fn run_cli_backend(p: &GenerateParams) -> Result<String, String> {
+fn generate_with_best_backend_blocking(
+    #[cfg(feature = "embedded-llama")] embedded: Option<&GgufRuntime>,
+    #[cfg(not(feature = "embedded-llama"))] _embedded: Option<()>,
+    p: GenerateParams,
+) -> Result<String, String> {
+    mmproj_guard(&p.model_path)?;
+    let try_cli_first = p.prefer_cli && !p.prefer_embedded;
+
+    if try_cli_first {
+        if let Ok(text) = run_cli_backend(&p, None) {
+            return Ok(text);
+        }
+        #[cfg(feature = "embedded-llama")]
+        if let Some(rt) = embedded {
+            if let Ok(text) = rt.generate(p.clone_for_embedded(), None) {
+                return Ok(text);
+            }
+        }
+    } else {
+        #[cfg(feature = "embedded-llama")]
+        if let Some(rt) = embedded {
+            if let Ok(text) = rt.generate(p.clone_for_embedded(), None) {
+                return Ok(text);
+            }
+        }
+        if let Ok(text) = run_cli_backend(&p, None) {
+            return Ok(text);
+        }
+    }
+
+    Err("Не удалось выполнить инференс ни через embedded, ни через llama-cli.".into())
+}
+
+fn run_cli_backend(
+    p: &GenerateParams,
+    stream: Option<&mut dyn TokenSink>,
+) -> Result<String, String> {
     let gpu_layers =
         resolve_gpu_layers(p.gpu_layers, p.gpu_memory_mb, p.vram_reserve_mb, p.model_size_bytes);
     let mlock = resolve_mlock(p.mlock_enabled, &p.swap_usage, &p.oom_policy);
@@ -292,7 +342,7 @@ fn run_cli_backend(p: &GenerateParams) -> Result<String, String> {
         .join("\n")
         + "\nassistant:";
 
-    LlamaCliRunner::generate(&LlamaCliConfig {
+    let cfg = LlamaCliConfig {
         model_path: p.model_path.clone(),
         prompt,
         temperature: p.temperature,
@@ -302,7 +352,14 @@ fn run_cli_backend(p: &GenerateParams) -> Result<String, String> {
         gpu_layers,
         mlock,
         mmap,
-    })
+    };
+
+    if let Some(s) = stream {
+        let mut cb = |delta: &str| s.push(delta);
+        LlamaCliRunner::generate_with_callback(&cfg, Some(&mut cb))
+    } else {
+        LlamaCliRunner::generate(&cfg)
+    }
 }
 
 impl GenerateParams {

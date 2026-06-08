@@ -9,6 +9,8 @@ use crate::memory::MemoryStore;
 use crate::network::NetworkManager;
 use crate::settings::{AgentMember, AppSettings};
 use crate::settings_engine::{self, check_user_input, filter_model_output, swarm_agent_count};
+use crate::stream_sink::{AgentStreamSink, stream_buffer_ms};
+use tauri::AppHandle;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -60,6 +62,7 @@ impl AgentOrchestrator {
         memory: &MemoryStore,
         network: &NetworkManager,
         inference: &InferenceEngine,
+        app: AppHandle,
     ) -> Result<AgentTask, String> {
         let prompt = check_user_input(settings, prompt)?;
         settings_engine::audit_log(settings, "agents", &format!("team task group={group_id}"));
@@ -130,6 +133,7 @@ impl AgentOrchestrator {
                     inference,
                     memory,
                     &task_id,
+                    &app,
                 )
                 .await;
 
@@ -250,6 +254,7 @@ async fn execute_member(
     inference: &InferenceEngine,
     memory: &MemoryStore,
     task_id: &str,
+    app: &AppHandle,
 ) -> (String, bool, Vec<String>) {
     let tools_used: Vec<String> = member.tools.clone();
     let mut used_internet = false;
@@ -288,8 +293,33 @@ async fn execute_member(
         full_prompt.push_str(&tool_notes.join("\n"));
     }
 
-    let response = match inference.generate_reply(settings, &model_id, &member.system_prompt, &full_prompt) {
-        Ok(text) => filter_model_output(settings, &text),
+    let stream_on =
+        settings.inference.streaming || settings.innovation.thought_streaming;
+    let mut agent_sink = if stream_on {
+        Some(AgentStreamSink::new(
+            app.clone(),
+            task_id.to_string(),
+            member.id.clone(),
+            member.name.clone(),
+            stream_buffer_ms(settings),
+        ))
+    } else {
+        None
+    };
+
+    let response = match inference.generate_reply(
+        settings,
+        &model_id,
+        &member.system_prompt,
+        &full_prompt,
+        &mut agent_sink,
+    ) {
+        Ok(text) => {
+            if let Some(ref mut s) = agent_sink {
+                s.finish();
+            }
+            filter_model_output(settings, &text)
+        }
         Err(_) => format!(
             "[{} / {}] Режим: {}. Инструменты: {}. (модель {} недоступна — укажите GGUF в настройках агента){}",
             member.name,

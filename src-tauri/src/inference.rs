@@ -17,6 +17,7 @@ use crate::settings_engine::{
     enrich_system_prompt, filter_model_output, filter_stm, maybe_dream_consolidate, recall_ltm,
     synaptic_backend_pref, tune_generate_params,
 };
+use crate::stream_sink::{AgentStreamSink, StreamSink, TokenSink};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -350,6 +351,7 @@ impl InferenceEngine {
         model_id: &str,
         system: &str,
         user_message: &str,
+        agent_stream: &mut Option<AgentStreamSink>,
     ) -> Result<String, String> {
         let model_info = self.loaded_models.read().get(model_id).cloned();
         let model_path = model_info
@@ -387,13 +389,22 @@ impl InferenceEngine {
             prefer_cli: backend.prefer_cli,
         };
         gen = tune_generate_params(settings, gen);
+
         #[cfg(feature = "embedded-llama")]
         {
             let gguf_guard = self.gguf.lock();
-            return generate_with_best_backend(gguf_guard.as_ref(), gen);
+            return match agent_stream.as_mut() {
+                Some(sink) => {
+                    generate_with_best_backend(gguf_guard.as_ref(), gen, Some(sink as &mut dyn TokenSink))
+                }
+                None => generate_with_best_backend(gguf_guard.as_ref(), gen, None),
+            };
         }
         #[cfg(not(feature = "embedded-llama"))]
-        generate_with_best_backend(gen)
+        match agent_stream.as_mut() {
+            Some(sink) => generate_with_best_backend(gen, Some(sink as &mut dyn TokenSink)),
+            None => generate_with_best_backend(gen, None),
+        }
     }
 
     fn build_system_prompt(
@@ -471,6 +482,7 @@ impl InferenceEngine {
         settings: &AppSettings,
         memory: &MemoryStore,
         request: &ChatRequest,
+        stream: &mut Option<StreamSink>,
     ) -> ChatResponse {
         settings_engine::audit_log(
             settings,
@@ -506,6 +518,9 @@ impl InferenceEngine {
         let user_message = match check_user_input(settings, &request.message) {
             Ok(m) => m,
             Err(e) => {
+                if let Some(sink) = stream.as_mut() {
+                    sink.error(e.clone());
+                }
                 return ChatResponse {
                     content: e,
                     tokens_used: 0,
@@ -608,15 +623,23 @@ impl InferenceEngine {
             };
             gen = tune_generate_params(settings, gen);
             #[cfg(feature = "embedded-llama")]
-            {
+            let inference_result = {
                 let gguf_guard = self.gguf.lock();
-                match generate_with_best_backend(gguf_guard.as_ref(), gen) {
-                    Ok(text) => filter_model_output(settings, &text),
-                    Err(err) => format!("Ошибка инференса ({model_name}): {err}"),
+                match stream.as_mut() {
+                    Some(sink) => generate_with_best_backend(
+                        gguf_guard.as_ref(),
+                        gen,
+                        Some(sink as &mut dyn TokenSink),
+                    ),
+                    None => generate_with_best_backend(gguf_guard.as_ref(), gen, None),
                 }
-            }
+            };
             #[cfg(not(feature = "embedded-llama"))]
-            match generate_with_best_backend(gen) {
+            let inference_result = match stream.as_mut() {
+                Some(sink) => generate_with_best_backend(gen, Some(sink as &mut dyn TokenSink)),
+                None => generate_with_best_backend(gen, None),
+            };
+            match inference_result {
                 Ok(text) => filter_model_output(settings, &text),
                 Err(err) => format!("Ошибка инференса ({model_name}): {err}"),
             }
@@ -660,11 +683,15 @@ impl InferenceEngine {
             "chat inference"
         );
 
-        let tokens_used = (request.message.len() + response_content.len()) as u32 / 4;
+        let latency_ms = start.elapsed().as_millis() as u64;
+        let tokens_used = (user_message.len() + response_content.len()) as u32 / 4;
+        if let Some(sink) = stream.as_mut() {
+            sink.finish(tokens_used, latency_ms);
+        }
         ChatResponse {
             content: response_content,
             tokens_used,
-            latency_ms: start.elapsed().as_millis() as u64,
+            latency_ms,
             memory_recalled: if ltm_enabled {
                 recall_ltm(memory, settings, &request.chat_id, &user_message).len() as u32
             } else {

@@ -47,3 +47,4 @@ Built artifacts: `src-tauri/target/release/bundle/`
   - **Hugging Face browser**: nav → **Модели / Models** → Hugging Face tab.
   - **Feature checklist**: nav → **Справка / Help**.
 - For automated UI screenshots, target window name `NeuroForge` (not the small `neuroforge` child window): `WID=$(xdotool search --name NeuroForge | head -1)`.
+- **Token streaming:** enable **Настройки → Вывод → Streaming** or **Инновации → Thought streaming**. Chat emits Tauri event `chat-stream`; agents emit `agent-stream` (live text in **Агенты → Монитор**). Embedded llama streams per decoded token; `llama-cli` streams from process stdout (may batch if the binary buffers).

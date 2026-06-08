@@ -6,6 +6,7 @@ export interface ChatMessage {
   content: string;
   tokens?: number;
   latencyMs?: number;
+  streaming?: boolean;
 }
 
 export interface ChatPermissions {
@@ -38,8 +39,11 @@ export interface MonitorEvent {
   timestamp: string;
   type: string;
   agentName?: string;
+  agentId?: string;
+  taskId?: string;
   message: string;
   status: "ok" | "error" | "running";
+  streaming?: boolean;
 }
 
 interface AppStore {
@@ -60,7 +64,19 @@ interface AppStore {
   setActiveChat: (id: string) => void;
   updateChat: (id: string, patch: Partial<Chat>) => void;
   addMessage: (chatId: string, msg: ChatMessage) => void;
+  appendStreamDelta: (chatId: string, delta: string) => void;
+  finalizeStreamMessage: (
+    chatId: string,
+    patch: { content?: string; tokens?: number; latencyMs?: number; error?: string }
+  ) => void;
   pushMonitorEvent: (e: MonitorEvent) => void;
+  appendAgentStreamDelta: (
+    taskId: string,
+    agentId: string,
+    agentName: string,
+    delta: string
+  ) => void;
+  finalizeAgentStream: (taskId: string, agentId: string) => void;
   clearMonitor: () => void;
   loadChats: () => void;
   persistChats: () => void;
@@ -149,7 +165,83 @@ export const useAppStore = create<AppStore>((set, get) => ({
       persist(chats, s.activeChatId);
       return { chats };
     }),
+  appendStreamDelta: (chatId, delta) =>
+    set((s) => {
+      const chats = s.chats.map((c) => {
+        if (c.id !== chatId) return c;
+        const messages = [...c.messages];
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === "assistant" && messages[i].streaming) {
+            messages[i] = { ...messages[i], content: messages[i].content + delta };
+            break;
+          }
+        }
+        return { ...c, messages };
+      });
+      persist(chats, s.activeChatId);
+      return { chats };
+    }),
+  finalizeStreamMessage: (chatId, patch) =>
+    set((s) => {
+      const chats = s.chats.map((c) => {
+        if (c.id !== chatId) return c;
+        const messages = [...c.messages];
+        for (let i = messages.length - 1; i >= 0; i--) {
+          if (messages[i].role === "assistant" && messages[i].streaming) {
+            messages[i] = {
+              ...messages[i],
+              streaming: false,
+              content: patch.content ?? (patch.error ? patch.error : messages[i].content),
+              tokens: patch.tokens,
+              latencyMs: patch.latencyMs,
+            };
+            break;
+          }
+        }
+        return { ...c, messages };
+      });
+      persist(chats, s.activeChatId);
+      return { chats };
+    }),
   pushMonitorEvent: (e) =>
     set((s) => ({ monitorEvents: [e, ...s.monitorEvents].slice(0, 200) })),
+  appendAgentStreamDelta: (taskId, agentId, agentName, delta) =>
+    set((s) => {
+      const idx = s.monitorEvents.findIndex(
+        (e) => e.taskId === taskId && e.agentId === agentId && e.streaming
+      );
+      if (idx >= 0) {
+        const events = [...s.monitorEvents];
+        events[idx] = {
+          ...events[idx],
+          message: events[idx].message + delta,
+        };
+        return { monitorEvents: events };
+      }
+      return {
+        monitorEvents: [
+          {
+            id: `stream-${taskId}-${agentId}`,
+            timestamp: new Date().toISOString(),
+            type: "agent",
+            agentName,
+            agentId,
+            taskId,
+            message: delta,
+            status: "running" as const,
+            streaming: true,
+          },
+          ...s.monitorEvents,
+        ].slice(0, 200),
+      };
+    }),
+  finalizeAgentStream: (taskId, agentId) =>
+    set((s) => ({
+      monitorEvents: s.monitorEvents.map((e) =>
+        e.taskId === taskId && e.agentId === agentId && e.streaming
+          ? { ...e, streaming: false, status: "ok" as const }
+          : e
+      ),
+    })),
   clearMonitor: () => set({ monitorEvents: [] }),
 }));

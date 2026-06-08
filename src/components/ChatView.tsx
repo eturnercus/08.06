@@ -2,12 +2,15 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store/appStore";
 import { useModels } from "../hooks/useModels";
+import { useChatStream } from "../hooks/useChatStream";
 import { api } from "../api/tauri";
+import { isTauri } from "../api/browserFallback";
 import { MediaCapture, MediaAttachment } from "./chat/MediaCapture";
 
 export function ChatView() {
   const { t } = useTranslation();
-  const { chats, activeChatId, addChat, addMessage } = useAppStore();
+  const { chats, activeChatId, addChat, addMessage, finalizeStreamMessage } = useAppStore();
+  useChatStream();
   const { models } = useModels();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,6 +25,18 @@ export function ChatView() {
     setLoading(true);
     const userText = input.trim() || t("chat.mediaOnly");
     addMessage(chat.id, { role: "user", content: userText });
+    const settings = useAppStore.getState().settings;
+    const streamOn =
+      isTauri() &&
+      Boolean(
+        (settings as { inference?: { streaming?: boolean }; innovation?: { thoughtStreaming?: boolean } } | null)
+          ?.inference?.streaming ||
+          (settings as { innovation?: { thoughtStreaming?: boolean } } | null)?.innovation
+            ?.thoughtStreaming
+      );
+    if (streamOn) {
+      addMessage(chat.id, { role: "assistant", content: "", streaming: true });
+    }
     try {
       const resp = await api.sendChat({
         chatId: chat.id,
@@ -37,16 +52,22 @@ export function ChatView() {
           dataBase64: a.dataBase64,
         })),
       });
-      addMessage(chat.id, {
-        role: "assistant",
-        content: resp.content,
-        tokens: resp.tokensUsed,
-        latencyMs: resp.latencyMs,
-      });
+      if (!streamOn) {
+        addMessage(chat.id, {
+          role: "assistant",
+          content: resp.content,
+          tokens: resp.tokensUsed,
+          latencyMs: resp.latencyMs,
+        });
+      }
       setInput("");
       setAttachments([]);
     } catch (e) {
-      addMessage(chat.id, { role: "assistant", content: `Error: ${e}` });
+      if (streamOn) {
+        finalizeStreamMessage(chat.id, { error: `Error: ${e}` });
+      } else {
+        addMessage(chat.id, { role: "assistant", content: `Error: ${e}` });
+      }
     }
     setLoading(false);
   };
@@ -91,7 +112,10 @@ export function ChatView() {
           <div key={i} className={`bubble-row ${m.role}`}>
             <div className="bubble-avatar">{m.role === "user" ? "👤" : "🤖"}</div>
             <div className="bubble">
-              <div className="bubble-text">{m.content}</div>
+              <div className="bubble-text">
+                {m.content}
+                {m.streaming && <span className="stream-cursor">▍</span>}
+              </div>
               {m.tokens !== undefined && (
                 <div className="bubble-meta mono">
                   {t("chat.tokens")}: {m.tokens} · {t("chat.latency")}: {m.latencyMs}ms
@@ -100,7 +124,7 @@ export function ChatView() {
             </div>
           </div>
         ))}
-        {loading && (
+        {loading && !chat.messages.some((m) => m.streaming) && (
           <div className="bubble-row assistant">
             <div className="bubble-avatar">🤖</div>
             <div className="bubble">

@@ -1,5 +1,7 @@
+use std::io::{BufRead, BufReader, Read};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::thread;
 
 pub struct LlamaCliConfig {
     pub model_path: String,
@@ -39,12 +41,7 @@ impl LlamaCliRunner {
         candidates.into_iter().find(|p| p.is_file())
     }
 
-    pub fn generate(cfg: &LlamaCliConfig) -> Result<String, String> {
-        let bin = Self::find_binary().ok_or_else(|| {
-            "llama-cli не найден. Запустите scripts\\download-llama-win.ps1 или соберите с LLVM/MSVC."
-                .to_string()
-        })?;
-
+    fn build_command(bin: &Path, cfg: &LlamaCliConfig) -> Result<Command, String> {
         if cfg.model_path.to_lowercase().contains("mmproj") {
             return Err(
                 "Файл mmproj — проектор для изображений, не языковая модель. Выберите основной .gguf."
@@ -61,15 +58,24 @@ impl LlamaCliRunner {
             "0".into()
         };
 
-        let mut cmd = Command::new(&bin);
-        cmd.arg("-m").arg(&cfg.model_path)
-            .arg("-p").arg(&cfg.prompt)
-            .arg("-n").arg(cfg.max_tokens.to_string())
-            .arg("-c").arg(cfg.n_ctx.to_string())
-            .arg("-t").arg(cfg.threads.max(1).to_string())
-            .arg("--temp").arg(format!("{:.2}", cfg.temperature.clamp(0.0, 2.0)))
-            .arg("-ngl").arg(ngl)
-            .arg("--no-display-prompt");
+        let mut cmd = Command::new(bin);
+        cmd.arg("-m")
+            .arg(&cfg.model_path)
+            .arg("-p")
+            .arg(&cfg.prompt)
+            .arg("-n")
+            .arg(cfg.max_tokens.to_string())
+            .arg("-c")
+            .arg(cfg.n_ctx.to_string())
+            .arg("-t")
+            .arg(cfg.threads.max(1).to_string())
+            .arg("--temp")
+            .arg(format!("{:.2}", cfg.temperature.clamp(0.0, 2.0)))
+            .arg("-ngl")
+            .arg(ngl)
+            .arg("--no-display-prompt")
+            .arg("--simple-io")
+            .arg("--log-disable");
 
         if cfg.mlock {
             cmd.arg("--mlock");
@@ -81,21 +87,71 @@ impl LlamaCliRunner {
         } else {
             cmd.arg("--no-mmap");
         }
+        Ok(cmd)
+    }
 
-        let output = cmd
-            .output()
+    pub fn generate(cfg: &LlamaCliConfig) -> Result<String, String> {
+        Self::generate_with_callback(cfg, None)
+    }
+
+    pub fn generate_with_callback(
+        cfg: &LlamaCliConfig,
+        mut on_delta: Option<&mut dyn FnMut(&str)>,
+    ) -> Result<String, String> {
+        let bin = Self::find_binary().ok_or_else(|| {
+            "llama-cli не найден. Запустите scripts\\download-llama-win.ps1 или соберите с LLVM/MSVC."
+                .to_string()
+        })?;
+
+        let mut cmd = Self::build_command(&bin, cfg)?;
+        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+
+        let mut child = cmd
+            .spawn()
             .map_err(|e| format!("Не удалось запустить {}: {e}", bin.display()))?;
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = child.stderr.take();
+        if let Some(err_pipe) = stderr {
+            thread::spawn(move || {
+                let mut reader = BufReader::new(err_pipe);
+                let mut line = String::new();
+                while reader.read_line(&mut line).unwrap_or(0) > 0 {
+                    line.clear();
+                }
+            });
+        }
+
+        let mut full = String::new();
+        if let Some(stdout) = child.stdout.take() {
+            let mut reader = BufReader::new(stdout);
+            let mut buf = [0u8; 128];
+            loop {
+                match reader.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        let chunk = String::from_utf8_lossy(&buf[..n]);
+                        if let Some(cb) = on_delta.as_mut() {
+                            cb(&chunk);
+                        }
+                        full.push_str(&chunk);
+                    }
+                    Err(e) => return Err(format!("Ошибка чтения stdout llama-cli: {e}")),
+                }
+            }
+        }
+
+        let status = child
+            .wait()
+            .map_err(|e| format!("Ошибка ожидания llama-cli: {e}"))?;
+
+        if !status.success() {
             return Err(format!(
-                "llama-cli завершился с ошибкой (код {:?}):\n{stderr}\n{stdout}",
-                output.status.code()
+                "llama-cli завершился с ошибкой (код {:?})",
+                status.code()
             ));
         }
 
-        let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+        let text = full.trim().to_string();
         if text.is_empty() {
             return Err(
                 "llama-cli не вернул текст. Увеличьте файл подкачки, уменьшите контекст или выберите Q4-квантизацию."

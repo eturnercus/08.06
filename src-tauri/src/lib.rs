@@ -8,6 +8,7 @@ mod network;
 mod settings;
 mod settings_engine;
 mod storage_crypto;
+mod stream_sink;
 
 use agents::AgentOrchestrator;
 use inference::{ChatRequest, InferenceEngine};
@@ -51,14 +52,23 @@ fn reset_settings_cmd(state: State<'_, AppState>) -> AppSettings {
 
 #[tauri::command]
 async fn send_chat(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     request: ChatRequest,
 ) -> Result<inference::ChatResponse, String> {
     let settings = state.settings.lock().clone();
     let inference = Arc::clone(&state.inference);
     let memory = Arc::clone(&state.memory);
+    let stream_enabled = stream_sink::should_stream_chat(&settings);
+    let buffer_ms = stream_sink::stream_buffer_ms(&settings);
+    let chat_id = request.chat_id.clone();
     tauri::async_runtime::spawn_blocking(move || {
-        inference.chat(&settings, &memory, &request)
+        let mut stream_sink = if stream_enabled {
+            Some(stream_sink::StreamSink::for_chat(app, chat_id, buffer_ms))
+        } else {
+            None
+        };
+        inference.chat(&settings, &memory, &request, &mut stream_sink)
     })
     .await
     .map_err(|e| format!("inference task: {e}"))
@@ -154,6 +164,7 @@ fn consolidate_memory(
 
 #[tauri::command]
 async fn run_agent_team(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     group_id: String,
     prompt: String,
@@ -169,6 +180,7 @@ async fn run_agent_team(
             &state.memory,
             &state.network,
             &inference,
+            app,
         )
         .await
 }
