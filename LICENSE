@@ -1,0 +1,68 @@
+NeuroForge Proprietary Software License
+Copyright (c) 2026 eturnercus. All Rights Reserved.
+
+Creator and rights holder: eturnercus
+Product: NeuroForge (com.neuroforge.desktop)
+
+IMPORTANT — READ CAREFULLY
+
+This license agreement ("Agreement") protects the intellectual property of
+eturnercus in the NeuroForge software, including but not limited to source
+code, object code, user interface, documentation, orchestration algorithms,
+memory subsystem, agent studio, settings architecture, and all features
+described in COPYRIGHT.md.
+
+1. GRANT OF LICENSE
+
+   You may clone this repository and build NeuroForge solely for your own
+   personal, non-commercial use, provided you retain all copyright notices
+   and this license in any copy or derivative work.
+
+2. RESTRICTIONS
+
+   Without prior written permission from eturnercus, you may NOT:
+
+   a) Distribute, publish, sublicense, sell, or rent the Software or
+      any portion thereof, whether in source or binary form;
+
+   b) Use the name "NeuroForge", the "NF" logo, or eturnercus branding
+      for a competing or derivative product;
+
+   c) Remove or alter copyright, attribution, or license notices;
+
+   d) Use the Software or its features (including Agent Studio, STM/LTM
+      memory system, global message injection, network isolation, or any
+      of the 79+ settings categories) in a commercial product or service
+      without a separate commercial license;
+
+   e) Claim authorship or ownership of the Software or its features.
+
+3. OWNERSHIP
+
+   NeuroForge and all associated intellectual property remain the exclusive
+   property of eturnercus. This Agreement does not transfer any ownership
+   rights to you.
+
+4. THIRD-PARTY COMPONENTS
+
+   The Software may include open-source dependencies governed by their own
+   licenses (see package manifests). Those licenses apply only to the
+   respective third-party components, not to the NeuroForge original work.
+
+5. DISCLAIMER
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+   OR IMPLIED. IN NO EVENT SHALL eturnercus BE LIABLE FOR ANY CLAIM,
+   DAMAGES, OR OTHER LIABILITY ARISING FROM USE OF THE SOFTWARE.
+
+6. TERMINATION
+
+   This license terminates automatically if you violate any term. Upon
+   termination, you must cease all use and destroy all copies.
+
+7. GOVERNING LAW
+
+   Disputes shall be resolved according to applicable intellectual
+   property law. Rights holder: eturnercus.
+
+For licensing inquiries: https://github.com/eturnercus/08.06
