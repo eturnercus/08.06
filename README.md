@@ -49,6 +49,10 @@ build-windows.bat
 
 Опции: `--skip-lint`, `--clean`, `--help`
 
+> **Важно для Windows:** файл `src-tauri/icons/icon.ico` должен быть настоящим ICO (не PNG).
+> Скрипт генерирует его автоматически (нужен Python + `pip install pillow`).
+> Вручную: `python scripts/generate-icons.py`
+
 Скрипты автоматически:
 1. Проверяют Node.js 22+, Rust, системные зависимости
 2. Устанавливают npm-пакеты (`npm ci` / `npm install`)

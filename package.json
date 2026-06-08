@@ -13,7 +13,8 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "icons:generate": "python scripts/generate-icons.py"
   },
   "dependencies": {
   "@tauri-apps/api": "^2.2.0",

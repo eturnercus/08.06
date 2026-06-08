@@ -128,6 +128,14 @@ install_linux_deps
 ensure_node
 ensure_rust
 
+info "Проверка icon.ico (для кросс-сборки Windows)..."
+if command -v python3 >/dev/null 2>&1; then
+  if ! python3 -c "import PIL" 2>/dev/null; then
+    python3 -m pip install pillow -q 2>/dev/null || true
+  fi
+  python3 "$ROOT/scripts/generate-icons.py" 2>/dev/null || true
+fi
+
 info "Установка npm-зависимостей..."
 if [[ -f package-lock.json ]]; then
   npm ci
