@@ -60,6 +60,7 @@ pub struct MemoryStore {
     stm: RwLock<HashMap<String, StmBuffer>>,
     transfers: RwLock<Vec<MemoryTransferRequest>>,
     pools: RwLock<HashMap<String, Vec<String>>>,
+    encrypt_at_rest: RwLock<bool>,
 }
 
 impl MemoryStore {
@@ -69,6 +70,7 @@ impl MemoryStore {
             stm: RwLock::new(HashMap::new()),
             transfers: RwLock::new(Vec::new()),
             pools: RwLock::new(HashMap::new()),
+            encrypt_at_rest: RwLock::new(false),
         };
         store.load_from_disk();
         store
@@ -82,10 +84,19 @@ impl MemoryStore {
         path
     }
 
+    pub fn set_encrypt_at_rest(&self, enabled: bool) {
+        *self.encrypt_at_rest.write() = enabled;
+    }
+
     fn load_from_disk(&self) {
         let ltm_path = Self::data_dir().join("ltm.json");
         if ltm_path.exists() {
-            if let Ok(data) = fs::read_to_string(&ltm_path) {
+            if let Ok(raw) = fs::read_to_string(&ltm_path) {
+                let data = if raw.trim_start().starts_with('{') {
+                    raw
+                } else {
+                    crate::storage_crypto::decrypt_at_rest(&raw, true)
+                };
                 if let Ok(entries) = serde_json::from_str::<HashMap<String, MemoryEntry>>(&data) {
                     *self.ltm.write() = entries;
                 }
@@ -95,8 +106,17 @@ impl MemoryStore {
 
     pub fn persist(&self) -> Result<(), String> {
         let ltm_path = Self::data_dir().join("ltm.json");
-        let data = serde_json::to_string_pretty(&*self.ltm.read()).map_err(|e| e.to_string())?;
+        let json = serde_json::to_string_pretty(&*self.ltm.read()).map_err(|e| e.to_string())?;
+        let encrypt = *self.encrypt_at_rest.read();
+        let data = crate::storage_crypto::encrypt_at_rest(&json, encrypt);
         fs::write(ltm_path, data).map_err(|e| e.to_string())
+    }
+
+    pub fn touch_ltm(&self, id: &str) {
+        if let Some(entry) = self.ltm.write().get_mut(id) {
+            entry.last_accessed = Utc::now();
+            entry.access_count = entry.access_count.saturating_add(1);
+        }
     }
 
     pub fn add_stm(&self, chat_id: &str, role: &str, content: &str, max_tokens: u32) {

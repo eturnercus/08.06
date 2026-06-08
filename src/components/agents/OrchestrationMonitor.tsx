@@ -1,7 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../store/appStore";
+import { useAgentStream } from "../../hooks/useAgentStream";
 
 export function OrchestrationMonitor() {
+  useAgentStream();
   const { t } = useTranslation();
   const { monitorEvents, clearMonitor } = useAppStore();
 
@@ -22,7 +24,9 @@ export function OrchestrationMonitor() {
             </div>
             <div style={{ flex: 1 }}>
               {e.agentName && <strong>{e.agentName} · </strong>}
-              <span style={{ color: "var(--m3-on-surface-variant)" }}>[{e.type}]</span> {e.message}
+              <span style={{ color: "var(--m3-on-surface-variant)" }}>[{e.type}]</span>{" "}
+              {e.message}
+              {e.streaming && <span className="stream-cursor">▍</span>}
             </div>
             <span className="m3-chip" style={{ fontSize: 10 }}>{e.status}</span>
           </div>

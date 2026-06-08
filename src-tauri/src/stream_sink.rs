@@ -1,0 +1,207 @@
+use serde::Serialize;
+use std::time::Instant;
+use tauri::{AppHandle, Emitter};
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatStreamPayload {
+    pub chat_id: String,
+    pub delta: String,
+    pub done: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tokens_used: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latency_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentStreamPayload {
+    pub task_id: String,
+    pub agent_id: String,
+    pub agent_name: String,
+    pub delta: String,
+    pub done: bool,
+}
+
+pub trait TokenSink {
+    fn push(&mut self, delta: &str);
+    fn flush(&mut self);
+}
+
+pub struct StreamSink {
+    app: AppHandle,
+    chat_id: String,
+    buffer_ms: u64,
+    pending: String,
+    last_flush: Instant,
+    total_emitted: usize,
+}
+
+impl StreamSink {
+    pub fn for_chat(app: AppHandle, chat_id: String, buffer_ms: u64) -> Self {
+        Self {
+            app,
+            chat_id,
+            buffer_ms,
+            pending: String::new(),
+            last_flush: Instant::now(),
+            total_emitted: 0,
+        }
+    }
+
+    pub fn finish(&mut self, tokens_used: u32, latency_ms: u64) {
+        TokenSink::flush(self);
+        let _ = self.app.emit(
+            "chat-stream",
+            ChatStreamPayload {
+                chat_id: self.chat_id.clone(),
+                delta: String::new(),
+                done: true,
+                tokens_used: Some(tokens_used),
+                latency_ms: Some(latency_ms),
+                error: None,
+            },
+        );
+    }
+
+    pub fn error(&mut self, message: String) {
+        let _ = self.app.emit(
+            "chat-stream",
+            ChatStreamPayload {
+                chat_id: self.chat_id.clone(),
+                delta: String::new(),
+                done: true,
+                tokens_used: None,
+                latency_ms: None,
+                error: Some(message),
+            },
+        );
+    }
+
+    pub fn emitted_chars(&self) -> usize {
+        self.total_emitted
+    }
+}
+
+impl TokenSink for StreamSink {
+    fn push(&mut self, delta: &str) {
+        if delta.is_empty() {
+            return;
+        }
+        self.pending.push_str(delta);
+        let elapsed = self.last_flush.elapsed().as_millis() as u64;
+        if self.buffer_ms == 0 || elapsed >= self.buffer_ms || delta.contains('\n') {
+            TokenSink::flush(self);
+        }
+    }
+
+    fn flush(&mut self) {
+        if self.pending.is_empty() {
+            return;
+        }
+        let delta = std::mem::take(&mut self.pending);
+        self.total_emitted += delta.len();
+        self.last_flush = Instant::now();
+        let _ = self.app.emit(
+            "chat-stream",
+            ChatStreamPayload {
+                chat_id: self.chat_id.clone(),
+                delta,
+                done: false,
+                tokens_used: None,
+                latency_ms: None,
+                error: None,
+            },
+        );
+    }
+}
+
+pub struct AgentStreamSink {
+    app: AppHandle,
+    task_id: String,
+    agent_id: String,
+    agent_name: String,
+    buffer_ms: u64,
+    pending: String,
+    last_flush: Instant,
+}
+
+impl AgentStreamSink {
+    pub fn new(
+        app: AppHandle,
+        task_id: String,
+        agent_id: String,
+        agent_name: String,
+        buffer_ms: u64,
+    ) -> Self {
+        Self {
+            app,
+            task_id,
+            agent_id,
+            agent_name,
+            buffer_ms,
+            pending: String::new(),
+            last_flush: Instant::now(),
+        }
+    }
+
+    pub fn finish(&mut self) {
+        TokenSink::flush(self);
+        let _ = self.app.emit(
+            "agent-stream",
+            AgentStreamPayload {
+                task_id: self.task_id.clone(),
+                agent_id: self.agent_id.clone(),
+                agent_name: self.agent_name.clone(),
+                delta: String::new(),
+                done: true,
+            },
+        );
+    }
+}
+
+impl TokenSink for AgentStreamSink {
+    fn push(&mut self, delta: &str) {
+        if delta.is_empty() {
+            return;
+        }
+        self.pending.push_str(delta);
+        let elapsed = self.last_flush.elapsed().as_millis() as u64;
+        if self.buffer_ms == 0 || elapsed >= self.buffer_ms {
+            TokenSink::flush(self);
+        }
+    }
+
+    fn flush(&mut self) {
+        if self.pending.is_empty() {
+            return;
+        }
+        let delta = std::mem::take(&mut self.pending);
+        self.last_flush = Instant::now();
+        let _ = self.app.emit(
+            "agent-stream",
+            AgentStreamPayload {
+                task_id: self.task_id.clone(),
+                agent_id: self.agent_id.clone(),
+                agent_name: self.agent_name.clone(),
+                delta,
+                done: false,
+            },
+        );
+    }
+}
+
+pub fn should_stream_chat(settings: &crate::settings::AppSettings) -> bool {
+    settings.inference.streaming || settings.innovation.thought_streaming
+}
+
+pub fn stream_buffer_ms(settings: &crate::settings::AppSettings) -> u64 {
+    if settings.innovation.thought_streaming {
+        settings.innovation.thought_stream_buffer_ms.max(0) as u64
+    } else {
+        0
+    }
+}

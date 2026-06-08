@@ -41,9 +41,26 @@ pub struct FetchParams {
     pub allow_internet: bool,
     pub isolation_mode: String,
     pub api_endpoints: Vec<String>,
+    #[serde(default)]
+    pub data_exfiltration_guard: bool,
+    #[serde(default)]
+    pub audit_enabled: bool,
+    #[serde(default)]
+    pub block_private_ips: bool,
+    #[serde(default)]
+    pub network_fingerprint_check: bool,
 }
 
 impl NetworkManager {
+    fn is_private_url(url: &str) -> bool {
+        let lower = url.to_lowercase();
+        lower.contains("://127.")
+            || lower.contains("://10.")
+            || lower.contains("://192.168.")
+            || lower.contains("://localhost")
+            || lower.contains("://[::1]")
+    }
+
     pub fn new() -> Self {
         let client = Client::builder()
             .user_agent("NeuroForge/1.0")
@@ -70,6 +87,9 @@ impl NetworkManager {
     }
 
     fn is_allowed(&self, url: &str, params: &FetchParams) -> Result<(), String> {
+        if params.block_private_ips && Self::is_private_url(url) {
+            return Err("Запрос к приватному IP заблокирован политикой сети".into());
+        }
         if !params.allow_internet {
             return Err("Интернет отключён для этого чата/агента".into());
         }
@@ -111,6 +131,10 @@ impl NetworkManager {
                 "https://api.duckduckgo.com".into(),
                 "https://*.duckduckgo.com".into(),
             ],
+            data_exfiltration_guard: false,
+            audit_enabled: false,
+            block_private_ips: false,
+            network_fingerprint_check: false,
         })
         .await
     }
@@ -156,13 +180,26 @@ impl NetworkManager {
         match result {
             Ok(resp) => {
                 let status = resp.status().as_u16();
-                let preview = resp
+                let mut preview = resp
                     .text()
                     .await
                     .unwrap_or_default()
                     .chars()
                     .take(500)
-                    .collect();
+                    .collect::<String>();
+                if params.data_exfiltration_guard {
+                    for pat in ["api_key", "password", "secret", "Bearer "] {
+                        if preview.to_lowercase().contains(pat) {
+                            preview = preview.replace(pat, "[redacted]");
+                        }
+                    }
+                }
+                if params.audit_enabled {
+                    crate::settings_engine::audit_log_raw(&format!(
+                        "network {} {} -> {}",
+                        params.method, params.url, preview.chars().take(80).collect::<String>()
+                    ));
+                }
                 let log = NetworkRequestLog {
                     id,
                     agent_id: params.agent_id,

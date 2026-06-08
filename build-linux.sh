@@ -115,9 +115,8 @@ ensure_rust() {
     # shellcheck disable=SC1091
     source "$HOME/.cargo/env"
   fi
-  if ! command -v cargo >/dev/null 2>&1; then
-    fail "cargo не найден после установки Rust"
-  fi
+  command -v g++ >/dev/null 2>&1 || fail "g++ не найден (нужен для GGUF/llama.cpp). Установите: sudo apt install g++ libstdc++-14-dev"
+  command -v cargo >/dev/null 2>&1 || fail "cargo не найден после установки Rust"
   local rust_ver
   rust_ver="$(rustc --version | awk '{print $2}')"
   ok "Rust $rust_ver"
@@ -157,6 +156,8 @@ fi
 
 info "Production-сборка Tauri (это может занять несколько минут)..."
 export CI="${CI:-false}"
+export CXX="${CXX:-g++}"
+export CC="${CC:-gcc}"
 npm run tauri build
 
 BUNDLE="$ROOT/src-tauri/target/release/bundle"

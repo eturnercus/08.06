@@ -212,6 +212,8 @@ body {
 .bubble { background: var(--m3-surface-container-high); border-radius: var(--m3-radius-md); padding: 10px 14px; border: 1px solid var(--m3-outline-variant); }
 .bubble-row.user .bubble { background: var(--m3-primary-container); }
 .bubble-text { font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+.stream-cursor { display: inline-block; margin-left: 2px; animation: stream-blink 0.9s step-end infinite; color: var(--m3-primary, #7c4dff); }
+@keyframes stream-blink { 50% { opacity: 0; } }
 .bubble-meta { font-size: 11px; color: var(--m3-outline); margin-top: 6px; }
 .badge { display: inline-flex; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 600; }
 .badge-blue { background: rgba(34,211,238,0.15); color: #22d3ee; }

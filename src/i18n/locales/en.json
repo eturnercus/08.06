@@ -84,7 +84,7 @@
     }
   },
   "chat": {
-    "newChat": "New chat", "placeholder": "Type a message...", "send": "Send",
+    "newChat": "New chat", "placeholder": "Type a message...", "send": "Send", "generating": "Model is generating (first run may take minutes)...",
     "attach": "Attach", "stm": "STM", "ltm": "LTM", "internet": "Internet",
     "tokens": "Tokens", "latency": "Latency", "offline": "No internet",
     "camera": "Camera", "mic": "Microphone", "stopMic": "Stop",
@@ -264,7 +264,7 @@
     "select": "Neural network for chat", "selectTip": "Choose a loaded local model or built-in default",
     "builtin": "Built-in", "verified": "Verified",
     "localTitle": "Local models", "localDesc": "Models folder on disk:",
-    "localHint": "Copy .gguf, .onnx, .safetensors files here or pick a file via Browse.",
+    "localHint": "Copy the main model .gguf here (not mmproj). *mmproj* files are vision projectors only — they cannot chat.",
     "browse": "Browse file", "openFolder": "Open folder", "scan": "Scan folder", "verify": "Verify",
     "copyPath": "Copy path", "pathCopied": "Path copied",
     "loadedOk": "Model \"{{name}}\" loaded", "scanResult": "Found {{count}} models",
@@ -273,7 +273,8 @@
     "hfTitle": "Hugging Face browser", "hfDesc": "Search GGUF models on Hub",
     "hfDownloadNote": "Real download: file is saved to models folder and verified by size.",
     "hfSearch": "Search models...", "hfSearchBtn": "Search", "hfSearchTip": "Search for gguf-tagged models",
-    "hfLoad": "Load", "load": "Load", "hfPopular": "Popular", "downloads": "downloads"
+    "hfLoad": "Load", "load": "Load", "hfPopular": "Popular", "downloads": "downloads",
+    "mmprojWarn": "mmproj — not a text model"
   },
   "help": {
     "title": "Help", "intro": "NeuroForge — local AI runtime: 79+ settings in 9 categories, Agent Studio, AI memory, network isolation.",

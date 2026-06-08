@@ -84,6 +84,21 @@ export function InnovationPanel({ d, u }: { d: Draft; u: Updater }) {
       <SettingToggle badge={badge} title={t("settings.innovation.swarm")} value={(inv.swarmIntelligence as boolean) ?? false} onChange={(v) => u("innovation", "swarmIntelligence", v)} />
       <SettingToggle badge={badge} title={t("settings.innovation.latentNav")} value={(inv.latentSpaceNavigation as boolean) ?? true} onChange={(v) => u("innovation", "latentSpaceNavigation", v)} />
       <SettingToggle badge={badge} title={t("settings.innovation.whisperMode")} value={(inv.neuralWhisperMode as boolean) ?? false} onChange={(v) => u("innovation", "neuralWhisperMode", v)} />
+      <SettingNumber title="Whisper token budget" value={(inv.whisperTokenBudget as number) ?? 64} onChange={(v) => u("innovation", "whisperTokenBudget", v)} />
+      <SettingNumber title="Prefetch horizon (tokens)" value={(inv.prefetchHorizonTokens as number) ?? 256} onChange={(v) => u("innovation", "prefetchHorizonTokens", v)} />
+      <SettingToggle badge={badge} title="Persona fluidity" value={(inv.personaFluidity as boolean) ?? false} onChange={(v) => u("innovation", "personaFluidity", v)} />
+      <SettingSlider title="Persona blend ratio" value={(inv.personaBlendRatio as number) ?? 0.3} onChange={(v) => u("innovation", "personaBlendRatio", v)} min={0} max={1} step={0.05} />
+      <SettingToggle badge={badge} title="Temporal anchoring" value={(inv.temporalAnchoring as boolean) ?? true} onChange={(v) => u("innovation", "temporalAnchoring", v)} />
+      <SettingNumber title="Temporal window (min)" value={(inv.temporalAnchorWindowMin as number) ?? 60} onChange={(v) => u("innovation", "temporalAnchorWindowMin", v)} />
+      <SettingNumber title="Meta-cognition interval" value={(inv.metaCognitionInterval as number) ?? 10} onChange={(v) => u("innovation", "metaCognitionInterval", v)} />
+      <SettingSlider title="Echo diversity boost" value={(inv.echoDiversityBoost as number) ?? 0.25} onChange={(v) => u("innovation", "echoDiversityBoost", v)} min={0} max={1} step={0.05} />
+      <SettingSelect title="Chronosync granularity" value={(inv.chronosyncGranularity as string) ?? "message"} options={["message", "session", "day"]} onChange={(v) => u("innovation", "chronosyncGranularity", v)} />
+      <SettingNumber title="Swarm particles" value={(inv.swarmParticleCount as number) ?? 8} onChange={(v) => u("innovation", "swarmParticleCount", v)} />
+      <SettingNumber title="Latent nav steps" value={(inv.latentNavigationSteps as number) ?? 3} onChange={(v) => u("innovation", "latentNavigationSteps", v)} />
+      <SettingToggle badge={badge} title="Ambient context harvest" value={(inv.ambientContextHarvest as boolean) ?? false} onChange={(v) => u("innovation", "ambientContextHarvest", v)} />
+      <SettingNumber title="Ambient harvest interval (sec)" value={(inv.ambientHarvestIntervalSec as number) ?? 300} onChange={(v) => u("innovation", "ambientHarvestIntervalSec", v)} />
+      <SettingToggle badge={badge} title="Resonance tuning" value={(inv.resonanceTuning as boolean) ?? false} onChange={(v) => u("innovation", "resonanceTuning", v)} />
+      <SettingNumber title="Resonance frequency (Hz)" value={(inv.resonanceFrequencyHz as number) ?? 7.83} onChange={(v) => u("innovation", "resonanceFrequencyHz", v)} />
     </>
   );
 }
@@ -108,6 +123,11 @@ export function PerformancePanel({ d, u }: { d: Draft; u: Updater }) {
       <SettingToggle title={t("settings.performance.idlePower")} value={(p.idlePowerSave as boolean) ?? true} onChange={(v) => u("performance", "idlePowerSave", v)} />
       <SettingNumber title={t("settings.performance.latencyTarget")} value={(p.latencyTargetMs as number) ?? 200} onChange={(v) => u("performance", "latencyTargetMs", v)} />
       <SettingNumber title={t("settings.performance.queueDepth")} value={(p.maxQueueDepth as number) ?? 16} onChange={(v) => u("performance", "maxQueueDepth", v)} />
+      <SettingNumber title="Dynamic batch max" value={(p.dynamicBatchMax as number) ?? 32} onChange={(v) => u("performance", "dynamicBatchMax", v)} />
+      <SettingNumber title="Prefix cache TTL (min)" value={(p.prefixCacheTtlMin as number) ?? 60} onChange={(v) => u("performance", "prefixCacheTtlMin", v)} />
+      <SettingNumber title="Idle power threshold (min)" value={(p.idlePowerThresholdMin as number) ?? 5} onChange={(v) => u("performance", "idlePowerThresholdMin", v)} />
+      <SettingToggle title="Priority queue inference" value={(p.priorityQueueInference as boolean) ?? true} onChange={(v) => u("performance", "priorityQueueInference", v)} />
+      <SettingNumber title="Tensor parallel shards" value={(p.tensorParallelShards as number) ?? 1} onChange={(v) => u("performance", "tensorParallelShards", v)} />
     </>
   );
 }
@@ -129,6 +149,9 @@ export function SecurityPanel({ d, u }: { d: Draft; u: Updater }) {
       <SettingToggle title={t("settings.security.clipboard")} value={(sec.clipboardSanitization as boolean) ?? true} onChange={(v) => u("security", "clipboardSanitization", v)} />
       <SettingToggle title={t("settings.security.modelIntegrity")} value={(sec.modelIntegrityVerify as boolean) ?? true} onChange={(v) => u("security", "modelIntegrityVerify", v)} />
       <SettingNumber title={t("settings.security.autoLock")} value={(sec.autoLockMinutes as number) ?? 0} onChange={(v) => u("security", "autoLockMinutes", v)} />
+      <SettingNumber title="Audit log retention (days)" value={(sec.auditLogRetentionDays as number) ?? 30} onChange={(v) => u("security", "auditLogRetentionDays", v)} />
+      <SettingToggle title="API key vault" value={(sec.apiKeyVault as boolean) ?? true} onChange={(v) => u("security", "apiKeyVault", v)} />
+      <SettingToggle title="Network fingerprint check" value={(sec.networkFingerprintCheck as boolean) ?? true} onChange={(v) => u("security", "networkFingerprintCheck", v)} />
     </>
   );
 }

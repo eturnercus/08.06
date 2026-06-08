@@ -64,13 +64,32 @@ if errorlevel 1 (
 for /f "tokens=2" %%v in ('rustc --version') do set RUST_VER=%%v
 echo [ OK ] Rust !RUST_VER!
 
-REM --- MSVC ---
+REM --- MSVC (required for embedded llama-cpp build) ---
+set "BUILD_MODE=embedded"
+where cl >nul 2>&1
+if errorlevel 1 call :setup_msvc
 where cl >nul 2>&1
 if errorlevel 1 (
     echo [WARN] MSVC ^(cl.exe^) not in PATH.
     echo        Install "Desktop development with C++" from VS Build Tools:
     echo        https://visualstudio.microsoft.com/visual-cpp-build-tools/
-    echo        Or run this .bat from "x64 Native Tools Command Prompt for VS".
+    echo        Build will use llama-cli subprocess mode ^(no embedded llama-cpp^).
+    set "BUILD_MODE=cli"
+) else (
+    echo [ OK ] MSVC ^(cl.exe^) available
+)
+
+REM --- LLVM / libclang (bindgen for llama-cpp-sys) ---
+set "LIBCLANG_PATH="
+call :setup_llvm
+if defined LIBCLANG_PATH (
+    echo [ OK ] LIBCLANG_PATH=!LIBCLANG_PATH!
+) else if "!BUILD_MODE!"=="embedded" (
+    echo [WARN] libclang not found ^(bindgen needs LLVM^).
+    echo        Install: winget install LLVM.LLVM
+    echo        Or set LIBCLANG_PATH to the folder containing libclang.dll
+    echo        Switching to llama-cli subprocess mode.
+    set "BUILD_MODE=cli"
 )
 
 REM --- WebView2 ---
@@ -138,8 +157,22 @@ if "%CLEAN%"=="1" (
     popd
 )
 
-echo [INFO] Tauri production build ^(may take several minutes^)...
-call npm run tauri build
+if /i "!BUILD_MODE!"=="cli" (
+    echo [INFO] Downloading llama-cli for subprocess inference...
+    call :download_llama
+    if errorlevel 1 goto error_exit
+    echo [INFO] Tauri production build ^(llama-cli mode, no embedded llama-cpp^)...
+    call npm run tauri -- build -- --no-default-features
+) else (
+    echo [INFO] Tauri production build ^(embedded llama-cpp, may take several minutes^)...
+    call npm run tauri build
+    if errorlevel 1 (
+        echo [WARN] Embedded build failed. Retrying with llama-cli subprocess mode...
+        call :download_llama
+        if errorlevel 1 goto error_exit
+        call npm run tauri -- build -- --no-default-features
+    )
+)
 if errorlevel 1 goto error_exit
 
 set "BINARY=%ROOT%\src-tauri\target\release\neuroforge.exe"
@@ -165,6 +198,57 @@ echo [INFO] Run: %BINARY%
 echo.
 goto success_exit
 
+:setup_msvc
+for %%E in (2022 2019) do (
+    if exist "C:\Program Files\Microsoft Visual Studio\%%E\Community\VC\Auxiliary\Build\vcvars64.bat" (
+        call "C:\Program Files\Microsoft Visual Studio\%%E\Community\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+        exit /b 0
+    )
+    if exist "C:\Program Files\Microsoft Visual Studio\%%E\BuildTools\VC\Auxiliary\Build\vcvars64.bat" (
+        call "C:\Program Files\Microsoft Visual Studio\%%E\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+        exit /b 0
+    )
+    if exist "C:\Program Files (x86)\Microsoft Visual Studio\%%E\BuildTools\VC\Auxiliary\Build\vcvars64.bat" (
+        call "C:\Program Files (x86)\Microsoft Visual Studio\%%E\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+        exit /b 0
+    )
+)
+exit /b 1
+
+:setup_llvm
+if exist "C:\Program Files\LLVM\bin\libclang.dll" (
+    set "LIBCLANG_PATH=C:\Program Files\LLVM\bin"
+    exit /b 0
+)
+if exist "C:\Program Files (x86)\LLVM\bin\libclang.dll" (
+    set "LIBCLANG_PATH=C:\Program Files (x86)\LLVM\bin"
+    exit /b 0
+)
+where libclang.dll >nul 2>&1
+if not errorlevel 1 (
+    for /f "delims=" %%D in ('where libclang.dll 2^>nul') do (
+        set "LIBCLANG_PATH=%%~dpD"
+        set "LIBCLANG_PATH=!LIBCLANG_PATH:~0,-1!"
+        exit /b 0
+    )
+)
+exit /b 1
+
+:download_llama
+where powershell >nul 2>&1
+if errorlevel 1 (
+    echo [FAIL] PowerShell required to download llama-cli.
+    exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\scripts\download-llama-win.ps1"
+if errorlevel 1 exit /b 1
+if not exist "%ROOT%\src-tauri\bin\llama\llama-cli.exe" (
+    echo [FAIL] llama-cli.exe not found after download.
+    exit /b 1
+)
+echo [ OK ] llama-cli.exe ready
+exit /b 0
+
 :show_help
 echo.
 echo Usage: build-windows.bat [options]
@@ -176,7 +260,8 @@ echo.
 echo Requirements:
 echo   - Node.js 22+
 echo   - Rust stable (rustup)
-echo   - Visual Studio Build Tools (MSVC) recommended
+echo   - For embedded llama: VS Build Tools (MSVC) + LLVM (libclang)
+echo   - Without LLVM/MSVC: auto-downloads llama-cli (subprocess mode)
 echo   - WebView2 Runtime
 echo.
 echo Output: src-tauri\target\release\bundle\

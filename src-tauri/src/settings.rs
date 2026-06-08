@@ -725,8 +725,13 @@ pub fn settings_path() -> PathBuf {
 pub fn load_settings() -> AppSettings {
     let path = settings_path();
     if path.exists() {
-        if let Ok(data) = fs::read_to_string(&path) {
-            if let Ok(settings) = serde_json::from_str::<AppSettings>(&data) {
+        if let Ok(raw) = fs::read_to_string(&path) {
+            let try_plain = serde_json::from_str::<AppSettings>(&raw);
+            if let Ok(settings) = try_plain {
+                return settings;
+            }
+            let decrypted = crate::storage_crypto::decrypt_at_rest(&raw, true);
+            if let Ok(settings) = serde_json::from_str::<AppSettings>(&decrypted) {
                 return settings;
             }
         }
@@ -737,7 +742,8 @@ pub fn load_settings() -> AppSettings {
 pub fn save_settings(settings: &AppSettings) -> Result<(), String> {
     let path = settings_path();
     let json = serde_json::to_string_pretty(settings).map_err(|e| e.to_string())?;
-    fs::write(path, json).map_err(|e| e.to_string())
+    let data = crate::storage_crypto::encrypt_at_rest(&json, settings.security.encrypt_settings);
+    fs::write(path, data).map_err(|e| e.to_string())
 }
 
 pub fn reset_settings() -> AppSettings {

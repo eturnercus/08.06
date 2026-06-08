@@ -4,9 +4,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+use crate::inference::InferenceEngine;
 use crate::memory::MemoryStore;
-use crate::network::{FetchParams, NetworkManager};
+use crate::network::NetworkManager;
 use crate::settings::{AgentMember, AppSettings};
+use crate::settings_engine::{self, check_user_input, filter_model_output, swarm_agent_count};
+use crate::stream_sink::{AgentStreamSink, stream_buffer_ms};
+use tauri::AppHandle;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -57,7 +61,11 @@ impl AgentOrchestrator {
         prompt: &str,
         memory: &MemoryStore,
         network: &NetworkManager,
+        inference: &InferenceEngine,
+        app: AppHandle,
     ) -> Result<AgentTask, String> {
+        let prompt = check_user_input(settings, prompt)?;
+        settings_engine::audit_log(settings, "agents", &format!("team task group={group_id}"));
         let group = settings
             .agent_groups
             .iter()
@@ -84,7 +92,7 @@ impl AgentOrchestrator {
             let ordered = order_members(&group.members, &mode, round);
             let active: Vec<_> = ordered
                 .into_iter()
-                .filter(|m| should_run_member(m, prompt, round, had_failure))
+                .filter(|m| should_run_member(m, &prompt, round, had_failure))
                 .collect();
 
             if active.is_empty() {
@@ -94,7 +102,10 @@ impl AgentOrchestrator {
             let parallel = group.parallel_execution
                 || matches!(mode.as_str(), "parallel" | "map_reduce" | "expert_panel");
 
-            let members_to_run: Vec<_> = if parallel {
+            let swarm_n = swarm_agent_count(settings, active.len());
+            let members_to_run: Vec<_> = if settings.innovation.swarm_intelligence && swarm_n < active.len() {
+                active.iter().take(swarm_n).cloned().collect()
+            } else if parallel {
                 active
             } else {
                 match mode.as_str() {
@@ -117,8 +128,12 @@ impl AgentOrchestrator {
                     &injection,
                     settings,
                     network,
-                    prompt,
+                    &prompt,
                     &mode,
+                    inference,
+                    memory,
+                    &task_id,
+                    &app,
                 )
                 .await;
 
@@ -236,6 +251,10 @@ async fn execute_member(
     network: &NetworkManager,
     prompt: &str,
     mode: &str,
+    inference: &InferenceEngine,
+    memory: &MemoryStore,
+    task_id: &str,
+    app: &AppHandle,
 ) -> (String, bool, Vec<String>) {
     let tools_used: Vec<String> = member.tools.clone();
     let mut used_internet = false;
@@ -248,34 +267,77 @@ async fn execute_member(
         let q = prompt.chars().take(120).collect::<String>();
         if let Ok(log) = network.web_search(&q, Some(member.id.clone())).await {
             used_internet = !log.blocked;
-            tool_notes.push(format!("web_search: {}", log.response_preview.chars().take(80).collect::<String>()));
+            tool_notes.push(format!(
+                "web_search: {}",
+                log.response_preview.chars().take(80).collect::<String>()
+            ));
         }
     }
 
     if member.tools.iter().any(|t| t == "memory_query") {
-        tool_notes.push("memory_query: STM/LTM recall simulated".into());
-    }
-    if member.tools.iter().any(|t| t == "calculator") {
-        tool_notes.push("calculator: arithmetic ready".into());
+        let recalled = settings_engine::recall_ltm(memory, settings, task_id, prompt);
+        if !recalled.is_empty() {
+            tool_notes.push(format!("memory_query: {} записей LTM", recalled.len()));
+        }
     }
 
-    let response = format!(
-        "[{} / {}] Режим: {}. Инструменты: {}. RAM {}MB, ядра {:?}, temp {:.1}, max_tokens {}. Обработано {} символов.{}",
-        member.name,
-        member.role,
-        mode,
-        if tools_used.is_empty() { "—".into() } else { tools_used.join(", ") },
-        member.resources.ram_limit_mb,
-        member.resources.cpu_cores,
-        member.resources.temperature,
-        member.resources.max_tokens,
-        injection.len(),
-        if tool_notes.is_empty() {
-            String::new()
-        } else {
-            format!(" Заметки: {}", tool_notes.join("; "))
+    let model_id = if member.model_id.is_empty() {
+        "default".to_string()
+    } else {
+        member.model_id.clone()
+    };
+
+    let mut full_prompt = injection.to_string();
+    if !tool_notes.is_empty() {
+        full_prompt.push_str("\n[tools]\n");
+        full_prompt.push_str(&tool_notes.join("\n"));
+    }
+
+    let stream_on =
+        settings.inference.streaming || settings.innovation.thought_streaming;
+    let mut agent_sink = if stream_on {
+        Some(AgentStreamSink::new(
+            app.clone(),
+            task_id.to_string(),
+            member.id.clone(),
+            member.name.clone(),
+            stream_buffer_ms(settings),
+        ))
+    } else {
+        None
+    };
+
+    let response = match inference.generate_reply(
+        settings,
+        &model_id,
+        &member.system_prompt,
+        &full_prompt,
+        &mut agent_sink,
+    ) {
+        Ok(text) => {
+            if let Some(ref mut s) = agent_sink {
+                s.finish();
+            }
+            filter_model_output(settings, &text)
         }
-    );
+        Err(_) => format!(
+            "[{} / {}] Режим: {}. Инструменты: {}. (модель {} недоступна — укажите GGUF в настройках агента){}",
+            member.name,
+            member.role,
+            mode,
+            if tools_used.is_empty() {
+                "—".into()
+            } else {
+                tools_used.join(", ")
+            },
+            model_id,
+            if tool_notes.is_empty() {
+                String::new()
+            } else {
+                format!(" Заметки: {}", tool_notes.join("; "))
+            }
+        ),
+    };
 
     (response, used_internet, tools_used)
 }

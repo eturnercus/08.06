@@ -1,9 +1,14 @@
 mod agents;
 mod devices;
+mod gguf_runner;
 mod inference;
+mod llama_cli;
 mod memory;
 mod network;
 mod settings;
+mod settings_engine;
+mod storage_crypto;
+mod stream_sink;
 
 use agents::AgentOrchestrator;
 use inference::{ChatRequest, InferenceEngine};
@@ -30,6 +35,10 @@ fn get_settings(state: State<'_, AppState>) -> AppSettings {
 #[tauri::command]
 fn update_settings(state: State<'_, AppState>, settings: AppSettings) -> Result<(), String> {
     save_settings(&settings)?;
+    state
+        .memory
+        .set_encrypt_at_rest(settings.security.encrypt_memory_at_rest);
+    settings_engine::audit_log(&settings, "settings", "settings updated");
     *state.settings.lock() = settings;
     Ok(())
 }
@@ -42,9 +51,27 @@ fn reset_settings_cmd(state: State<'_, AppState>) -> AppSettings {
 }
 
 #[tauri::command]
-fn send_chat(state: State<'_, AppState>, request: ChatRequest) -> inference::ChatResponse {
+async fn send_chat(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    request: ChatRequest,
+) -> Result<inference::ChatResponse, String> {
     let settings = state.settings.lock().clone();
-    state.inference.chat(&settings, &state.memory, &request)
+    let inference = Arc::clone(&state.inference);
+    let memory = Arc::clone(&state.memory);
+    let stream_enabled = stream_sink::should_stream_chat(&settings);
+    let buffer_ms = stream_sink::stream_buffer_ms(&settings);
+    let chat_id = request.chat_id.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut stream_sink = if stream_enabled {
+            Some(stream_sink::StreamSink::for_chat(app, chat_id, buffer_ms))
+        } else {
+            None
+        };
+        inference.chat(&settings, &memory, &request, &mut stream_sink)
+    })
+    .await
+    .map_err(|e| format!("inference task: {e}"))
 }
 
 #[tauri::command]
@@ -71,6 +98,10 @@ async fn agent_fetch(
             allow_internet: allow,
             isolation_mode: settings.network.isolation_mode.clone(),
             api_endpoints: settings.network.api_only_endpoints.clone(),
+            data_exfiltration_guard: settings.security.data_exfiltration_guard,
+            audit_enabled: settings.security.audit_log_enabled,
+            block_private_ips: settings.network.block_private_ips,
+            network_fingerprint_check: settings.security.network_fingerprint_check,
         })
         .await
 }
@@ -133,14 +164,24 @@ fn consolidate_memory(
 
 #[tauri::command]
 async fn run_agent_team(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     group_id: String,
     prompt: String,
 ) -> Result<agents::AgentTask, String> {
     let settings = state.settings.lock().clone();
+    let inference = Arc::clone(&state.inference);
     state
         .agents
-        .run_team_task(&settings, &group_id, &prompt, &state.memory, &state.network)
+        .run_team_task(
+            &settings,
+            &group_id,
+            &prompt,
+            &state.memory,
+            &state.network,
+            &inference,
+            app,
+        )
         .await
 }
 
@@ -151,7 +192,10 @@ fn list_agent_tasks(state: State<'_, AppState>) -> Vec<agents::AgentTask> {
 
 #[tauri::command]
 fn load_model(state: State<'_, AppState>, path: String, name: String) -> Result<inference::ModelInfo, String> {
-    state.inference.load_model(&path, &name)
+    let settings = state.settings.lock();
+    state
+        .inference
+        .load_model(&path, &name, settings.security.model_integrity_verify)
 }
 
 #[tauri::command]
@@ -174,7 +218,10 @@ fn scan_local_models(state: State<'_, AppState>) -> Vec<inference::ModelInfo> {
 
 #[tauri::command]
 fn verify_model(state: State<'_, AppState>, model_id: String) -> Result<bool, String> {
-    state.inference.verify_model(&model_id)
+    let settings = state.settings.lock();
+    state
+        .inference
+        .verify_model(&model_id, settings.security.model_integrity_verify)
 }
 
 #[tauri::command]
@@ -224,9 +271,11 @@ fn get_system_info(state: State<'_, AppState>) -> serde_json::Value {
 pub fn run() {
     tracing_subscriber::fmt::init();
     let settings = load_settings();
+    let memory = Arc::new(MemoryStore::new());
+    memory.set_encrypt_at_rest(settings.security.encrypt_memory_at_rest);
     let app_state = AppState {
         settings: Mutex::new(settings),
-        memory: Arc::new(MemoryStore::new()),
+        memory,
         network: Arc::new(NetworkManager::new()),
         inference: Arc::new(InferenceEngine::new()),
         agents: Arc::new(AgentOrchestrator::new()),

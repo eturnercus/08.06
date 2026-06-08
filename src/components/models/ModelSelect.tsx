@@ -25,11 +25,14 @@ export function ModelSelect({
         onChange={(e) => onChange(e.target.value)}
         disabled={loading}
       >
-        {models.map((m) => (
-          <option key={m.id} value={m.id}>
-            {m.name} ({m.source}{m.verified === false ? " ⚠" : ""}{m.sizeBytes ? ` · ${(m.sizeBytes / 1048576).toFixed(0)}MB` : ""})
-          </option>
-        ))}
+        {models.map((m) => {
+          const isMmproj = m.name.toLowerCase().includes("mmproj") || (m.path ?? "").toLowerCase().includes("mmproj");
+          return (
+            <option key={m.id} value={m.id} disabled={isMmproj}>
+              {m.name}{isMmproj ? ` (${t("models.mmprojWarn")})` : ""} ({m.source}{m.verified === false ? " ⚠" : ""}{m.sizeBytes ? ` · ${(m.sizeBytes / 1048576).toFixed(0)}MB` : ""})
+            </option>
+          );
+        })}
         {models.length === 0 && <option value="default">{t("models.builtin")}</option>}
       </select>
     </div>
