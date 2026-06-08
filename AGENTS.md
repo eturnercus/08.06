@@ -35,6 +35,15 @@ Built artifacts: `src-tauri/target/release/bundle/`
 
 ### Notes
 
-- GUI testing requires a display (`DISPLAY`); use xvfb for headless smoke tests.
-- First launch shows language picker (ru/en), then onboarding, then main app.
+- GUI testing requires a display (`DISPLAY=:1` in Cloud VMs).
+- First launch: language picker → 9-step onboarding → main app.
 - Settings persist to `~/.local/share/neuroforge/settings.json`.
+- **UI changes require `npm run tauri:build`** — the release binary embeds the Vite `dist/` bundle at compile time; `npm run build` alone is not enough for the release binary.
+- **Where to find key features:**
+  - **Agent Studio** (10 orchestration strategies, 12 roles, 14 tools, permissions, resources): nav rail → **Агенты / Agents** → tabs Группы / Редактор / Монитор.
+  - **79+ settings in 9 categories**: nav → **Настройки / Settings** (RAM, CPU, inference, injections, AI memory, internet, permissions, appearance, advanced).
+  - **Per-chat permissions & memory level (CHAT_ONLY / MODEL_SHARED / GLOBAL)**: nav → **Чаты** → bottom panel in chat sidebar.
+  - **DuckDuckGo search + activity log**: nav → **Сеть / Network**.
+  - **Hugging Face browser**: nav → **Модели / Models** → Hugging Face tab.
+  - **Feature checklist**: nav → **Справка / Help**.
+- For automated UI screenshots, target window name `NeuroForge` (not the small `neuroforge` child window): `WID=$(xdotool search --name NeuroForge | head -1)`.

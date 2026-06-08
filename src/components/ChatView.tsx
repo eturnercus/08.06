@@ -51,7 +51,7 @@ export function ChatView() {
             {chat.permissions.ltm && <span className="badge badge-cyan">{t("chat.ltm")}</span>}
             {chat.permissions.internet
               ? <span className="badge badge-green">{t("chat.internet")}</span>
-              : <span className="badge badge-red">{t("network.blocked")}</span>}
+              : <span className="badge badge-red">{t("chat.offline")}</span>}
           </div>
         </div>
         <button className="btn btn-secondary" onClick={() => addChat()}>+ {t("chat.newChat")}</button>

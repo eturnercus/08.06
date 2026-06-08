@@ -3,7 +3,7 @@ import { useAppStore } from "../store/appStore";
 import { api } from "../api/tauri";
 import "../styles/welcome.css";
 
-const STEP_KEYS = ["welcome", "local", "isolation", "memory", "injection", "agents", "innovation", "ready"] as const;
+const STEP_KEYS = ["welcome", "local", "isolation", "memory", "injection", "agents", "permissions", "innovation", "ready"] as const;
 
 const STEP_META: Record<string, { icon: string; color: string; features: string[] }> = {
   welcome: { icon: "⚡", color: "#7c6cff", features: ["feat1", "feat2", "feat3"] },
@@ -12,6 +12,7 @@ const STEP_META: Record<string, { icon: string; color: string; features: string[
   memory: { icon: "💾", color: "#f472b6", features: ["feat1", "feat2", "feat3"] },
   injection: { icon: "✨", color: "#fbbf24", features: ["feat1", "feat2", "feat3"] },
   agents: { icon: "🤝", color: "#a78bfa", features: ["feat1", "feat2", "feat3"] },
+  permissions: { icon: "🔐", color: "#34d399", features: ["feat1", "feat2", "feat3"] },
   innovation: { icon: "🔮", color: "#22d3ee", features: ["feat1", "feat2", "feat3"] },
   ready: { icon: "🚀", color: "#7c6cff", features: ["feat1", "feat2"] },
 };

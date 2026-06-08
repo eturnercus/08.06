@@ -94,6 +94,27 @@ impl NetworkManager {
         }
     }
 
+    pub async fn web_search(&self, query: &str, agent_id: Option<String>) -> Result<NetworkRequestLog, String> {
+        let url = format!(
+            "https://api.duckduckgo.com/?q={}&format=json&no_html=1",
+            urlencoding::encode(query)
+        );
+        self.fetch(FetchParams {
+            url,
+            method: "GET".into(),
+            body: None,
+            agent_id,
+            chat_id: None,
+            allow_internet: true,
+            isolation_mode: "api_only".into(),
+            api_endpoints: vec![
+                "https://api.duckduckgo.com".into(),
+                "https://*.duckduckgo.com".into(),
+            ],
+        })
+        .await
+    }
+
     pub async fn fetch(&self, params: FetchParams) -> Result<NetworkRequestLog, String> {
         let id = Uuid::new_v4().to_string();
         let start = std::time::Instant::now();

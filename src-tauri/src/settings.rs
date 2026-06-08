@@ -196,6 +196,8 @@ pub struct NetworkSettings {
 pub struct MemorySettings {
     pub stm_enabled: bool,
     pub stm_max_tokens: u32,
+    #[serde(default = "default_stm_max_messages")]
+    pub stm_max_messages: u32,
     pub stm_ttl_minutes: u32,
     pub ltm_enabled: bool,
     pub ltm_max_entries: u32,
@@ -339,6 +341,22 @@ pub struct AgentGroupConfig {
     pub consensus_threshold: f32,
     pub parallel_execution: bool,
     pub supervisor_agent_id: Option<String>,
+    #[serde(default)]
+    pub conflict_mode: String,
+    #[serde(default = "default_timeout")]
+    pub timeout_sec: u32,
+    #[serde(default)]
+    pub feedback_loops: bool,
+    #[serde(default)]
+    pub task_decomposition: bool,
+}
+
+fn default_timeout() -> u32 {
+    120
+}
+
+fn default_stm_max_messages() -> u32 {
+    50
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -349,6 +367,20 @@ pub struct AgentMember {
     pub role: String,
     pub model_id: String,
     pub permissions: AgentPermissions,
+    #[serde(default)]
+    pub resources: AgentResources,
+    #[serde(default)]
+    pub tools: Vec<String>,
+    #[serde(default = "default_trigger")]
+    pub trigger: String,
+    #[serde(default)]
+    pub trigger_keyword: String,
+    #[serde(default)]
+    pub system_prompt: String,
+}
+
+fn default_trigger() -> String {
+    "always".into()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -361,6 +393,36 @@ pub struct AgentPermissions {
     pub stm: bool,
     pub ltm: bool,
     pub can_delegate: bool,
+    #[serde(default)]
+    pub files: bool,
+    #[serde(default)]
+    pub tools: bool,
+    #[serde(default)]
+    pub veto: bool,
+    #[serde(default)]
+    pub shared_memory: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentResources {
+    pub ram_limit_mb: u64,
+    pub cpu_cores: Vec<u32>,
+    pub max_tokens: u32,
+    pub temperature: f32,
+    pub execution_order: u32,
+}
+
+impl Default for AgentResources {
+    fn default() -> Self {
+        Self {
+            ram_limit_mb: 2048,
+            cpu_cores: vec![0, 1],
+            max_tokens: 2048,
+            temperature: 0.7,
+            execution_order: 0,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -537,6 +599,7 @@ impl Default for AppSettings {
             memory: MemorySettings {
                 stm_enabled: true,
                 stm_max_tokens: 4096,
+                stm_max_messages: 50,
                 stm_ttl_minutes: 120,
                 ltm_enabled: true,
                 ltm_max_entries: 10000,

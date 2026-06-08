@@ -26,6 +26,11 @@ export interface AgentGroup {
   sharedMemory: boolean;
   maxRounds: number;
   parallelExecution: boolean;
+  consensusThreshold?: number;
+  conflictMode?: string;
+  timeoutSec?: number;
+  feedbackLoops?: boolean;
+  taskDecomposition?: boolean;
 }
 
 export interface AgentMember {
@@ -41,7 +46,22 @@ export interface AgentMember {
     stm: boolean;
     ltm: boolean;
     canDelegate: boolean;
+    files?: boolean;
+    tools?: boolean;
+    veto?: boolean;
+    sharedMemory?: boolean;
   };
+  resources?: {
+    ramLimitMb: number;
+    cpuCores: number[];
+    maxTokens: number;
+    temperature: number;
+    executionOrder: number;
+  };
+  tools?: string[];
+  trigger?: string;
+  triggerKeyword?: string;
+  systemPrompt?: string;
 }
 
 export const api = {
@@ -57,6 +77,7 @@ export const api = {
   agentFetch: (url: string, chatId?: string, agentId?: string) =>
     invoke<NetworkLog>("agent_fetch", { url, chatId, agentId }),
   getNetworkLogs: () => invoke<NetworkLog[]>("get_network_logs"),
+  webSearch: (query: string, agentId?: string) => invoke<NetworkLog>("web_search", { query, agentId }),
   getMemoryStm: (chatId: string) => invoke<StmEntry[]>("get_memory_stm", { chatId }),
   getMemoryLtm: (chatId?: string) => invoke<LtmEntry[]>("get_memory_ltm", { chatId }),
   transferMemory: (p: {
@@ -114,7 +135,8 @@ export interface AgentTask {
   id: string;
   status: string;
   prompt: string;
-  rounds: { roundNumber: number; messages: { agentName: string; role: string; content: string; usedInternet: boolean }[] }[];
+  orchestrationMode?: string;
+  rounds: { roundNumber: number; messages: { agentName: string; role: string; content: string; usedInternet: boolean; toolsUsed?: string[] }[] }[];
 }
 
 export interface ModelInfo {

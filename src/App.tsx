@@ -13,6 +13,7 @@ import { HelpView } from "./components/HelpView";
 import { DevicesView } from "./components/DevicesView";
 import { ModelsView } from "./components/ModelsView";
 import i18n from "./i18n";
+import { createDefaultAgentGroup } from "./constants/defaultAgentGroup";
 
 function MainRouter() {
   const view = useAppStore((s) => s.activeView);
@@ -53,22 +54,7 @@ export default function App() {
           addChat();
           const groups = s.agentGroups;
           if (!groups || (groups as unknown[]).length === 0) {
-            const withGroup = {
-              ...s,
-              agentGroups: [{
-                id: "default-team",
-                name: "Default Research Team",
-                enabled: true,
-                orchestrationMode: "round_robin",
-                members: [
-                  { id: "coord", name: "Coordinator", role: "coordinator", modelId: "default", permissions: { internet: false, camera: false, microphone: false, screen: false, stm: true, ltm: true, canDelegate: true } },
-                  { id: "research", name: "Researcher", role: "researcher", modelId: "default", permissions: { internet: true, camera: false, microphone: false, screen: false, stm: true, ltm: true, canDelegate: false } },
-                ],
-                sharedMemory: true,
-                maxRounds: 3,
-                parallelExecution: false,
-              }],
-            };
+            const withGroup = { ...s, agentGroups: [createDefaultAgentGroup()] };
             await api.updateSettings(withGroup as never);
             setSettings(withGroup);
           }

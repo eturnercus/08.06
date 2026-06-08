@@ -141,6 +141,7 @@ export function MemoryPanel({ d, u }: { d: Draft; u: Updater }) {
       <SectionTitle>{t("settings.memory.stmSection")}</SectionTitle>
       <SettingToggle title={t("settings.memory.stmEnabled")} value={m.stmEnabled as boolean} onChange={(v) => u("memory", "stmEnabled", v)} />
       <SettingSlider title={t("settings.memory.stmMaxTokens")} value={m.stmMaxTokens as number} onChange={(v) => u("memory", "stmMaxTokens", v)} min={512} max={32768} step={512} />
+      <SettingSlider title={t("settings.memory.stmMaxMessages")} desc={t("settings.memory.stmMaxMessagesDesc")} value={(m.stmMaxMessages as number) ?? 50} onChange={(v) => u("memory", "stmMaxMessages", v)} min={5} max={200} step={1} />
       <SettingNumber title={t("settings.memory.stmTtl")} value={m.stmTtlMinutes as number} onChange={(v) => u("memory", "stmTtlMinutes", v)} />
       <SettingNumber title={t("settings.memory.workingSlots")} value={(m.workingMemorySlots as number) ?? 7} onChange={(v) => u("memory", "workingMemorySlots", v)} />
       <SectionTitle>{t("settings.memory.ltmSection")}</SectionTitle>

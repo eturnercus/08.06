@@ -81,6 +81,15 @@ fn get_network_logs(state: State<'_, AppState>) -> Vec<network::NetworkRequestLo
 }
 
 #[tauri::command]
+async fn web_search(
+    state: State<'_, AppState>,
+    query: String,
+    agent_id: Option<String>,
+) -> Result<network::NetworkRequestLog, String> {
+    state.network.web_search(&query, agent_id).await
+}
+
+#[tauri::command]
 fn get_memory_stm(state: State<'_, AppState>, chat_id: String) -> Vec<memory::StmEntry> {
     state.memory.get_stm(&chat_id)
 }
@@ -220,6 +229,7 @@ pub fn run() {
             send_chat,
             agent_fetch,
             get_network_logs,
+            web_search,
             get_memory_stm,
             get_memory_ltm,
             transfer_memory,

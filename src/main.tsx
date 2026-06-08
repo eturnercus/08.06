@@ -2,6 +2,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./i18n";
 import "./styles/global.css";
+import "./styles/material.css";
+import "./styles/welcome.css";
 import App from "./App";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

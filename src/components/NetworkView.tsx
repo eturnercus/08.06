@@ -1,62 +1,60 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, NetworkLog } from "../api/tauri";
+import { Tooltip } from "./ui/Tooltip";
 
 export function NetworkView() {
   const { t } = useTranslation();
   const [logs, setLogs] = useState<NetworkLog[]>([]);
+  const [searchQ, setSearchQ] = useState("");
+  const [searching, setSearching] = useState(false);
 
   const refresh = () => api.getNetworkLogs().then(setLogs).catch(() => {});
 
-  useEffect(() => { refresh(); const iv = setInterval(refresh, 3000); return () => clearInterval(iv); }, []);
-
-  const testFetch = async () => {
-    try {
-      await api.agentFetch("https://huggingface.co/api/models?limit=1");
-    } catch { /* expected if blocked */ }
+  useEffect(() => {
     refresh();
+    const iv = setInterval(refresh, 3000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const ddgSearch = async () => {
+    if (!searchQ.trim()) return;
+    setSearching(true);
+    try {
+      await api.webSearch(searchQ);
+    } catch { /* logged */ }
+    refresh();
+    setSearching(false);
   };
 
   return (
-    <div className="network-view">
-      <div className="network-header">
-        <h2>{t("network.title")}</h2>
-        <button className="btn-primary" onClick={testFetch}>{t("network.fetch")}</button>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ padding: 16, borderBottom: "1px solid var(--m3-outline-variant)" }}>
+        <h3 style={{ marginBottom: 8 }}>{t("network.title")}</h3>
+        <p style={{ fontSize: 13, color: "var(--m3-on-surface-variant)", marginBottom: 12 }}>{t("network.ddgDesc")}</p>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Tooltip text={t("network.ddgTip")}>
+            <input className="m3-input" style={{ flex: 1 }} value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
+              placeholder={t("network.ddgPlaceholder")} onKeyDown={(e) => e.key === "Enter" && ddgSearch()} />
+          </Tooltip>
+          <button type="button" className="m3-filled-btn" onClick={ddgSearch} disabled={searching}>{t("network.ddgSearch")}</button>
+        </div>
       </div>
-      <div className="logs scroll-y">
+      <div className="scroll monitor-timeline" style={{ flex: 1 }}>
         {logs.length === 0 ? (
-          <p className="empty">{t("network.noLogs")}</p>
+          <p style={{ color: "var(--m3-outline)", textAlign: "center", padding: 40 }}>{t("network.noLogs")}</p>
         ) : logs.map((log) => (
-          <div key={log.id} className={`log-card card ${log.blocked ? "blocked" : ""}`}>
-            <div className="log-top">
-              <span className={`badge ${log.blocked ? "badge-red" : "badge-green"}`}>
-                {log.blocked ? t("network.blocked") : t("network.allowed")}
-              </span>
-              <span className="method">{log.method}</span>
-              <span className="duration">{log.durationMs}ms</span>
+          <div key={log.id} className={`monitor-event ${log.blocked ? "error" : ""}`}>
+            <span className="m3-chip" style={{ fontSize: 10 }}>{log.blocked ? t("network.blocked") : t("network.allowed")}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600 }}>{log.method} {log.url}</div>
+              {log.blockReason && <div style={{ color: "var(--m3-error)", fontSize: 11 }}>{log.blockReason}</div>}
+              {log.responsePreview && <pre style={{ fontSize: 11, color: "var(--m3-outline)", marginTop: 4, whiteSpace: "pre-wrap", maxHeight: 60, overflow: "hidden" }}>{log.responsePreview}</pre>}
             </div>
-            <div className="url">{log.url}</div>
-            {log.blockReason && <div className="reason">{log.blockReason}</div>}
-            {log.status && <div className="status">HTTP {log.status}</div>}
-            {log.responsePreview && <pre className="preview">{log.responsePreview.slice(0, 300)}</pre>}
+            <span style={{ fontSize: 11, color: "var(--m3-outline)" }}>{log.durationMs}ms</span>
           </div>
         ))}
       </div>
-      <style>{`
-        .network-view { padding: 16px; display: flex; flex-direction: column; height: 100%; }
-        .network-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-        .network-header h2 { flex: 1; }
-        .logs { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-        .log-card.blocked { border-color: var(--danger); }
-        .log-top { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
-        .method { font-weight: 600; font-size: 12px; }
-        .duration { color: var(--text2); font-size: 12px; margin-left: auto; }
-        .url { font-size: 13px; word-break: break-all; margin-bottom: 4px; }
-        .reason { color: var(--danger); font-size: 12px; }
-        .status { color: var(--success); font-size: 12px; }
-        .preview { font-size: 11px; color: var(--text2); margin-top: 6px; white-space: pre-wrap; max-height: 80px; overflow: hidden; }
-        .empty { color: var(--text2); }
-      `}</style>
     </div>
   );
 }

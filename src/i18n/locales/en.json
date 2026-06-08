@@ -17,7 +17,7 @@
     "tags": {
       "welcome": "Start", "local": "Models", "isolation": "Security",
       "memory": "Memory", "injection": "Innovation", "agents": "Agents",
-      "innovation": "Advanced", "ready": "Ready"
+      "permissions": "Permissions", "innovation": "Advanced", "ready": "Ready"
     },
     "welcome": {
       "title": "Welcome to NeuroForge",
@@ -55,11 +55,18 @@
       "feat3": "Per-agent overrides"
     },
     "agents": {
-      "title": "Agent teams",
-      "desc": "Combine neural networks into groups with roles: coordinator, researcher, executor. Each has its own permissions.",
-      "feat1": "Orchestration: round-robin, parallel, supervisor",
-      "feat2": "Different rights: internet, camera, memory",
-      "feat3": "Shared memory within team"
+      "title": "AI agent teams",
+      "desc": "10 orchestration strategies, 12 roles, 14 tools — full Agent Studio for multi-model teams.",
+      "feat1": "Sequential, parallel, hierarchical, MapReduce, and more",
+      "feat2": "Permissions: internet, files, delegation, veto, memory",
+      "feat3": "Real-time orchestration monitor"
+    },
+    "permissions": {
+      "title": "Permissions & limits",
+      "desc": "Per-chat and per-agent permissions: internet, devices, files, tools. RAM, CPU, and token limits.",
+      "feat1": "Chat rights: STM, LTM, CHAT_ONLY / MODEL_SHARED / GLOBAL",
+      "feat2": "Operation limits, timeouts, consensus threshold",
+      "feat3": "79+ settings in 9 categories"
     },
     "innovation": {
       "title": "Innovative technologies",
@@ -79,7 +86,21 @@
   "chat": {
     "newChat": "New chat", "placeholder": "Type a message...", "send": "Send",
     "attach": "Attach", "stm": "STM", "ltm": "LTM", "internet": "Internet",
-    "tokens": "Tokens", "latency": "Latency"
+    "tokens": "Tokens", "latency": "Latency", "offline": "No internet",
+    "camera": "Camera", "mic": "Microphone",
+    "permsTitle": "Chat permissions", "systemPrompt": "Chat system instructions",
+    "perm": {
+      "internet": "Internet", "stm": "STM", "ltm": "LTM", "camera": "Camera",
+      "microphone": "Microphone", "screen": "Screen", "files": "Files", "tools": "Tools"
+    },
+    "permTip": {
+      "internet": "Allow web search and HTTP for this chat",
+      "stm": "Short-term memory (5–200 messages)",
+      "ltm": "Long-term memory across sessions",
+      "camera": "Camera capture", "microphone": "Microphone recording",
+      "screen": "Screen capture", "files": "File read/write",
+      "tools": "Agent tools (calculator, JSON, etc.)"
+    }
   },
   "settings": {
     "title": "Settings", "save": "Save", "saved": "Saved",
@@ -87,10 +108,14 @@
     "search": "Search settings...", "language": "Interface language",
     "sections": { "hardware": "Hardware", "optimization": "Optimization" },
     "tabs": {
+      "ram": "Memory & RAM", "cpu": "CPU & threading",
+      "inference": "Default output", "injection": "System instructions",
+      "memory": "AI memory", "internet": "Internet & web",
+      "permissions": "Default permissions", "appearance": "Appearance",
+      "advanced": "Advanced + agents",
       "innovation": "Innovation", "system": "System", "performance": "Performance",
-      "memory": "Memory", "network": "Network", "security": "Security",
-      "injection": "Global injections", "inference": "Inference", "devices": "Devices",
-      "agents": "Agents", "models": "Models", "ui": "Interface", "advanced": "Advanced"
+      "network": "Network", "security": "Security", "devices": "Devices",
+      "agents": "Agents", "models": "Models", "ui": "Interface"
     },
     "system": {
       "ramLimit": "RAM limit (MB)", "ramLimitDesc": "Maximum RAM for the application",
@@ -170,7 +195,9 @@
     },
     "memory": {
       "stmSection": "Short-term (STM)", "ltmSection": "Long-term (LTM)", "transferSection": "Transfer",
-      "stmEnabled": "STM enabled", "stmMaxTokens": "Max tokens", "stmTtl": "TTL (min)",
+      "stmEnabled": "STM enabled", "stmMaxTokens": "Max tokens",
+      "stmMaxMessages": "STM messages (5–200)", "stmMaxMessagesDesc": "Recent context per chat",
+      "stmTtl": "TTL (min)",
       "workingSlots": "Working memory slots", "ltmEnabled": "LTM enabled",
       "ltmMaxEntries": "Max entries", "episodic": "Episodic memory",
       "procedural": "Procedural memory", "graph": "Memory graph",
@@ -209,16 +236,75 @@
   },
   "memory": {
     "title": "Memory", "stm": "STM", "ltm": "LTM", "transfer": "Transfer",
-    "fromChat": "From chat", "toChat": "To chat", "consolidate": "Consolidate STM→LTM"
+    "fromChat": "From chat", "toChat": "To chat", "consolidate": "Consolidate STM→LTM",
+    "accessLevel": "Memory access level", "importance": "Importance",
+    "autoSummary": "Auto-summarize", "retention": "Retention period"
   },
-  "network": { "title": "Network monitor", "fetch": "Test", "blocked": "Blocked", "allowed": "Allowed", "noLogs": "No requests" },
+  "network": {
+    "title": "Network monitor", "fetch": "Test", "blocked": "Blocked", "allowed": "Allowed", "noLogs": "No requests",
+    "ddgDesc": "DuckDuckGo Instant Answer API search with real-time activity panel",
+    "ddgTip": "Requires internet permission in network settings",
+    "ddgPlaceholder": "Search query...", "ddgSearch": "Search"
+  },
+  "models": {
+    "hfTab": "Hugging Face", "loadedTab": "Loaded", "none": "No loaded models",
+    "hfTitle": "Hugging Face browser", "hfDesc": "Search and load models from Hub",
+    "hfSearch": "Search models...", "hfSearchBtn": "Search", "hfSearchTip": "Search Hugging Face Hub (GGUF, Safetensors, etc.)",
+    "hfLoad": "Load", "load": "Load", "hfPopular": "Popular", "downloads": "downloads"
+  },
   "help": {
-    "title": "Help", "intro": "NeuroForge — local AI runtime with 150+ settings.",
+    "title": "Help", "intro": "NeuroForge — local AI runtime: 79+ settings in 9 categories, Agent Studio, AI memory, network isolation.",
+    "featureMatrix": "Feature checklist",
     "sections": {
-      "system": "RAM, CPU, GPU, priorities.", "network": "Isolation and request monitor.",
-      "memory": "STM/LTM with transfer.", "injection": "Global injections.",
-      "agents": "Agent teams.", "devices": "Camera, mic, screen.", "reset": "Reset settings."
+      "system": "RAM, CPU, GPU, priorities, and turbo mode.",
+      "network": "Isolation, DuckDuckGo, real-time HTTP monitor.",
+      "memory": "STM (5–200 messages), LTM with importance, CHAT_ONLY / MODEL_SHARED / GLOBAL.",
+      "injection": "System prompt prepended to each message + global injections.",
+      "agents": "Agents section: 10 strategies, 12 roles, 14 tools, permissions and resources.",
+      "devices": "Camera, microphone, screen, files — multi-mode input.",
+      "reset": "Reset all settings to defaults."
+    },
+    "features": {
+      "orchestration": "10 orchestration strategies",
+      "roles": "12 agent roles",
+      "tools": "14 agent tools",
+      "permissions": "Permissions: internet, camera, mic, files, veto",
+      "resources": "Resources: RAM, CPU, tokens, temperature",
+      "groupSettings": "Group: rounds, timeout, consensus, conflicts",
+      "triggers": "Agent trigger conditions",
+      "monitor": "Real-time orchestration monitor",
+      "memoryLevels": "3 memory access levels",
+      "settings79": "79+ settings in 9 categories",
+      "onboarding9": "9-step onboarding",
+      "tooltips": "Tooltips for settings",
+      "hf": "Hugging Face browser",
+      "m3": "Material 3 UI"
     }
   },
-  "agents": { "title": "Agent teams", "runTeam": "Run", "prompt": "Task", "results": "Results" }
+  "agents": {
+    "title": "AI agent teams",
+    "subtitle": "Multi-model teamwork: roles, tools, orchestration, permissions",
+    "tabs": { "groups": "Groups", "editor": "Editor", "monitor": "Monitor" },
+    "addGroup": "New group", "newGroup": "New team",
+    "groupName": "Group name", "groupSettings": "Group settings",
+    "orchestration": "Orchestration strategy", "conflictMode": "Conflict resolution",
+    "maxRounds": "Max rounds", "timeout": "Timeout (sec)", "consensus": "Consensus threshold",
+    "feedbackLoops": "Feedback loops", "taskDecomposition": "Task decomposition",
+    "membersTitle": "Team agents", "members": "agents", "addMember": "Add agent",
+    "role": "Role", "trigger": "Trigger condition", "tools": "Tools",
+    "permissions": "Permissions", "systemPrompt": "System role", "systemPromptPh": "Instructions for this role...",
+    "maxTokens": "Max tokens", "runTeam": "Run team", "prompt": "Task for the team",
+    "results": "Results", "monitorTitle": "Orchestration monitor",
+    "monitorDesc": "Real-time execution events: start, agent replies, errors",
+    "clearMonitor": "Clear", "noEvents": "Run a team task — events will appear here",
+    "tip": {
+      "orchestration": "10 modes: sequential, round_robin, parallel, hierarchical, voting, debate, chain_of_thought, smart_router, map_reduce, expert_panel",
+      "conflict": "6 modes: leader, voting, consensus, merge, retry, escalate"
+    },
+    "perm": {
+      "internet": "Internet", "camera": "Camera", "microphone": "Microphone", "screen": "Screen",
+      "files": "Files", "tools": "Tools", "canDelegate": "Delegate",
+      "veto": "Veto", "stm": "STM", "ltm": "LTM", "sharedMemory": "Shared memory"
+    }
+  }
 }

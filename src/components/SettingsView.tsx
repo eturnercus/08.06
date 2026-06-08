@@ -13,26 +13,23 @@ import {
 } from "./settings/SettingsPanels";
 import "./ui/ui.css";
 
+/* 9 категорий по ТЗ */
 const TABS = [
-  { id: "innovation", icon: "🔮", highlight: true },
-  { id: "system", icon: "⚡" },
-  { id: "performance", icon: "🚀" },
-  { id: "memory", icon: "💾" },
-  { id: "network", icon: "🌐" },
-  { id: "security", icon: "🛡️" },
-  { id: "injection", icon: "✨", highlight: true },
+  { id: "ram", icon: "💾" },
+  { id: "cpu", icon: "⚡" },
   { id: "inference", icon: "🧠" },
-  { id: "devices", icon: "📷" },
-  { id: "agents", icon: "🤝" },
-  { id: "models", icon: "📦" },
-  { id: "ui", icon: "🎨" },
+  { id: "injection", icon: "✨" },
+  { id: "memory", icon: "🧬" },
+  { id: "internet", icon: "🌐" },
+  { id: "permissions", icon: "🔐" },
+  { id: "appearance", icon: "🎨" },
   { id: "advanced", icon: "🔧" },
 ] as const;
 
 export function SettingsView() {
   const { t } = useTranslation();
   const { settings, setSettings } = useAppStore();
-  const [tab, setTab] = useState("innovation");
+  const [tab, setTab] = useState("ram");
   const [draft, setDraft] = useState(settings);
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
@@ -99,12 +96,26 @@ export function SettingsView() {
           ))}
         </nav>
         <div className="settings-content scroll-y">
-          {tab === "system" && <SystemPanel d={d} u={update} />}
-          {tab === "innovation" && <InnovationPanel d={d} u={update} />}
-          {tab === "performance" && <PerformancePanel d={d} u={update} />}
-          {tab === "security" && <SecurityPanel d={d} u={update} />}
-          {tab === "memory" && <MemoryPanel d={d} u={update} />}
-          {tab === "network" && <NetworkPanel d={d} u={update} />}
+          {tab === "ram" && (
+            <>
+              <SystemPanel d={d} u={update} />
+              <PerformancePanel d={d} u={update} />
+            </>
+          )}
+          {tab === "cpu" && <SystemPanel d={d} u={update} />}
+          {tab === "memory" && (
+            <>
+              <MemoryPanel d={d} u={update} />
+              <InnovationPanel d={d} u={update} />
+            </>
+          )}
+          {tab === "internet" && (
+            <>
+              <NetworkPanel d={d} u={update} />
+              <SecurityPanel d={d} u={update} />
+            </>
+          )}
+          {tab === "permissions" && <SecurityPanel d={d} u={update} />}
           {tab === "injection" && <InjectionPanel d={d} u={update} />}
           {tab === "inference" && (
             <>
@@ -118,20 +129,7 @@ export function SettingsView() {
               <SettingToggle title="Speculative Decoding" value={inf.speculativeDecoding as boolean} onChange={(v) => update("inference", "speculativeDecoding", v)} />
             </>
           )}
-          {tab === "devices" && (
-            <>
-              <SectionTitle>{t("settings.devices.section")}</SectionTitle>
-              <SettingToggle title={t("settings.devices.camera")} value={dev.cameraEnabled as boolean} onChange={(v) => update("devices", "cameraEnabled", v)} />
-              <SettingToggle title={t("settings.devices.microphone")} value={dev.microphoneEnabled as boolean} onChange={(v) => update("devices", "microphoneEnabled", v)} />
-              <SettingToggle title={t("settings.devices.screen")} value={dev.screenCaptureEnabled as boolean} onChange={(v) => update("devices", "screenCaptureEnabled", v)} />
-              <SettingToggle title={t("settings.devices.virtualDisplay")} value={dev.virtualDisplayExtend as boolean} onChange={(v) => update("devices", "virtualDisplayExtend", v)} />
-              <SettingNumber title={t("settings.devices.maxAttachment")} value={dev.maxAttachmentMb as number} onChange={(v) => update("devices", "maxAttachmentMb", v)} />
-              <SettingToggle title={t("settings.devices.ocr")} value={dev.ocrOnImages as boolean} onChange={(v) => update("devices", "ocrOnImages", v)} />
-            </>
-          )}
-          {tab === "agents" && <AgentGroupsEditor draft={draft} setDraft={setDraft} />}
-          {tab === "models" && <ModelsEditor />}
-          {tab === "ui" && (
+          {tab === "appearance" && (
             <>
               <SettingSelect title={t("settings.language")} value={draft.language} options={[{ v: "ru", l: "Русский" }, { v: "en", l: "English" }]} onChange={(v) => setDraft({ ...draft, language: v })} />
               <SettingSelect title="Theme" value={ui.theme as string} options={["dark", "light", "oled", "midnight", "aurora"]} onChange={(v) => update("ui", "theme", v)} />
@@ -141,27 +139,17 @@ export function SettingsView() {
           )}
           {tab === "advanced" && (
             <>
+              <InnovationPanel d={d} u={update} />
+              <SectionTitle>{t("settings.tabs.advanced")}</SectionTitle>
               <SettingToggle title="Debug mode" value={adv.debugMode as boolean} onChange={(v) => update("advanced", "debugMode", v)} />
               <SettingToggle title="Watchdog" value={adv.watchdogEnabled as boolean} onChange={(v) => update("advanced", "watchdogEnabled", v)} />
               <SettingSelect title="Sandbox" value={adv.sandboxLevel as string} options={["minimal", "standard", "strict", "maximum"]} onChange={(v) => update("advanced", "sandboxLevel", v)} />
               <SettingSelect title="Log level" value={adv.logLevel as string} options={["trace", "debug", "info", "warn", "error"]} onChange={(v) => update("advanced", "logLevel", v)} />
+              <AgentGroupsEditor draft={draft} setDraft={setDraft} />
             </>
           )}
         </div>
       </div>
-      <style>{`
-        .settings { display: flex; flex-direction: column; height: 100%; }
-        .settings-toolbar { display: flex; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--bg-elevated); }
-        .settings-search { flex: 1; max-width: 360px; }
-        .settings-toolbar-actions { display: flex; gap: 8px; align-items: center; margin-left: auto; }
-        .settings-body { display: flex; flex: 1; overflow: hidden; }
-        .settings-nav { width: 200px; border-right: 1px solid var(--border); padding: 8px; display: flex; flex-direction: column; gap: 2px; }
-        .settings-nav-item { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); font-size: 12px; font-weight: 500; text-align: left; border: none; }
-        .settings-nav-item:hover { background: var(--bg-hover); color: var(--text); }
-        .settings-nav-item.active { background: rgba(124,108,255,0.12); color: var(--accent-bright); font-weight: 600; }
-        .settings-nav-item.highlight { border-left: 2px solid var(--accent-3); }
-        .settings-content { flex: 1; padding: 20px 28px; max-width: 720px; }
-      `}</style>
     </div>
   );
 }
