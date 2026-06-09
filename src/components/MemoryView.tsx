@@ -44,7 +44,6 @@ export function MemoryView() {
   return (
     <div className="memory-view">
       <h2>{t("memory.title")}</h2>
-      <p className="page-intro-desc memory-intro">{t("memory.pageIntro")}</p>
       <div className="memory-grid">
         <div className="card">
           <h3>{t("memory.stm")}</h3>

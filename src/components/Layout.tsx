@@ -58,10 +58,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="m3-main">
         <header className="m3-topbar">
-          <div className="m3-topbar-title-block">
-            <h1>{t(`nav.${activeView}`)}</h1>
-            <p className="m3-topbar-sub">{t(`nav.subtitle.${activeView}`)}</p>
-          </div>
+          <h1>{t(`nav.${activeView}`)}</h1>
           <div className="lang-switch">
             <button type="button" className={i18nInst.language === "ru" ? "active" : ""} onClick={() => switchLang("ru")}>RU</button>
             <button type="button" className={i18nInst.language === "en" ? "active" : ""} onClick={() => switchLang("en")}>EN</button>
