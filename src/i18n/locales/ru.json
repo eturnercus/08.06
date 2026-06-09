@@ -371,7 +371,20 @@
       "go": "Открыть",
       "search": "Поиск",
       "empty": "Страница появится после навигации агента",
-      "links": "Ссылки на странице"
+      "links": "Ссылки на странице",
+      "liveOn": "Live WebView",
+      "liveOff": "Preview",
+      "liveEnable": "DOM WebView",
+      "liveDisable": "Только preview",
+      "liveHint": "Live WebView: реальная страница в отдельном окне, клики через elementFromPoint / querySelector.",
+      "previewHint": "Preview: HTML через сеть в iframe; клики по ссылкам перехватываются postMessage.",
+      "showWindow": "Показать окно",
+      "domAction": "Последнее DOM-действие"
+    },
+    "capture": {
+      "ocr": "OCR экрана",
+      "stt": "STT (речь)",
+      "preview": "Снимок экрана"
     }
   }
 }

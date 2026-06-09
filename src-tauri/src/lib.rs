@@ -1,3 +1,4 @@
+mod agent_webview;
 mod agents;
 mod app_paths;
 mod desktop_agent;
@@ -14,6 +15,7 @@ mod inference_cancel;
 mod stream_sink;
 
 use agents::AgentOrchestrator;
+use agent_webview::AgentWebView;
 use desktop_agent::DesktopAgent;
 use inference_cancel::CancelRegistry;
 use inference::{ChatRequest, InferenceEngine};
@@ -32,6 +34,7 @@ pub struct AppState {
     pub agents: Arc<AgentOrchestrator>,
     pub cancel: Arc<CancelRegistry>,
     pub desktop: Arc<DesktopAgent>,
+    pub webview: Arc<AgentWebView>,
 }
 
 #[tauri::command]
@@ -126,7 +129,30 @@ fn get_audit_logs(max_lines: Option<usize>) -> Vec<String> {
 
 #[tauri::command]
 fn get_desktop_agent_state(state: State<'_, AppState>) -> desktop_agent::DesktopAgentSnapshot {
-    state.desktop.snapshot()
+    state.desktop.snapshot(&state.webview)
+}
+
+#[tauri::command]
+fn set_agent_webview_live(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> agent_webview::AgentWebViewState {
+    state.webview.set_live_enabled(&app, enabled);
+    state.webview.snapshot()
+}
+
+#[tauri::command]
+fn show_agent_webview(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    state.webview.show(&app)
+}
+
+#[tauri::command]
+fn hide_agent_webview(app: tauri::AppHandle, state: State<'_, AppState>) {
+    state.webview.hide(&app);
 }
 
 #[tauri::command]
@@ -173,7 +199,15 @@ async fn browser_navigate_in_app(
     state.desktop.set_dual_mouse(true, &app);
     let msg = state
         .desktop
-        .navigate(&app, &state.network, &settings, &url, chat_id.clone(), agent_id.clone())
+        .navigate(
+            &app,
+            &state.network,
+            &settings,
+            &url,
+            chat_id.clone(),
+            agent_id.clone(),
+            &state.webview,
+        )
         .await?;
     settings_engine::audit_log(
         &settings,
@@ -199,7 +233,15 @@ async fn browser_search_in_app(
     state.desktop.set_dual_mouse(true, &app);
     let msg = state
         .desktop
-        .search(&app, &state.network, &settings, &query, chat_id.clone(), agent_id.clone())
+        .search(
+            &app,
+            &state.network,
+            &settings,
+            &query,
+            chat_id.clone(),
+            agent_id.clone(),
+            &state.webview,
+        )
         .await?;
     settings_engine::audit_log(
         &settings,
@@ -216,6 +258,7 @@ async fn browser_click_in_app(
     link_index: Option<usize>,
     x: Option<f32>,
     y: Option<f32>,
+    selector: Option<String>,
     chat_id: Option<String>,
     agent_id: Option<String>,
 ) -> Result<String, String> {
@@ -225,18 +268,40 @@ async fn browser_click_in_app(
         return Err("Интернет отключён для этого чата".into());
     }
     state.desktop.set_dual_mouse(true, &app);
-    let msg = if let (Some(px), Some(py)) = (x, y) {
+    let msg = if let Some(sel) = selector.filter(|s| !s.trim().is_empty()) {
         state
             .desktop
-            .click_at(&app, &state.network, &settings, px, py, chat_id, agent_id)
+            .click_selector(&app, &state.webview, &sel)
+            .await?
+    } else if let (Some(px), Some(py)) = (x, y) {
+        state
+            .desktop
+            .click_at(
+                &app,
+                &state.network,
+                &settings,
+                px,
+                py,
+                chat_id,
+                agent_id,
+                &state.webview,
+            )
             .await?
     } else if let Some(idx) = link_index {
         state
             .desktop
-            .click_link(&app, &state.network, &settings, idx, chat_id, agent_id)
+            .click_link(
+                &app,
+                &state.network,
+                &settings,
+                idx,
+                chat_id,
+                agent_id,
+                &state.webview,
+            )
             .await?
     } else {
-        return Err("Укажите linkIndex или координаты x/y".into());
+        return Err("Укажите linkIndex, selector или координаты x/y".into());
     };
     settings_engine::audit_log(&settings, "browser", &format!("agent-browser click: {msg}"));
     Ok(msg)
@@ -263,7 +328,15 @@ async fn open_browser_url(
         state.desktop.set_dual_mouse(true, &app);
         state
             .desktop
-            .navigate(&app, &state.network, &settings, &url, chat_id.clone(), agent_id.clone())
+            .navigate(
+                &app,
+                &state.network,
+                &settings,
+                &url,
+                chat_id.clone(),
+                agent_id.clone(),
+                &state.webview,
+            )
             .await
             .unwrap_or_else(|e| format!("Ошибка агент-браузера: {e}"))
     } else {
@@ -446,6 +519,7 @@ async fn run_agent_team(
             &state.network,
             &inference,
             &state.desktop,
+            &state.webview,
             app,
             chat_id,
         )
@@ -521,6 +595,18 @@ fn capture_camera(state: State<'_, AppState>) -> devices::CaptureResult {
 }
 
 #[tauri::command]
+fn ocr_screen(state: State<'_, AppState>) -> devices::CaptureResult {
+    let settings = state.settings.lock().clone();
+    devices::DeviceManager::ocr_screen(&settings.devices)
+}
+
+#[tauri::command]
+fn transcribe_audio(state: State<'_, AppState>) -> devices::CaptureResult {
+    let settings = state.settings.lock().clone();
+    devices::DeviceManager::transcribe_audio(&settings.devices)
+}
+
+#[tauri::command]
 fn get_system_info(state: State<'_, AppState>) -> serde_json::Value {
     let settings = state.settings.lock().clone();
     serde_json::json!({
@@ -548,6 +634,7 @@ pub fn run() {
         agents: Arc::new(AgentOrchestrator::new()),
         cancel: Arc::new(CancelRegistry::new()),
         desktop: Arc::new(DesktopAgent::new()),
+        webview: Arc::new(AgentWebView::new()),
     };
 
     tauri::Builder::default()
@@ -564,6 +651,9 @@ pub fn run() {
             sync_chat_overrides,
             get_audit_logs,
             get_desktop_agent_state,
+            set_agent_webview_live,
+            show_agent_webview,
+            hide_agent_webview,
             virtual_mouse_move,
             virtual_mouse_scroll,
             browser_navigate_in_app,
@@ -589,6 +679,8 @@ pub fn run() {
             capture_screen,
             capture_audio,
             capture_camera,
+            ocr_screen,
+            transcribe_audio,
             get_system_info,
         ])
         .run(tauri::generate_context!())

@@ -371,7 +371,20 @@
       "go": "Open",
       "search": "Search",
       "empty": "Page appears after agent navigation",
-      "links": "Links on page"
+      "links": "Links on page",
+      "liveOn": "Live WebView",
+      "liveOff": "Preview",
+      "liveEnable": "DOM WebView",
+      "liveDisable": "Preview only",
+      "liveHint": "Live WebView: real page in a separate window; clicks via elementFromPoint / querySelector.",
+      "previewHint": "Preview: fetched HTML in iframe; link clicks use postMessage bridge.",
+      "showWindow": "Show window",
+      "domAction": "Last DOM action"
+    },
+    "capture": {
+      "ocr": "Screen OCR",
+      "stt": "Speech (STT)",
+      "preview": "Screen capture"
     }
   }
 }

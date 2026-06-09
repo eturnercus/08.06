@@ -135,8 +135,18 @@ export const api = {
     invoke<string>("browser_navigate_in_app", { url, chatId, agentId }),
   browserSearchInApp: (query: string, chatId?: string, agentId?: string) =>
     invoke<string>("browser_search_in_app", { query, chatId, agentId }),
-  browserClickInApp: (p: { linkIndex?: number; x?: number; y?: number; chatId?: string; agentId?: string }) =>
-    invoke<string>("browser_click_in_app", p),
+  browserClickInApp: (p: {
+    linkIndex?: number;
+    x?: number;
+    y?: number;
+    selector?: string;
+    chatId?: string;
+    agentId?: string;
+  }) => invoke<string>("browser_click_in_app", p),
+  setAgentWebviewLive: (enabled: boolean) =>
+    invoke<AgentWebViewState>("set_agent_webview_live", { enabled }),
+  showAgentWebview: () => invoke<void>("show_agent_webview"),
+  hideAgentWebview: () => invoke<void>("hide_agent_webview"),
   getMemoryStm: (chatId: string) => invoke<StmEntry[]>("get_memory_stm", { chatId }),
   getMemoryLtm: (chatId?: string) => invoke<LtmEntry[]>("get_memory_ltm", { chatId }),
   transferMemory: (p: {
@@ -163,9 +173,11 @@ export const api = {
       ? invoke<string>("get_models_directory")
       : Promise.resolve("~/.local/share/silenium/models"),
   getDeviceStatus: () => invoke<DeviceStatus>("get_device_status"),
-  captureScreen: () => invoke("capture_screen"),
-  captureAudio: () => invoke("capture_audio"),
-  captureCamera: () => invoke("capture_camera"),
+  captureScreen: () => invoke<CaptureResult>("capture_screen"),
+  captureAudio: () => invoke<CaptureResult>("capture_audio"),
+  captureCamera: () => invoke<CaptureResult>("capture_camera"),
+  ocrScreen: () => invoke<CaptureResult>("ocr_screen"),
+  transcribeAudio: () => invoke<CaptureResult>("transcribe_audio"),
   getSystemInfo: () => invoke<Record<string, unknown>>("get_system_info"),
 };
 
@@ -212,6 +224,26 @@ export interface DeviceStatus {
   microphoneAvailable: boolean;
   screenCaptureAvailable: boolean;
   virtualDisplayActive: boolean;
+  virtualDisplayResolution?: string;
+  ocrAvailable?: boolean;
+  sttAvailable?: boolean;
+}
+
+export interface CaptureResult {
+  success: boolean;
+  message: string;
+  dataBase64?: string;
+  mimeType?: string;
+  text?: string;
+}
+
+export interface AgentWebViewState {
+  liveEnabled: boolean;
+  windowVisible: boolean;
+  url: string;
+  title: string;
+  lastAction: string;
+  domMode: boolean;
 }
 
 export interface VirtualMouseState {
@@ -241,4 +273,5 @@ export interface DesktopAgentSnapshot {
   dualMouseEnabled: boolean;
   virtualMouse: VirtualMouseState;
   browser: AgentBrowserState;
+  webview?: AgentWebViewState;
 }

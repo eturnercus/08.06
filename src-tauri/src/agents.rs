@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+use crate::agent_webview::AgentWebView;
 use crate::desktop_agent::{self, DesktopAgent};
 use crate::inference::InferenceEngine;
 use crate::memory::MemoryStore;
@@ -64,6 +65,7 @@ impl AgentOrchestrator {
         network: &NetworkManager,
         inference: &InferenceEngine,
         desktop: &DesktopAgent,
+        webview: &AgentWebView,
         app: AppHandle,
         chat_id: Option<String>,
     ) -> Result<AgentTask, String> {
@@ -133,6 +135,7 @@ impl AgentOrchestrator {
                     settings,
                     network,
                     desktop,
+                    webview,
                     &prompt,
                     &mode,
                     inference,
@@ -256,6 +259,7 @@ async fn execute_member(
     settings: &AppSettings,
     network: &NetworkManager,
     desktop: &DesktopAgent,
+    webview: &AgentWebView,
     prompt: &str,
     mode: &str,
     inference: &InferenceEngine,
@@ -322,6 +326,7 @@ async fn execute_member(
                             &url,
                             chat_id.map(str::to_string),
                             Some(member.id.clone()),
+                            webview,
                         )
                         .await
                     {
@@ -340,6 +345,7 @@ async fn execute_member(
                         &q,
                         chat_id.map(str::to_string),
                         Some(member.id.clone()),
+                        webview,
                     )
                     .await
                 {
@@ -348,7 +354,7 @@ async fn execute_member(
                 }
             }
             if member.tools.iter().any(|t| t == "browser_click") {
-                let idx = find_link_index_in_prompt(prompt, &desktop.snapshot().browser.links);
+                let idx = find_link_index_in_prompt(prompt, &desktop.snapshot(webview).browser.links);
                 match desktop
                     .click_link(
                         app,
@@ -357,6 +363,7 @@ async fn execute_member(
                         idx,
                         chat_id.map(str::to_string),
                         Some(member.id.clone()),
+                        webview,
                     )
                     .await
                 {

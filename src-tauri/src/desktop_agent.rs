@@ -2,6 +2,7 @@ use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 
+use crate::agent_webview::{self, AgentWebView};
 use crate::network::{FetchParams, NetworkManager};
 use crate::settings::AppSettings;
 
@@ -42,6 +43,7 @@ pub struct DesktopAgentSnapshot {
     pub dual_mouse_enabled: bool,
     pub virtual_mouse: VirtualMouseState,
     pub browser: AgentBrowserState,
+    pub webview: agent_webview::AgentWebViewState,
 }
 
 struct Inner {
@@ -81,6 +83,7 @@ impl DesktopAgent {
                         message: String::new(),
                         links: Vec::new(),
                     },
+                    webview: agent_webview::AgentWebViewState::default(),
                 },
                 history: Vec::new(),
                 history_index: 0,
@@ -88,8 +91,10 @@ impl DesktopAgent {
         }
     }
 
-    pub fn snapshot(&self) -> DesktopAgentSnapshot {
-        self.inner.read().snapshot.clone()
+    pub fn snapshot(&self, webview: &AgentWebView) -> DesktopAgentSnapshot {
+        let mut snap = self.inner.read().snapshot.clone();
+        snap.webview = webview.snapshot();
+        snap
     }
 
     pub fn set_dual_mouse(&self, enabled: bool, app: &AppHandle) {
@@ -98,7 +103,7 @@ impl DesktopAgent {
             g.snapshot.dual_mouse_enabled = enabled;
             g.snapshot.virtual_mouse.visible = enabled;
         }
-        self.emit(app);
+        self.emit_app_only(app);
     }
 
     pub fn move_mouse(&self, app: &AppHandle, x: f32, y: f32, label: Option<String>) {
@@ -111,7 +116,7 @@ impl DesktopAgent {
                 g.snapshot.virtual_mouse.label = l;
             }
         }
-        self.emit(app);
+        self.emit_app_only(app);
     }
 
     pub fn scroll(&self, app: &AppHandle, delta_y: f32) {
@@ -120,7 +125,7 @@ impl DesktopAgent {
             g.snapshot.virtual_mouse.label = format!("scroll {delta_y:+.0}");
             g.snapshot.browser.message = format!("Прокрутка страницы: {delta_y:+.0}px");
         }
-        self.emit(app);
+        self.emit_app_only(app);
     }
 
     pub async fn search(
@@ -131,10 +136,11 @@ impl DesktopAgent {
         query: &str,
         chat_id: Option<String>,
         agent_id: Option<String>,
+        webview: &AgentWebView,
     ) -> Result<String, String> {
         let q = urlencoding::encode(query.trim());
         let url = format!("https://html.duckduckgo.com/html/?q={q}");
-        self.navigate(app, network, settings, &url, chat_id, agent_id)
+        self.navigate(app, network, settings, &url, chat_id, agent_id, webview)
             .await
     }
 
@@ -146,6 +152,7 @@ impl DesktopAgent {
         url: &str,
         chat_id: Option<String>,
         agent_id: Option<String>,
+        webview: &AgentWebView,
     ) -> Result<String, String> {
         ensure_desktop_browser(settings)?;
 
@@ -232,8 +239,16 @@ impl DesktopAgent {
             g.snapshot.virtual_mouse.visible = g.snapshot.dual_mouse_enabled;
             g.snapshot.virtual_mouse.label = "navigate".into();
         }
-        self.emit(app);
-        Ok(format!("Открыто в агент-браузере: {url}"))
+        self.emit(app, webview);
+
+        let mut msg = format!("Открыто в агент-браузере: {url}");
+        if webview.snapshot().live_enabled {
+            match webview.navigate(app, &url).await {
+                Ok(wv) => msg = format!("{msg} | {wv}"),
+                Err(e) => msg = format!("{msg} | Live WebView: {e}"),
+            }
+        }
+        Ok(msg)
     }
 
     pub async fn click_link(
@@ -244,6 +259,7 @@ impl DesktopAgent {
         index: usize,
         chat_id: Option<String>,
         agent_id: Option<String>,
+        webview: &AgentWebView,
     ) -> Result<String, String> {
         ensure_desktop_browser(settings)?;
         let (href, text, x, y) = {
@@ -260,9 +276,16 @@ impl DesktopAgent {
             (link.href.clone(), link.text.clone(), 0.5_f32, row.clamp(0.08, 0.92))
         };
 
-        self.animate_click(app, x, y, &text);
+        self.animate_click(app, x, y, &text, webview);
+
+        if webview.snapshot().live_enabled {
+            if let Ok(dom) = webview.click_norm(app, x, y).await {
+                return Ok(format!("ИИ-мышь + DOM: {dom}"));
+            }
+        }
+
         if href.starts_with("http://") || href.starts_with("https://") {
-            self.navigate(app, network, settings, &href, chat_id, agent_id)
+            self.navigate(app, network, settings, &href, chat_id, agent_id, webview)
                 .await
         } else {
             Ok(format!("Клик по «{text}» (локальная ссылка: {href})"))
@@ -278,23 +301,34 @@ impl DesktopAgent {
         y: f32,
         chat_id: Option<String>,
         agent_id: Option<String>,
+        webview: &AgentWebView,
     ) -> Result<String, String> {
         ensure_desktop_browser(settings)?;
-        let index = {
-            let g = self.inner.read();
-            let n = g.snapshot.browser.links.len();
-            if n == 0 {
-                self.animate_click(app, x, y, "click");
-                return Ok("Клик ИИ-мыши (нет ссылок на странице)".into());
+        let n = self.inner.read().snapshot.browser.links.len();
+        if n == 0 {
+            self.animate_click(app, x, y, "click", webview);
+            if webview.snapshot().live_enabled {
+                return webview.click_norm(app, x, y).await;
             }
-            ((y * n as f32) as usize).min(n - 1)
-        };
+            return Ok("Клик ИИ-мыши (нет ссылок на странице)".into());
+        }
+        let index = ((y * n as f32) as usize).min(n - 1);
         let link_index = {
             let g = self.inner.read();
             g.snapshot.browser.links.get(index).map(|l| l.index).unwrap_or(index)
         };
-        self.click_link(app, network, settings, link_index, chat_id, agent_id)
+        self.click_link(app, network, settings, link_index, chat_id, agent_id, webview)
             .await
+    }
+
+    pub async fn click_selector(
+        &self,
+        app: &AppHandle,
+        webview: &AgentWebView,
+        selector: &str,
+    ) -> Result<String, String> {
+        self.animate_click(app, 0.5, 0.5, selector, webview);
+        webview.click_selector(app, selector).await
     }
 
     pub fn back(&self, _app: &AppHandle) -> Option<String> {
@@ -309,7 +343,7 @@ impl DesktopAgent {
         url
     }
 
-    fn animate_click(&self, app: &AppHandle, x: f32, y: f32, label: &str) {
+    fn animate_click(&self, app: &AppHandle, x: f32, y: f32, label: &str, webview: &AgentWebView) {
         {
             let mut g = self.inner.write();
             g.snapshot.virtual_mouse.x = x.clamp(0.0, 1.0);
@@ -319,12 +353,12 @@ impl DesktopAgent {
             g.snapshot.virtual_mouse.label = label.to_string();
             g.snapshot.browser.message = format!("Клик ИИ-мыши: {label}");
         }
-        self.emit(app);
+        self.emit(app, webview);
         {
             let mut g = self.inner.write();
             g.snapshot.virtual_mouse.clicking = false;
         }
-        self.emit(app);
+        self.emit(app, webview);
     }
 
     fn set_loading(&self, app: &AppHandle, url: &str) {
@@ -334,7 +368,7 @@ impl DesktopAgent {
             g.snapshot.browser.url = url.to_string();
             g.snapshot.browser.message = format!("Загрузка {url}…");
         }
-        self.emit(app);
+        self.emit_app_only(app);
     }
 
     fn set_error(&self, app: &AppHandle, msg: &str) {
@@ -343,11 +377,16 @@ impl DesktopAgent {
             g.snapshot.browser.status = "error".into();
             g.snapshot.browser.message = msg.to_string();
         }
-        self.emit(app);
+        self.emit_app_only(app);
     }
 
-    fn emit(&self, app: &AppHandle) {
-        let _ = app.emit(DESKTOP_AGENT_EVENT, self.snapshot());
+    fn emit_app_only(&self, app: &AppHandle) {
+        let snap = self.inner.read().snapshot.clone();
+        let _ = app.emit(DESKTOP_AGENT_EVENT, snap);
+    }
+
+    fn emit(&self, app: &AppHandle, webview: &AgentWebView) {
+        let _ = app.emit(DESKTOP_AGENT_EVENT, self.snapshot(webview));
     }
 }
 
@@ -496,11 +535,12 @@ fn resolve_url(base: &str, href: &str) -> String {
 
 fn prepare_srcdoc(html: &str, base_url: &str) -> String {
     let body = sanitize_html(html);
+    let bridge = agent_webview::iframe_click_bridge_js();
     format!(
         r#"<!DOCTYPE html><html><head><meta charset="utf-8"><base href="{base_url}"><style>
 body{{font-family:system-ui,sans-serif;background:#12161f;color:#e2e8f0;padding:12px;line-height:1.45;font-size:14px}}
 a{{color:#9d8fff}}img{{max-width:100%}}table{{border-collapse:collapse;width:100%}}
-</style></head><body>{body}</body></html>"#
+</style>{bridge}</head><body>{body}</body></html>"#
     )
 }
 
