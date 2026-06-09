@@ -184,9 +184,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
           messages: c.messages.map((m, i) => ({
             ...m,
             id: m.id ?? `legacy-${c.id}-${i}`,
+            content:
+              m.role === "assistant" && m.content
+                ? sanitizeLlmOutput(m.content)
+                : m.content,
           })),
         }));
-        set({ chats, activeChatId: active && chats.some((c) => c.id === active) ? active : chats[0]?.id ?? null });
+        const activeChatId =
+          active && chats.some((c) => c.id === active) ? active : chats[0]?.id ?? null;
+        set({ chats, activeChatId });
+        persist(chats, activeChatId);
       }
     } catch { /* ignore */ }
   },
@@ -245,6 +252,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const full: ChatMessage = {
         ...msg,
         id: msg.id ?? `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        content:
+          msg.role === "assistant" && msg.content
+            ? sanitizeLlmOutput(msg.content)
+            : msg.content,
       };
       const chats = s.chats.map((c) =>
         c.id === chatId ? { ...c, messages: [...c.messages, full] } : c

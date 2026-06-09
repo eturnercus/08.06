@@ -8,6 +8,7 @@ import { MessageBubble } from "./chat/MessageBubble";
 import { ChatSettingsPanel } from "./chats/ChatSettingsPanel";
 import { api } from "../api/tauri";
 import { isTauri } from "../api/browserFallback";
+import { sanitizeLlmOutput } from "../utils/sanitizeLlm";
 import { MediaCapture, MediaAttachment } from "./chat/MediaCapture";
 import { EmptyState } from "./ui/EmptyState";
 
@@ -141,7 +142,7 @@ export function ChatView() {
         if (!streamOn) {
           addMessage(chat.id, {
             role: "assistant",
-            content: resp.content,
+            content: sanitizeLlmOutput(resp.content),
             tokens: resp.completionTokens ?? resp.tokensUsed,
             promptTokens: resp.promptTokens,
             completionTokens: resp.completionTokens ?? resp.tokensUsed,

@@ -33,6 +33,7 @@ const ROLE_LEAK_MARKERS: &[&str] = &[
 
 /// Bracketed innovation/injection tags that small models often echo from the system prompt.
 const INNOVATION_LEAK_MARKERS: &[&str] = &[
+    "[context DNA",
     "[context DNA]",
     "[temporal anchor]",
     "[thought stream",
@@ -46,7 +47,14 @@ const INNOVATION_LEAK_MARKERS: &[&str] = &[
     "[neural mesh]",
     "[ambient harvest]",
     "[resonance ",
+    "context DNA]",
+    "temporal anchor]",
 ];
+
+/// True when text is a known innovation-prompt echo (old builds injected bracket tags).
+pub fn is_innovation_artifact(text: &str) -> bool {
+    INNOVATION_LEAK_MARKERS.iter().any(|m| text.contains(m)) || detect_repetition_loop(text)
+}
 
 pub fn truncate_at_template_leak(text: &str) -> String {
     let mut cut = text.len();
@@ -160,5 +168,13 @@ mod tests {
     fn stops_on_innovation_marker_during_generation() {
         let raw = "Ответ.[context DNA] 6af507f8";
         assert!(generation_should_stop(raw));
+    }
+
+    #[test]
+    fn strips_reported_user_artifact_loop() {
+        let raw = "Test:[context DNA] 6af507f8cd7d77cc[temporal anchor] Учитывай контекст последних 60 минут разговор.[thought stream 120ms, max 1024 reasoning tokens] Сначала кратко рассуждай";
+        let s = sanitize_llm_output(raw);
+        assert_eq!(s, "Test:");
+        assert!(is_innovation_artifact(raw));
     }
 }

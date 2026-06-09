@@ -853,7 +853,9 @@ impl InferenceEngine {
 
         if stm_enabled {
             for entry in &stm_snapshot {
-                if is_legacy_stub(&entry.content) {
+                if is_legacy_stub(&entry.content)
+                    || crate::llm_sanitize::is_innovation_artifact(&entry.content)
+                {
                     continue;
                 }
                 let role = if entry.role == "assistant" {

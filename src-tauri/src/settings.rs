@@ -755,17 +755,24 @@ pub fn settings_path() -> PathBuf {
     path
 }
 
+fn migrate_settings(mut settings: AppSettings) -> AppSettings {
+    // Bracketed innovation injections removed in v1.0.1+; disable legacy flags on disk.
+    settings.innovation.context_dna = false;
+    settings.innovation.holographic_context = false;
+    settings
+}
+
 pub fn load_settings() -> AppSettings {
     let path = settings_path();
     if path.exists() {
         if let Ok(raw) = fs::read_to_string(&path) {
             let try_plain = serde_json::from_str::<AppSettings>(&raw);
             if let Ok(settings) = try_plain {
-                return settings;
+                return migrate_settings(settings);
             }
             let decrypted = crate::storage_crypto::decrypt_at_rest(&raw, true);
             if let Ok(settings) = serde_json::from_str::<AppSettings>(&decrypted) {
-                return settings;
+                return migrate_settings(settings);
             }
         }
     }
