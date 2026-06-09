@@ -43,6 +43,8 @@ Built artifacts: `src-tauri/target/release/bundle/`
   - **Agent Studio** (10 orchestration strategies, 12 roles, 14 tools, permissions, resources): nav rail → **Агенты / Agents** → tabs Группы / Редактор / Монитор.
   - **150+ settings**: nav → **Настройки / Settings** (RAM, CPU, inference, innovations, security, performance, injections, AI memory, internet, permissions, appearance, advanced).
   - **Agent browser + dual AI mouse**: nav → **Устройства / Devices** (requires Browser automation + Desktop control in Settings → Permissions).
+  - **Live WebView DOM mode**: Devices → Agent browser → **DOM WebView** toggle opens a separate Tauri webview window; agent clicks use `elementFromPoint` / CSS `querySelector` via injected JS bridge. Preview iframe uses postMessage for link clicks.
+  - **Screen capture / OCR / STT**: Devices → capture buttons. Linux capture: `scrot`, `grim`, `gnome-screenshot`, `import`, or `ffmpeg x11grab`. OCR needs `tesseract` (+ `tesseract-ocr-rus`). STT needs `whisper` or `whisper-cli` with a model. Enable screen/mic in Settings → Permissions → Devices first.
   - **Per-chat permissions & memory level (CHAT_ONLY / MODEL_SHARED / GLOBAL)**: nav → **Чаты** → bottom panel in chat sidebar.
   - **DuckDuckGo search + activity log**: nav → **Сеть / Network**.
   - **Hugging Face browser**: nav → **Модели / Models** → Hugging Face tab.
