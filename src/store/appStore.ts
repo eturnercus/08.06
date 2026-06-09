@@ -109,6 +109,8 @@ interface AppStore {
       meta?: Record<string, string | number | boolean | undefined>;
     }
   ) => void;
+  /** Close stuck streaming placeholders before a new send. */
+  closeOrphanStreamMessages: (chatId: string) => void;
   pushMonitorEvent: (e: MonitorEvent) => void;
   appendAgentStreamDelta: (
     taskId: string,
@@ -285,36 +287,69 @@ export const useAppStore = create<AppStore>((set, get) => ({
       persist(chats, s.activeChatId);
       return { chats };
     }),
+  closeOrphanStreamMessages: (chatId) =>
+    set((s) => {
+      const chats = s.chats.map((c) => {
+        if (c.id !== chatId) return c;
+        let changed = false;
+        const messages = c.messages.map((m) => {
+          if (m.role === "assistant" && m.streaming) {
+            changed = true;
+            return {
+              ...m,
+              streaming: false,
+              cancelled: !m.content?.trim(),
+            };
+          }
+          return m;
+        });
+        return changed ? { ...c, messages } : c;
+      });
+      persist(chats, s.activeChatId);
+      return { chats };
+    }),
   finalizeStreamMessage: (chatId, patch) =>
     set((s) => {
       const chats = s.chats.map((c) => {
         if (c.id !== chatId) return c;
         const messages = [...c.messages];
+        let updated = false;
+        const applyPatch = (idx: number) => {
+          const prev = messages[idx];
+          const hasBody = Boolean(prev.content?.trim() || prev.thinking?.trim());
+          const rawContent =
+            patch.content ?? (hasBody ? prev.content : (patch.error ?? prev.content));
+          messages[idx] = {
+            ...prev,
+            streaming: false,
+            streamTokens: undefined,
+            content: sanitizeLlmOutput(rawContent),
+            thinking: prev.thinking,
+            tokens: patch.completionTokens ?? patch.tokens ?? prev.tokens,
+            promptTokens: patch.promptTokens ?? prev.promptTokens,
+            completionTokens: patch.completionTokens ?? patch.tokens ?? prev.completionTokens,
+            latencyMs: patch.latencyMs ?? prev.latencyMs,
+            cancelled: patch.cancelled ?? prev.cancelled,
+            meta: {
+              ...prev.meta,
+              ...patch.meta,
+              ...(patch.cancelled ? { stopped: true } : {}),
+            },
+          };
+          updated = true;
+        };
         for (let i = messages.length - 1; i >= 0; i--) {
           if (messages[i].role === "assistant" && messages[i].streaming) {
-            const prev = messages[i];
-            const hasBody = Boolean(prev.content?.trim() || prev.thinking?.trim());
-            const rawContent =
-              patch.content ?? (hasBody ? prev.content : (patch.error ?? prev.content));
-            const content = sanitizeLlmOutput(rawContent);
-            messages[i] = {
-              ...prev,
-              streaming: false,
-              streamTokens: undefined,
-              content,
-              thinking: prev.thinking,
-              tokens: patch.completionTokens ?? patch.tokens ?? prev.tokens,
-              promptTokens: patch.promptTokens ?? prev.promptTokens,
-              completionTokens: patch.completionTokens ?? patch.tokens ?? prev.completionTokens,
-              latencyMs: patch.latencyMs ?? prev.latencyMs,
-              cancelled: patch.cancelled ?? prev.cancelled,
-              meta: {
-                ...prev.meta,
-                ...patch.meta,
-                ...(patch.cancelled ? { stopped: true } : {}),
-              },
-            };
+            applyPatch(i);
             break;
+          }
+        }
+        if (!updated && patch.content?.trim()) {
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === "assistant" && !messages[i].content?.trim()) {
+              applyPatch(i);
+              break;
+            }
           }
         }
         return { ...c, messages };

@@ -139,9 +139,13 @@ pub fn filter_model_output(settings: &AppSettings, text: &str) -> String {
 /// Used when the chat has no custom system instructions — keeps small models from deflecting.
 pub fn default_chat_system_prompt(settings: &AppSettings) -> String {
     if settings.language == "en" {
-        "You are Silenium, a helpful local AI assistant. Answer the user's question directly in their language. Do not ask them to rephrase unless the message is empty or nonsense.".into()
+        "You are Silenium, a helpful local AI assistant. Answer directly in the user's language. \
+         When asked for code, output complete code in a fenced block — do not keep asking what features to add. \
+         Do not repeat the same reply; use the conversation history.".into()
     } else {
-        "Ты — Silenium, полезный локальный ассистент. Отвечай по существу на языке пользователя. Не проси переформулировать вопрос, если он уже понятен — дай прямой ответ, даже краткий.".into()
+        "Ты — Silenium, полезный локальный ассистент. Отвечай по существу на языке пользователя. \
+         Если просят код — сразу пиши готовый код в блоке ```язык, без бесконечных уточнений. \
+         Не повторяй один и тот же ответ; учитывай историю диалога.".into()
     }
 }
 
@@ -336,6 +340,7 @@ pub fn filter_stm(settings: &AppSettings, entries: Vec<StmEntry>) -> Vec<StmEntr
         let skip = out.len() - max_msgs;
         out = out.into_iter().skip(skip).collect();
     }
+    out = dedupe_repetitive_stm(out);
     if settings.innovation.chronosync_memory {
         out = chronosync_bucket(out, &settings.innovation.chronosync_granularity);
     }
@@ -343,6 +348,44 @@ pub fn filter_stm(settings: &AppSettings, entries: Vec<StmEntry>) -> Vec<StmEntr
         out = trim_cognitive_load(out, settings);
     }
     out
+}
+
+/// Drop echoed assistant replies that small models repeat turn after turn.
+fn dedupe_repetitive_stm(entries: Vec<StmEntry>) -> Vec<StmEntry> {
+    let mut out: Vec<StmEntry> = Vec::with_capacity(entries.len());
+    for e in entries {
+        if e.role == "assistant" {
+            let dup = out
+                .iter()
+                .rev()
+                .take(6)
+                .filter(|p| p.role == "assistant")
+                .any(|p| stm_content_similar(&p.content, &e.content));
+            if dup {
+                continue;
+            }
+            if crate::llm_sanitize::is_innovation_artifact(&e.content) {
+                continue;
+            }
+        }
+        out.push(e);
+    }
+    out
+}
+
+fn stm_content_similar(a: &str, b: &str) -> bool {
+    let na = a.trim().to_lowercase();
+    let nb = b.trim().to_lowercase();
+    if na.is_empty() || nb.is_empty() {
+        return false;
+    }
+    if na == nb {
+        return true;
+    }
+    if na.len() < 24 || nb.len() < 24 {
+        return false;
+    }
+    na.contains(&nb) || nb.contains(&na)
 }
 
 fn chronosync_bucket(entries: Vec<StmEntry>, granularity: &str) -> Vec<StmEntry> {

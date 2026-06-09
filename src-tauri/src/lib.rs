@@ -1,6 +1,7 @@
 mod agent_webview;
 mod agent_workspace;
 mod agents;
+mod chat_template;
 mod app_paths;
 mod desktop_agent;
 mod devices;

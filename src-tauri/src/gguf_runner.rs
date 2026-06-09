@@ -388,13 +388,13 @@ fn run_cli_backend(
     let mmap = resolve_mmap(p.mmap_enabled, &p.swap_usage);
     let n_ctx = resolve_context_len(p.n_ctx, p.ram_limit_mb, &p.swap_usage);
 
-    let prompt = p
-        .messages
-        .iter()
-        .map(|(role, content)| format!("{role}: {content}"))
-        .collect::<Vec<_>>()
-        .join("\n")
-        + "\nassistant:";
+    let messages = crate::chat_template::trim_messages_for_context(
+        &p.model_path,
+        p.messages.clone(),
+        n_ctx,
+        p.max_tokens.saturating_add(64),
+    );
+    let prompt = crate::chat_template::format_messages_prompt(&p.model_path, &messages)?;
 
     let cfg = LlamaCliConfig {
         model_path: p.model_path.clone(),

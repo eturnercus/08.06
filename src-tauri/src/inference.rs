@@ -870,6 +870,14 @@ impl InferenceEngine {
 
         messages.push(("user".into(), user_turn.clone()));
 
+        let n_ctx_budget = settings.inference.context_length.max(2048);
+        messages = crate::chat_template::trim_messages_for_context(
+            &model_path,
+            messages,
+            n_ctx_budget,
+            max_tok.saturating_add(64),
+        );
+
         let response_content = if model_path.is_empty() || effective_model_id == "default" {
             "Скачайте встроенную модель Silenium Starter в свойствах чата или выберите локальную GGUF в разделе «Модели».".into()
         } else if model_format != "gguf" && model_format != "ggml" {
