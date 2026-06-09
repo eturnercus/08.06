@@ -1,6 +1,7 @@
 use parking_lot::RwLock;
 #[cfg(feature = "embedded-llama")]
 use parking_lot::Mutex;
+use reqwest::redirect::Policy;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -13,9 +14,9 @@ use crate::gguf_runner::GgufRuntime;
 use crate::memory::MemoryStore;
 use crate::settings::AppSettings;
 use crate::settings_engine::{
-    self, check_user_input, cross_modal_user_note, effective_max_tokens, effective_temperature,
-    enrich_system_prompt, filter_model_output, filter_stm, maybe_dream_consolidate, recall_ltm,
-    synaptic_backend_pref, tune_generate_params,
+    self, check_user_input, cross_modal_user_note, default_reply_max_tokens, effective_max_tokens,
+    effective_temperature, enrich_system_prompt, filter_model_output, filter_stm,
+    maybe_dream_consolidate, recall_ltm, resolve_gguf_runtime_pref, tune_generate_params,
 };
 use crate::stream_sink::{AgentStreamSink, StreamSink, TokenSink};
 
@@ -34,6 +35,14 @@ pub struct ModelInfo {
     pub verified: bool,
     #[serde(default)]
     pub download_progress: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HfModelHit {
+    pub id: String,
+    pub downloads: Option<u64>,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,11 +83,15 @@ pub struct AttachmentRef {
 #[serde(rename_all = "camelCase")]
 pub struct ChatResponse {
     pub content: String,
+    /// Completion (output) tokens — same as `completion_tokens`.
     pub tokens_used: u32,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
     pub latency_ms: u64,
     pub memory_recalled: u32,
     pub injection_applied: bool,
     pub model_id: String,
+    pub max_tokens_limit: u32,
 }
 
 pub struct InferenceEngine {
@@ -99,12 +112,63 @@ fn sanitize_repo(repo: &str) -> String {
     repo.replace('/', "--")
 }
 
+/// Pick the best GGUF file from a Hugging Face repo listing.
+fn is_lfs_pointer(bytes: &[u8]) -> bool {
+    bytes.len() < 2048 && bytes.starts_with(b"version https://git-lfs.github.com")
+}
+
+fn pick_best_gguf(paths: &[String]) -> Option<String> {
+    let candidates: Vec<&String> = paths
+        .iter()
+        .filter(|p| {
+            let lower = p.to_lowercase();
+            !lower.contains("mmproj")
+                && !lower.contains("imatrix")
+                && !lower.contains("vision")
+        })
+        .collect();
+    if candidates.is_empty() {
+        return None;
+    }
+    let score = |p: &str| -> i32 {
+        let l = p.to_lowercase();
+        if l.contains("q4_k_m") {
+            100
+        } else if l.contains("q5_k_m") {
+            90
+        } else if l.contains("q4_0") {
+            80
+        } else if l.contains("q4_k_s") {
+            75
+        } else if l.contains("q8_0") {
+            70
+        } else if l.contains("q6_k") {
+            65
+        } else if l.contains("q5_0") {
+            60
+        } else if l.contains("q3_k") {
+            40
+        } else if l.contains("q2_k") {
+            20
+        } else if l.contains("f16") || l.contains("f32") {
+            10
+        } else {
+            50
+        }
+    };
+    candidates
+        .into_iter()
+        .max_by_key(|p| score(p))
+        .cloned()
+}
+
 impl InferenceEngine {
     pub fn new() -> Self {
         let engine = Self {
             loaded_models: RwLock::new(HashMap::new()),
             client: Client::builder()
-                .user_agent("Silenium/1.0")
+                .user_agent("Silenium/1.0 (+https://github.com/eturnercus/Silenium)")
+                .redirect(Policy::limited(10))
                 .timeout(std::time::Duration::from_secs(600))
                 .build()
                 .unwrap_or_default(),
@@ -190,6 +254,16 @@ impl InferenceEngine {
     }
 
     pub fn load_model(&self, path: &str, name: &str, require_integrity: bool) -> Result<ModelInfo, String> {
+        self.load_model_with_id(path, name, require_integrity, None)
+    }
+
+    pub fn load_model_with_id(
+        &self,
+        path: &str,
+        name: &str,
+        require_integrity: bool,
+        custom_id: Option<&str>,
+    ) -> Result<ModelInfo, String> {
         if !Path::new(path).exists() {
             return Err(format!("Файл модели не найден: {path}"));
         }
@@ -198,7 +272,9 @@ impl InferenceEngine {
         if size < 1024 {
             return Err("Файл модели слишком мал или повреждён".into());
         }
-        let id = format!("model-{}", path.replace(['/', '\\', '.'], "-"));
+        let id = custom_id
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("model-{}", path.replace(['/', '\\', '.'], "-")));
         if require_integrity && !Self::verify_file(Path::new(path)) {
             return Err("Проверка целостности модели не пройдена".into());
         }
@@ -239,35 +315,66 @@ impl InferenceEngine {
             .await
             .map_err(|e| format!("Некорректный ответ API: {e}"))?;
 
-        let gguf_path = files
+        let paths: Vec<String> = files
             .iter()
             .filter_map(|f| f.get("path").and_then(|p| p.as_str()))
-            .find(|p| p.ends_with(".gguf") || p.ends_with(".GGUF"))
-            .ok_or_else(|| {
-                "В репозитории нет GGUF файла. Скачайте GGUF-версию модели вручную.".to_string()
-            })?;
+            .filter(|p| p.ends_with(".gguf") || p.ends_with(".GGUF"))
+            .map(str::to_string)
+            .collect();
+        let gguf_path = pick_best_gguf(&paths).ok_or_else(|| {
+            "В репозитории нет GGUF файла. Скачайте GGUF-версию модели вручную.".to_string()
+        })?;
 
-        let download_url = format!("https://huggingface.co/{repo}/resolve/main/{gguf_path}");
+        let encoded_path = gguf_path
+            .split('/')
+            .map(urlencoding::encode)
+            .map(|s| s.into_owned())
+            .collect::<Vec<_>>()
+            .join("/");
+        let download_url =
+            format!("https://huggingface.co/{repo}/resolve/main/{encoded_path}?download=true");
         let dest_dir = models_directory().join(sanitize_repo(repo));
         fs::create_dir_all(&dest_dir).map_err(|e| e.to_string())?;
         let dest_path = dest_dir.join(
-            Path::new(gguf_path)
+            Path::new(&gguf_path)
                 .file_name()
                 .and_then(|s| s.to_str())
                 .unwrap_or("model.gguf"),
         );
 
-        let bytes = self
+        let resp = self
             .client
             .get(&download_url)
             .send()
             .await
-            .map_err(|e| format!("Ошибка загрузки: {e}"))?
+            .map_err(|e| format!("Ошибка загрузки: {e}"))?;
+        if !resp.status().is_success() {
+            return Ok(DownloadResult {
+                success: false,
+                model: None,
+                message: format!(
+                    "Hugging Face вернул HTTP {}. Проверьте интернет и имя репозитория.",
+                    resp.status()
+                ),
+                bytes_downloaded: 0,
+                verified: false,
+            });
+        }
+        let bytes = resp
             .bytes()
             .await
             .map_err(|e| format!("Ошибка чтения данных: {e}"))?;
 
         let nbytes = bytes.len() as u64;
+        if is_lfs_pointer(&bytes) {
+            return Ok(DownloadResult {
+                success: false,
+                model: None,
+                message: "Получен LFS-указатель вместо файла модели. Повторите загрузку.".into(),
+                bytes_downloaded: nbytes,
+                verified: false,
+            });
+        }
         if nbytes < 4096 {
             return Ok(DownloadResult {
                 success: false,
@@ -293,7 +400,22 @@ impl InferenceEngine {
             });
         }
 
-        let model = self.load_model(dest_path.to_str().unwrap(), repo, true)?;
+        let custom_id = if repo == Self::STARTER_MODEL_REPO {
+            Some(Self::STARTER_MODEL_ID)
+        } else {
+            None
+        };
+        let display_name = if repo == Self::STARTER_MODEL_REPO {
+            "Silenium Starter (SmolLM2-360M)"
+        } else {
+            repo
+        };
+        let model = self.load_model_with_id(
+            dest_path.to_str().unwrap(),
+            display_name,
+            true,
+            custom_id,
+        )?;
         Ok(DownloadResult {
             success: true,
             model: Some(model),
@@ -309,32 +431,59 @@ impl InferenceEngine {
     pub fn list_models(&self) -> Vec<ModelInfo> {
         self.scan_directory();
         let mut models: Vec<_> = self.loaded_models.read().values().cloned().collect();
-        if !models.iter().any(|m| m.id == "default") {
+        let has_starter = models.iter().any(|m| m.id == Self::STARTER_MODEL_ID && !m.path.is_empty());
+        if !has_starter && !models.iter().any(|m| m.id == Self::STARTER_MODEL_ID) {
             models.insert(
                 0,
                 ModelInfo {
-                    id: "default".into(),
-                    name: "Default (встроенная)".into(),
+                    id: Self::STARTER_MODEL_ID.into(),
+                    name: "Silenium Starter (SmolLM2-360M) — скачать".into(),
                     path: String::new(),
                     format: "gguf".into(),
                     backend: "builtin".into(),
                     size_bytes: 0,
-                    loaded: true,
+                    loaded: false,
                     source: "builtin".into(),
-                    verified: true,
-                    download_progress: 100,
+                    verified: false,
+                    download_progress: 0,
                 },
             );
         }
-        models.sort_by(|a, b| a.name.cmp(&b.name));
+        models.sort_by(|a, b| {
+            if a.id == Self::STARTER_MODEL_ID {
+                std::cmp::Ordering::Less
+            } else if b.id == Self::STARTER_MODEL_ID {
+                std::cmp::Ordering::Greater
+            } else {
+                a.name.cmp(&b.name)
+            }
+        });
         models
+    }
+
+    pub fn resolve_effective_model_id(&self, model_id: &str) -> String {
+        if model_id != "default" && model_id != Self::STARTER_MODEL_ID {
+            return model_id.to_string();
+        }
+        let map = self.loaded_models.read();
+        if let Some(m) = map.get(Self::STARTER_MODEL_ID) {
+            if !m.path.is_empty() {
+                return Self::STARTER_MODEL_ID.to_string();
+            }
+        }
+        for m in map.values() {
+            if !m.path.is_empty() && m.loaded {
+                return m.id.clone();
+            }
+        }
+        model_id.to_string()
     }
 
     pub fn verify_model(&self, model_id: &str, require_integrity: bool) -> Result<bool, String> {
         let map = self.loaded_models.read();
         let m = map.get(model_id).ok_or("Модель не найдена")?;
         if m.path.is_empty() {
-            return Ok(m.id == "default");
+            return Ok(false);
         }
         let ok = Self::verify_file(Path::new(&m.path));
         if require_integrity && !ok {
@@ -351,6 +500,9 @@ impl InferenceEngine {
         system: &str,
         user_message: &str,
         agent_stream: &mut Option<AgentStreamSink>,
+        max_tokens: u32,
+        temperature: f32,
+        cancel: Option<&std::sync::atomic::AtomicBool>,
     ) -> Result<String, String> {
         let model_info = self.loaded_models.read().get(model_id).cloned();
         let model_path = model_info
@@ -361,7 +513,7 @@ impl InferenceEngine {
             return Err("Модель не выбрана для агента".into());
         }
         let model_size_bytes = model_info.as_ref().map(|m| m.size_bytes).unwrap_or(0);
-        let backend = synaptic_backend_pref(settings);
+        let backend = resolve_gguf_runtime_pref(settings);
         let mut messages = Vec::new();
         if !system.is_empty() {
             messages.push(("system".into(), system.to_string()));
@@ -370,11 +522,15 @@ impl InferenceEngine {
         let mut gen = GenerateParams {
             model_path,
             messages,
-            temperature: effective_temperature(settings, settings.inference.temperature),
-            max_tokens: effective_max_tokens(settings, 512),
+            temperature: effective_temperature(settings, temperature),
+            max_tokens: effective_max_tokens(settings, max_tokens.max(64)),
+            top_p: settings.inference.top_p,
+            top_k: settings.inference.top_k,
+            repeat_penalty: settings.inference.repeat_penalty,
             n_ctx: settings.inference.context_length.max(2048),
             threads: settings.system.thread_count.max(1),
             gpu_layers: settings.system.gpu_layers,
+            compute_device: settings.system.compute_device.clone(),
             gpu_memory_mb: settings.system.gpu_memory_mb,
             vram_reserve_mb: settings.system.vram_reserve_mb,
             ram_limit_mb: settings.system.ram_limit_mb,
@@ -392,18 +548,123 @@ impl InferenceEngine {
         #[cfg(feature = "embedded-llama")]
         {
             let gguf_guard = self.gguf.lock();
-            return match agent_stream.as_mut() {
-                Some(sink) => {
-                    generate_with_best_backend(gguf_guard.as_ref(), gen, Some(sink as &mut dyn TokenSink), None)
-                }
-                None => generate_with_best_backend(gguf_guard.as_ref(), gen, None, None),
+            let result = match agent_stream.as_mut() {
+                Some(sink) => generate_with_best_backend(
+                    gguf_guard.as_ref(),
+                    gen,
+                    Some(sink as &mut dyn TokenSink),
+                    cancel,
+                ),
+                None => generate_with_best_backend(gguf_guard.as_ref(), gen, None, cancel),
             };
+            return result.map(|r| r.text);
         }
         #[cfg(not(feature = "embedded-llama"))]
-        match agent_stream.as_mut() {
-            Some(sink) => generate_with_best_backend(gen, Some(sink as &mut dyn TokenSink), None),
-            None => generate_with_best_backend(gen, None, None),
+        {
+            let result = match agent_stream.as_mut() {
+                Some(sink) => generate_with_best_backend(gen, Some(sink as &mut dyn TokenSink), cancel),
+                None => generate_with_best_backend(gen, None, cancel),
+            };
+            result.map(|r| r.text)
         }
+    }
+
+    pub const STARTER_MODEL_REPO: &str = "bartowski/SmolLM2-360M-Instruct-GGUF";
+    pub const STARTER_MODEL_ID: &str = "silenium-starter";
+
+    pub fn has_usable_local_model(&self) -> bool {
+        self.loaded_models
+            .read()
+            .values()
+            .any(|m| !m.path.is_empty() && m.loaded)
+    }
+
+    pub fn starter_installed(&self) -> bool {
+        self.loaded_models
+            .read()
+            .get(Self::STARTER_MODEL_ID)
+            .map(|m| !m.path.is_empty() && Path::new(&m.path).exists())
+            .unwrap_or(false)
+    }
+
+    pub async fn download_starter_model(&self, force: bool) -> Result<DownloadResult, String> {
+        if !force && self.starter_installed() {
+            let model = self
+                .loaded_models
+                .read()
+                .get(Self::STARTER_MODEL_ID)
+                .cloned();
+            return Ok(DownloadResult {
+                success: true,
+                model,
+                message: "Silenium Starter уже установлен.".into(),
+                bytes_downloaded: 0,
+                verified: true,
+            });
+        }
+        self.download_huggingface(Self::STARTER_MODEL_REPO).await
+    }
+
+    pub async fn ensure_starter_model(&self) -> Result<Option<ModelInfo>, String> {
+        if self.starter_installed() {
+            return Ok(
+                self.loaded_models
+                    .read()
+                    .get(Self::STARTER_MODEL_ID)
+                    .cloned(),
+            );
+        }
+        if self.has_usable_local_model() {
+            return Ok(None);
+        }
+        let result = self.download_starter_model(false).await?;
+        if result.success {
+            Ok(result.model)
+        } else {
+            Err(result.message)
+        }
+    }
+
+    pub async fn search_huggingface(&self, query: &str, limit: u32) -> Result<Vec<HfModelHit>, String> {
+        let url = format!(
+            "https://huggingface.co/api/models?search={}&limit={}&sort=downloads",
+            urlencoding::encode(query),
+            limit.max(1).min(50)
+        );
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| format!("Ошибка поиска Hugging Face: {e}"))?;
+        if !resp.status().is_success() {
+            return Err(format!("Поиск недоступен: HTTP {}", resp.status()));
+        }
+        let raw: Vec<serde_json::Value> = resp
+            .json()
+            .await
+            .map_err(|e| format!("Некорректный ответ поиска: {e}"))?;
+        Ok(raw
+            .into_iter()
+            .filter_map(|v| {
+                let id = v.get("id")?.as_str()?.to_string();
+                let downloads = v.get("downloads").and_then(|d| d.as_u64());
+                let tags: Vec<String> = v
+                    .get("tags")
+                    .and_then(|t| t.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|x| x.as_str().map(str::to_string))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                Some(HfModelHit {
+                    id,
+                    downloads,
+                    tags,
+                })
+            })
+            .collect())
     }
 
     fn build_system_prompt(
@@ -412,6 +673,7 @@ impl InferenceEngine {
         ltm_enabled: bool,
         memory: &MemoryStore,
         chat_id: &str,
+        model_id: &str,
         user_message: &str,
         chat_system: Option<&str>,
     ) -> (String, bool) {
@@ -437,7 +699,7 @@ impl InferenceEngine {
                 parts.push(inj.hidden_context.clone());
             }
             if inj.inject_memory_summary && ltm_enabled {
-                let recalled = recall_ltm(memory, settings, chat_id, user_message);
+                let recalled = recall_ltm(memory, settings, chat_id, user_message, model_id);
                 if !recalled.is_empty() {
                     let summary: String = recalled
                         .iter()
@@ -500,11 +762,16 @@ impl InferenceEngine {
             .and_then(|o| o.ltm_enabled)
             .unwrap_or(settings.memory.ltm_enabled);
 
-        let model_info = self.loaded_models.read().get(&request.model_id).cloned();
+        let effective_model_id = self.resolve_effective_model_id(&request.model_id);
+        let model_info = self
+            .loaded_models
+            .read()
+            .get(&effective_model_id)
+            .cloned();
         let model_name = model_info
             .as_ref()
             .map(|m| m.name.clone())
-            .unwrap_or_else(|| request.model_id.clone());
+            .unwrap_or_else(|| effective_model_id.clone());
         let model_path = model_info
             .as_ref()
             .map(|m| m.path.clone())
@@ -514,6 +781,10 @@ impl InferenceEngine {
             .map(|m| m.format.clone())
             .unwrap_or_else(|| "gguf".into());
         let model_size_bytes = model_info.as_ref().map(|m| m.size_bytes).unwrap_or(0);
+        let max_tok = effective_max_tokens(
+            settings,
+            request.max_tokens.unwrap_or_else(default_reply_max_tokens),
+        );
 
         let user_message = match check_user_input(settings, &request.message) {
             Ok(m) => m,
@@ -524,10 +795,13 @@ impl InferenceEngine {
                 return ChatResponse {
                     content: e,
                     tokens_used: 0,
+                    prompt_tokens: 0,
+                    completion_tokens: 0,
                     latency_ms: start.elapsed().as_millis() as u64,
                     memory_recalled: 0,
                     injection_applied: false,
-                    model_id: request.model_id.clone(),
+                    model_id: effective_model_id.clone(),
+                    max_tokens_limit: max_tok,
                 };
             }
         };
@@ -536,12 +810,8 @@ impl InferenceEngine {
             settings,
             request.temperature.unwrap_or(settings.inference.temperature),
         );
-        let max_tok = effective_max_tokens(
-            settings,
-            request
-                .max_tokens
-                .unwrap_or(settings.inference.context_length),
-        );
+        let mut prompt_tokens = 0u32;
+        let mut completion_tokens = 0u32;
 
         let (base_system, injection_applied) = Self::build_system_prompt(
             settings,
@@ -549,9 +819,13 @@ impl InferenceEngine {
             ltm_enabled,
             memory,
             &request.chat_id,
+            &effective_model_id,
             &user_message,
             request.system_prompt.as_deref(),
         );
+        let ram_limit_mb = override_cfg
+            .and_then(|o| o.ram_limit_mb)
+            .unwrap_or(settings.system.ram_limit_mb);
 
         let stm_snapshot = if stm_enabled {
             filter_stm(settings, memory.get_stm(&request.chat_id))
@@ -593,25 +867,29 @@ impl InferenceEngine {
 
         messages.push(("user".into(), user_turn.clone()));
 
-        let response_content = if model_path.is_empty() || request.model_id == "default" {
-            "Выберите локальную GGUF-модель в свойствах чата (панель слева) или загрузите её в разделе «Модели».".into()
+        let response_content = if model_path.is_empty() || effective_model_id == "default" {
+            "Скачайте встроенную модель Silenium Starter в свойствах чата или выберите локальную GGUF в разделе «Модели».".into()
         } else if model_format != "gguf" && model_format != "ggml" {
             format!(
                 "Формат «{model_format}» пока не поддерживается для вывода. Используйте файл .gguf."
             )
         } else {
-            let backend = synaptic_backend_pref(settings);
+            let backend = resolve_gguf_runtime_pref(settings);
             let mut gen = GenerateParams {
                 model_path: model_path.clone(),
                 messages,
                 temperature: temp,
                 max_tokens: max_tok,
+                top_p: settings.inference.top_p,
+                top_k: settings.inference.top_k,
+                repeat_penalty: settings.inference.repeat_penalty,
                 n_ctx: settings.inference.context_length.max(2048),
                 threads: settings.system.thread_count.max(1),
                 gpu_layers: settings.system.gpu_layers,
+                compute_device: settings.system.compute_device.clone(),
                 gpu_memory_mb: settings.system.gpu_memory_mb,
                 vram_reserve_mb: settings.system.vram_reserve_mb,
-                ram_limit_mb: settings.system.ram_limit_mb,
+                ram_limit_mb,
                 mmap_enabled: settings.system.mmap_enabled,
                 mlock_enabled: settings.system.mlock_enabled,
                 swap_usage: settings.system.swap_usage.clone(),
@@ -641,12 +919,16 @@ impl InferenceEngine {
                 None => generate_with_best_backend(gen, None),
             };
             match inference_result {
-                Ok(text) => filter_model_output(settings, &text),
+                Ok(result) => {
+                    prompt_tokens = result.prompt_tokens;
+                    completion_tokens = result.completion_tokens;
+                    filter_model_output(settings, &result.text)
+                }
                 Err(err) => format!("Ошибка инференса ({model_name}): {err}"),
             }
         };
 
-        maybe_dream_consolidate(memory, settings, &request.chat_id, &request.model_id);
+        maybe_dream_consolidate(memory, settings, &request.chat_id, &effective_model_id);
 
         if stm_enabled {
             memory.add_stm(
@@ -666,7 +948,7 @@ impl InferenceEngine {
             let importance = settings_engine::neuroplastic_importance(settings, 0.5, turn_index);
             memory.add_ltm(
                 &request.chat_id,
-                &request.model_id,
+                &effective_model_id,
                 &user_message,
                 importance,
                 vec!["conversation".into()],
@@ -685,21 +967,70 @@ impl InferenceEngine {
         );
 
         let latency_ms = start.elapsed().as_millis() as u64;
-        let tokens_used = (user_message.len() + response_content.len()) as u32 / 4;
+        let tokens_used = completion_tokens;
+        let memory_recalled_count = if ltm_enabled {
+            recall_ltm(memory, settings, &request.chat_id, &user_message, &effective_model_id).len()
+                as u32
+        } else {
+            0
+        };
         if let Some(sink) = stream.as_mut() {
-            sink.finish(tokens_used, latency_ms);
+            if response_content.contains("остановлена пользователем")
+                || cancel.is_some_and(|f| f.load(std::sync::atomic::Ordering::SeqCst))
+            {
+                sink.cancelled(latency_ms);
+            } else {
+                sink.finish(
+                    tokens_used,
+                    prompt_tokens,
+                    completion_tokens,
+                    latency_ms,
+                    &effective_model_id,
+                    memory_recalled_count,
+                    injection_applied,
+                    max_tok,
+                );
+            }
         }
         ChatResponse {
             content: response_content,
             tokens_used,
+            prompt_tokens,
+            completion_tokens,
             latency_ms,
-            memory_recalled: if ltm_enabled {
-                recall_ltm(memory, settings, &request.chat_id, &user_message).len() as u32
-            } else {
-                0
-            },
+            memory_recalled: memory_recalled_count,
             injection_applied,
-            model_id: request.model_id.clone(),
+            model_id: effective_model_id,
+            max_tokens_limit: max_tok,
         }
+    }
+}
+
+#[cfg(test)]
+mod hf_download_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn search_huggingface_returns_gguf_repos() {
+        let engine = InferenceEngine::new();
+        let hits = engine
+            .search_huggingface("gguf", 5)
+            .await
+            .expect("HF search");
+        assert!(!hits.is_empty(), "expected at least one model");
+        assert!(hits.iter().any(|h| !h.id.is_empty()));
+    }
+
+    #[tokio::test]
+    async fn download_starter_model_succeeds() {
+        let engine = InferenceEngine::new();
+        let result = engine
+            .download_starter_model(true)
+            .await
+            .expect("starter download");
+        assert!(result.success, "{}", result.message);
+        assert!(result.verified);
+        assert!(result.bytes_downloaded > 1_000_000);
+        assert!(engine.starter_installed());
     }
 }

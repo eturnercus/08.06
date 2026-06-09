@@ -1,13 +1,15 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store/appStore";
 import { useModels } from "../hooks/useModels";
 import { useChatStream } from "../hooks/useChatStream";
 import { useChatScroll } from "../hooks/useChatScroll";
 import { MessageBubble } from "./chat/MessageBubble";
+import { ChatSettingsPanel } from "./chats/ChatSettingsPanel";
 import { api } from "../api/tauri";
 import { isTauri } from "../api/browserFallback";
 import { MediaCapture, MediaAttachment } from "./chat/MediaCapture";
+import { EmptyState } from "./ui/EmptyState";
 
 export function ChatView() {
   const { t } = useTranslation();
@@ -24,6 +26,7 @@ export function ChatView() {
   const { models } = useModels();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [attachments, setAttachments] = useState<MediaAttachment[]>([]);
 
@@ -33,11 +36,16 @@ export function ChatView() {
     (g) => g.id === chat?.agentGroupId
   );
 
+  useEffect(() => {
+    setInput("");
+    setAttachments([]);
+  }, [activeChatId]);
+
   const { containerRef, onScroll, onFocus } = useChatScroll([
     chat?.id,
     chat?.messages.length,
     chat?.messages[chat.messages.length - 1]?.content,
-    chat?.messages[chat.messages.length - 1]?.streamTokens,
+    chat?.messages[chat.messages.length - 1]?.content?.length,
   ]);
 
   const streamOn =
@@ -56,45 +64,64 @@ export function ChatView() {
       stmEnabled: chat.permissions.stm,
       ltmEnabled: chat.permissions.ltm,
       agentGroupId: chat.agentGroupId,
+      workspacePath: chat.workspacePath,
+      ramLimitMb: chat.ramLimitMb,
+      memoryAccess: chat.memoryAccess,
     });
   };
 
   const handleStop = async () => {
     if (!chat || !isTauri()) return;
+    if (chat.agentGroupId) {
+      await api.stopAgentTeam().catch(() => {});
+    }
     await api.stopChat(chat.id);
-    finalizeStreamMessage(chat.id, { cancelled: true, error: t("chat.stopped") });
+    finalizeStreamMessage(chat.id, { cancelled: true });
     setLoading(false);
     setActiveGeneration(null);
   };
 
   const handleSend = async () => {
     if ((!input.trim() && attachments.length === 0) || !chat) return;
+    const userText = input.trim() || t("chat.mediaOnly");
+    const sentAttachments = [...attachments];
+    setInput("");
+    setAttachments([]);
     setLoading(true);
     setActiveGeneration(chat.id);
-    const userText = input.trim() || t("chat.mediaOnly");
-    addMessage(chat.id, { role: "user", content: userText });
+    addMessage(chat.id, {
+      role: "user",
+      content: userText,
+      attachments: sentAttachments.map((a) => ({
+        name: a.name,
+        mimeType: a.mimeType,
+        sizeBytes: a.sizeBytes,
+      })),
+    });
     await syncOverrides();
 
-    if (streamOn) {
-      addMessage(chat.id, { role: "assistant", content: "", streaming: true, streamTokens: 0 });
+    const useAgentTeam = Boolean(chat.agentGroupId && isTauri());
+    if (streamOn && !useAgentTeam) {
+      addMessage(chat.id, { role: "assistant", content: "", streaming: true });
     }
 
     try {
-      if (chat.agentGroupId && isTauri()) {
-        const task = await api.runAgentTeam(chat.agentGroupId, userText, chat.id);
-        task.rounds.forEach((round) => {
-          round.messages.forEach((m) => {
-            addMessage(chat.id, {
-              role: "assistant",
-              agentName: m.agentName,
-              content: m.content,
-              meta: {
-                round: round.roundNumber,
-                tools: m.toolsUsed?.join(", ") ?? "",
-                internet: m.usedInternet ? "yes" : "no",
-              },
-            });
-          });
+      if (useAgentTeam) {
+        const task = await api.runAgentTeam(chat.agentGroupId!, userText, chat.id);
+        const finalText =
+          task.finalResponse?.trim() ||
+          task.rounds.at(-1)?.messages.at(-1)?.content ||
+          t("chat.agentNoResponse");
+        addMessage(chat.id, {
+          role: "assistant",
+          agentName: agentGroup?.name ?? t("chat.agentTeam"),
+          content: finalText,
+          meta: {
+            team: true,
+            rounds: task.rounds.length,
+            status: task.status,
+            agents: task.rounds.reduce((n, r) => n + r.messages.length, 0),
+          },
         });
       } else {
         const resp = await api.sendChat({
@@ -104,7 +131,7 @@ export function ChatView() {
           systemPrompt: chat.systemPrompt || undefined,
           temperature: chat.temperature,
           maxTokens: chat.maxTokens,
-          attachments: attachments.map((a) => ({
+          attachments: sentAttachments.map((a) => ({
             name: a.name,
             mimeType: a.mimeType,
             sizeBytes: a.sizeBytes,
@@ -115,27 +142,31 @@ export function ChatView() {
           addMessage(chat.id, {
             role: "assistant",
             content: resp.content,
-            tokens: resp.tokensUsed,
+            tokens: resp.completionTokens ?? resp.tokensUsed,
+            promptTokens: resp.promptTokens,
+            completionTokens: resp.completionTokens ?? resp.tokensUsed,
             latencyMs: resp.latencyMs,
             meta: {
               modelId: resp.modelId,
+              promptTokens: resp.promptTokens,
+              completionTokens: resp.completionTokens ?? resp.tokensUsed,
+              maxTokensLimit: resp.maxTokensLimit,
               memoryRecalled: resp.memoryRecalled,
               injection: resp.injectionApplied,
             },
           });
         }
       }
-      setInput("");
-      setAttachments([]);
     } catch (e) {
       const err = String(e);
-      if (streamOn || err.includes("остановлена")) {
+      const stopped = err.includes("остановлена") || err.includes("cancelled");
+      if (streamOn || stopped) {
         finalizeStreamMessage(chat.id, {
-          cancelled: err.includes("остановлена"),
-          error: err.includes("остановлена") ? t("chat.stopped") : `Error: ${e}`,
+          cancelled: stopped,
+          error: stopped ? undefined : `Error: ${e}`,
         });
       } else {
-        addMessage(chat.id, { role: "assistant", content: `Error: ${e}` });
+        addMessage(chat.id, { role: "assistant", content: t("chat.errorGeneric", { err: String(e) }) });
       }
     }
     setLoading(false);
@@ -144,11 +175,16 @@ export function ChatView() {
 
   if (!chat) {
     return (
-      <div className="chat-empty">
-        <div className="chat-empty-icon">💬</div>
-        <h2>{t("chat.newChat")}</h2>
-        <button type="button" className="m3-filled-btn" onClick={() => addChat()}>{t("chat.newChat")}</button>
-      </div>
+      <EmptyState
+        icon="💬"
+        title={t("chat.emptyTitle")}
+        description={t("chat.emptyDesc")}
+        action={
+          <button type="button" className="m3-filled-btn" onClick={() => addChat()}>
+            + {t("chat.newChat")}
+          </button>
+        }
+      />
     );
   }
 
@@ -170,7 +206,17 @@ export function ChatView() {
               : <span className="badge badge-red">{t("chat.offline")}</span>}
           </div>
         </div>
-        <button type="button" className="m3-outlined-btn" onClick={() => addChat()}>+ {t("chat.newChat")}</button>
+        <div className="chat-toolbar-actions">
+          <button
+            type="button"
+            className={`m3-outlined-btn chat-settings-toggle${settingsOpen ? " active" : ""}`}
+            onClick={() => setSettingsOpen((v) => !v)}
+            aria-expanded={settingsOpen}
+          >
+            ⚙ {t("chat.settingsTitle")}
+          </button>
+          <button type="button" className="m3-outlined-btn" onClick={() => addChat()}>+ {t("chat.newChat")}</button>
+        </div>
       </div>
 
       <div
@@ -181,12 +227,17 @@ export function ChatView() {
       >
         {chat.messages.length === 0 && (
           <div className="chat-welcome">
-            <span className="chat-welcome-icon">🧠</span>
-            <p>{t("chat.welcomeHint")}</p>
+            <span className="chat-welcome-icon" aria-hidden>👋</span>
+            <h3 className="chat-welcome-title">{t("chat.welcomeTitle")}</h3>
+            <ul className="chat-welcome-steps">
+              <li>{t("chat.welcomeStep1")}</li>
+              <li>{t("chat.welcomeStep2")}</li>
+              <li>{t("chat.welcomeStep3")}</li>
+            </ul>
           </div>
         )}
-        {chat.messages.map((m, i) => (
-          <MessageBubble key={i} message={m} />
+        {chat.messages.map((m) => (
+          <MessageBubble key={m.id} message={m} />
         ))}
         {loading && !chat.messages.some((m) => m.streaming) && (
           <div className="bubble-row assistant">
@@ -197,6 +248,10 @@ export function ChatView() {
             </div>
           </div>
         )}
+      </div>
+
+      <div className={`chat-settings-drawer${settingsOpen ? "" : " collapsed"}`}>
+        <ChatSettingsPanel chatId={chat.id} />
       </div>
 
       {attachments.length > 0 && (

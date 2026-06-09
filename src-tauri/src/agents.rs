@@ -4,13 +4,19 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+use crate::agent_webview::AgentWebView;
+use crate::agent_workspace;
 use crate::desktop_agent::{self, DesktopAgent};
 use crate::inference::InferenceEngine;
+use crate::inference_cancel::CancelRegistry;
 use crate::memory::MemoryStore;
 use crate::network::NetworkManager;
-use crate::settings::{AgentMember, AppSettings};
+use crate::settings::{AgentGroupConfig, AgentMember, AppSettings};
 use crate::settings_engine::{self, check_user_input, filter_model_output, swarm_agent_count};
-use crate::stream_sink::{AgentStreamSink, stream_buffer_ms};
+use crate::stream_sink::{
+    emit_orchestration, AgentOrchestrationPayload, AgentStreamSink, stream_buffer_ms,
+};
+use std::sync::atomic::Ordering;
 use tauri::AppHandle;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,6 +29,8 @@ pub struct AgentTask {
     pub orchestration_mode: String,
     pub rounds: Vec<AgentRound>,
     pub created_at: DateTime<Utc>,
+    #[serde(default)]
+    pub final_response: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,13 +54,27 @@ pub struct AgentMessage {
 
 pub struct AgentOrchestrator {
     tasks: RwLock<HashMap<String, AgentTask>>,
+    current_task_id: RwLock<Option<String>>,
 }
 
 impl AgentOrchestrator {
     pub fn new() -> Self {
         Self {
             tasks: RwLock::new(HashMap::new()),
+            current_task_id: RwLock::new(None),
         }
+    }
+
+    pub fn current_task_id(&self) -> Option<String> {
+        self.current_task_id.read().clone()
+    }
+
+    pub fn stop_task(&self, cancel_reg: &CancelRegistry, task_id: &str) {
+        cancel_reg.cancel(task_id);
+    }
+
+    pub fn stop_agent(&self, cancel_reg: &CancelRegistry, task_id: &str, agent_id: &str) {
+        cancel_reg.cancel(&format!("{task_id}:{agent_id}"));
     }
 
     pub async fn run_team_task(
@@ -64,6 +86,8 @@ impl AgentOrchestrator {
         network: &NetworkManager,
         inference: &InferenceEngine,
         desktop: &DesktopAgent,
+        webview: &AgentWebView,
+        cancel_reg: &CancelRegistry,
         app: AppHandle,
         chat_id: Option<String>,
     ) -> Result<AgentTask, String> {
@@ -76,7 +100,14 @@ impl AgentOrchestrator {
             .ok_or("Группа агентов не найдена или отключена")?;
 
         let task_id = Uuid::new_v4().to_string();
+        *self.current_task_id.write() = Some(task_id.clone());
+        let _task_cancel = cancel_reg.begin(&task_id);
         let memory_scope = chat_id.as_deref().unwrap_or(&task_id);
+        let workspace_path = chat_id
+            .as_deref()
+            .and_then(|id| settings.per_chat_overrides.get(id))
+            .and_then(|o| o.workspace_path.clone())
+            .filter(|p| !p.trim().is_empty());
         let mode = group.orchestration_mode.clone();
         let mut task = AgentTask {
             id: task_id.clone(),
@@ -86,13 +117,35 @@ impl AgentOrchestrator {
             orchestration_mode: mode.clone(),
             rounds: Vec::new(),
             created_at: Utc::now(),
+            final_response: String::new(),
         };
+
+        emit_orchestration(
+            &app,
+            AgentOrchestrationPayload {
+                task_id: task_id.clone(),
+                group_id: group.id.clone(),
+                group_name: group.name.clone(),
+                orchestration_mode: mode.clone(),
+                round: 0,
+                phase: "task_start".into(),
+                agent_id: None,
+                agent_name: None,
+                model_id: None,
+                status: "running".into(),
+                message: Some(prompt.chars().take(120).collect()),
+            },
+        );
 
         let max_rounds = group.max_rounds.max(1).min(50);
         let mut context = prompt.to_string();
         let mut had_failure = false;
 
         for round in 0..max_rounds {
+            if cancel_reg.is_cancelled(&task_id) {
+                task.status = "cancelled".into();
+                break;
+            }
             let ordered = order_members(&group.members, &mode, round);
             let active: Vec<_> = ordered
                 .into_iter()
@@ -123,9 +176,58 @@ impl AgentOrchestrator {
                 }
             };
 
+            emit_orchestration(
+                &app,
+                AgentOrchestrationPayload {
+                    task_id: task_id.clone(),
+                    group_id: group.id.clone(),
+                    group_name: group.name.clone(),
+                    orchestration_mode: mode.clone(),
+                    round: round + 1,
+                    phase: "round_start".into(),
+                    agent_id: None,
+                    agent_name: None,
+                    model_id: None,
+                    status: "running".into(),
+                    message: Some(format!("{} agents", members_to_run.len())),
+                },
+            );
+
             let mut round_msgs = Vec::new();
 
             for member in &members_to_run {
+                if cancel_reg.is_cancelled(&task_id)
+                    || cancel_reg.is_cancelled(&format!("{}:{}", task_id, member.id))
+                {
+                    round_msgs.push(AgentMessage {
+                        agent_id: member.id.clone(),
+                        agent_name: member.name.clone(),
+                        role: member.role.clone(),
+                        content: "[остановлено]".into(),
+                        used_internet: false,
+                        tools_used: vec![],
+                        timestamp: Utc::now(),
+                    });
+                    continue;
+                }
+
+                emit_orchestration(
+                    &app,
+                    AgentOrchestrationPayload {
+                        task_id: task_id.clone(),
+                        group_id: group.id.clone(),
+                        group_name: group.name.clone(),
+                        orchestration_mode: mode.clone(),
+                        round: round + 1,
+                        phase: "agent_start".into(),
+                        agent_id: Some(member.id.clone()),
+                        agent_name: Some(member.name.clone()),
+                        model_id: Some(member.model_id.clone()),
+                        status: "running".into(),
+                        message: Some(member.role.clone()),
+                    },
+                );
+
                 let injection = build_agent_injection(settings, &member.id, &context, member);
                 let (response, used_internet, tools_used) = execute_member(
                     member,
@@ -133,15 +235,39 @@ impl AgentOrchestrator {
                     settings,
                     network,
                     desktop,
+                    webview,
                     &prompt,
                     &mode,
                     inference,
                     memory,
                     &task_id,
                     chat_id.as_deref(),
+                    workspace_path.as_deref(),
+                    cancel_reg,
                     &app,
                 )
                 .await;
+
+                emit_orchestration(
+                    &app,
+                    AgentOrchestrationPayload {
+                        task_id: task_id.clone(),
+                        group_id: group.id.clone(),
+                        group_name: group.name.clone(),
+                        orchestration_mode: mode.clone(),
+                        round: round + 1,
+                        phase: "agent_done".into(),
+                        agent_id: Some(member.id.clone()),
+                        agent_name: Some(member.name.clone()),
+                        model_id: Some(member.model_id.clone()),
+                        status: if response.starts_with('[') && response.contains("остановлено") {
+                            "cancelled".into()
+                        } else {
+                            "ok".into()
+                        },
+                        message: Some(response.chars().take(160).collect()),
+                    },
+                );
 
                 if member.permissions.stm {
                     memory.add_stm(
@@ -191,8 +317,41 @@ impl AgentOrchestrator {
             }
         }
 
-        task.status = "completed".into();
-        self.tasks.write().insert(task_id, task.clone());
+        if task.status != "cancelled" {
+            task.final_response = finalize_team_response(
+                group,
+                settings,
+                inference,
+                &task,
+                &context,
+                cancel_reg,
+                &task_id,
+                &app,
+            )
+            .await;
+            task.status = "completed".into();
+        }
+
+        emit_orchestration(
+            &app,
+            AgentOrchestrationPayload {
+                task_id: task_id.clone(),
+                group_id: group.id.clone(),
+                group_name: group.name.clone(),
+                orchestration_mode: mode.clone(),
+                round: task.rounds.len() as u32,
+                phase: "task_done".into(),
+                agent_id: None,
+                agent_name: None,
+                model_id: None,
+                status: task.status.clone(),
+                message: Some(task.final_response.chars().take(200).collect()),
+            },
+        );
+
+        self.tasks.write().insert(task_id.clone(), task.clone());
+        *self.current_task_id.write() = None;
+        cancel_reg.finish(&task_id);
         Ok(task)
     }
 
@@ -256,29 +415,41 @@ async fn execute_member(
     settings: &AppSettings,
     network: &NetworkManager,
     desktop: &DesktopAgent,
+    webview: &AgentWebView,
     prompt: &str,
     mode: &str,
     inference: &InferenceEngine,
     memory: &MemoryStore,
     task_id: &str,
     chat_id: Option<&str>,
+    workspace_path: Option<&str>,
+    cancel_reg: &CancelRegistry,
     app: &AppHandle,
 ) -> (String, bool, Vec<String>) {
+    let agent_cancel_key = format!("{task_id}:{}", member.id);
+    if cancel_reg.is_cancelled(task_id) || cancel_reg.is_cancelled(&agent_cancel_key) {
+        return ("[остановлено]".into(), false, vec![]);
+    }
+    let agent_cancel = cancel_reg.begin(&agent_cancel_key);
     let tools_used: Vec<String> = member.tools.clone();
     let mut used_internet = false;
     let mut tool_notes = Vec::new();
 
-    if member.permissions.internet
-        && settings.network.allow_internet
-        && member.tools.iter().any(|t| t == "web_search")
-    {
+    let chat_allow = chat_id
+        .and_then(|id| settings.per_chat_overrides.get(id))
+        .and_then(|o| o.allow_internet)
+        .unwrap_or(settings.network.allow_internet);
+    let net_allowed =
+        settings.network.allow_internet && chat_allow && member.permissions.internet;
+
+    if net_allowed && member.tools.iter().any(|t| t == "web_search") {
         let q = prompt.chars().take(120).collect::<String>();
         match network
             .web_search(
                 &q,
                 Some(member.id.clone()),
-                Some(task_id.to_string()),
-                true,
+                chat_id.map(str::to_string),
+                net_allowed,
                 settings,
             )
             .await
@@ -322,6 +493,7 @@ async fn execute_member(
                             &url,
                             chat_id.map(str::to_string),
                             Some(member.id.clone()),
+                            webview,
                         )
                         .await
                     {
@@ -340,6 +512,7 @@ async fn execute_member(
                         &q,
                         chat_id.map(str::to_string),
                         Some(member.id.clone()),
+                        webview,
                     )
                     .await
                 {
@@ -348,7 +521,7 @@ async fn execute_member(
                 }
             }
             if member.tools.iter().any(|t| t == "browser_click") {
-                let idx = find_link_index_in_prompt(prompt, &desktop.snapshot().browser.links);
+                let idx = find_link_index_in_prompt(prompt, &desktop.snapshot(webview).browser.links);
                 match desktop
                     .click_link(
                         app,
@@ -357,6 +530,7 @@ async fn execute_member(
                         idx,
                         chat_id.map(str::to_string),
                         Some(member.id.clone()),
+                        webview,
                     )
                     .await
                 {
@@ -368,10 +542,43 @@ async fn execute_member(
     }
 
     if member.tools.iter().any(|t| t == "memory_query") {
-        let recalled = settings_engine::recall_ltm(memory, settings, task_id, prompt);
+        let recall_chat = chat_id.unwrap_or(task_id);
+        let recalled =
+            settings_engine::recall_ltm(memory, settings, recall_chat, prompt, &member.model_id);
         if !recalled.is_empty() {
             tool_notes.push(format!("memory_query: {} записей LTM", recalled.len()));
         }
+    }
+
+    if member.permissions.files {
+        if member.tools.iter().any(|t| t == "file_read") {
+            if let Some(ws) = workspace_path {
+                if let Some(path) = agent_workspace::extract_file_path_from_prompt(prompt) {
+                    match agent_workspace::read_file(ws, &path, 512_000) {
+                        Ok(text) => {
+                            tool_notes.push(format!("file_read [{path}]: {} симв.", text.chars().count()));
+                        }
+                        Err(e) => tool_notes.push(format!("file_read [error]: {e}")),
+                    }
+                }
+            } else if member.tools.iter().any(|t| t == "file_read") {
+                tool_notes.push("file_read [skipped]: задайте рабочую папку в свойствах чата".into());
+            }
+        }
+        if member.tools.iter().any(|t| t == "file_write") {
+            if let Some(ws) = workspace_path {
+                let out = format!("agent-{task_id}-{}.md", member.id);
+                let body = format!("# {}\n\n{}\n", member.name, prompt.chars().take(2000).collect::<String>());
+                match agent_workspace::write_file(ws, &out, &body) {
+                    Ok(msg) => tool_notes.push(format!("file_write [ok]: {msg}")),
+                    Err(e) => tool_notes.push(format!("file_write [error]: {e}")),
+                }
+            }
+        }
+    }
+
+    if member.tools.iter().any(|t| t == "image_analyze") {
+        tool_notes.push("image_analyze: назначьте vision-модель агенту (отдельный участник с GGUF multimodal)".into());
     }
 
     let model_id = if member.model_id.is_empty() {
@@ -400,12 +607,23 @@ async fn execute_member(
         None
     };
 
+    if cancel_reg.is_cancelled(task_id) || agent_cancel.load(Ordering::SeqCst) {
+        cancel_reg.finish(&agent_cancel_key);
+        return ("[остановлено]".into(), used_internet, tools_used);
+    }
+
+    let max_tokens = member.resources.max_tokens.max(64);
+    let temperature = member.resources.temperature.clamp(0.0, 2.0);
+
     let response = match inference.generate_reply(
         settings,
         &model_id,
         &member.system_prompt,
         &full_prompt,
         &mut agent_sink,
+        max_tokens,
+        temperature,
+        Some(&agent_cancel),
     ) {
         Ok(text) => {
             if let Some(ref mut s) = agent_sink {
@@ -432,7 +650,120 @@ async fn execute_member(
         ),
     };
 
+    cancel_reg.finish(&agent_cancel_key);
     (response, used_internet, tools_used)
+}
+
+async fn finalize_team_response(
+    group: &AgentGroupConfig,
+    settings: &AppSettings,
+    inference: &InferenceEngine,
+    task: &AgentTask,
+    context: &str,
+    cancel_reg: &CancelRegistry,
+    task_id: &str,
+    app: &AppHandle,
+) -> String {
+    let last_round = match task.rounds.last() {
+        Some(r) => r,
+        None => return context.to_string(),
+    };
+
+    let conflict = if group.conflict_mode.is_empty() {
+        "consensus"
+    } else {
+        group.conflict_mode.as_str()
+    };
+
+    let joined = last_round
+        .messages
+        .iter()
+        .map(|m| format!("[{} / {}]:\n{}", m.agent_name, m.role, m.content))
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    let synthesizer = group
+        .members
+        .iter()
+        .find(|m| m.role == "summarizer")
+        .or_else(|| group.members.iter().find(|m| m.role == "leader"))
+        .or_else(|| group.members.iter().find(|m| m.role == "custom_manager"));
+
+    if let Some(member) = synthesizer {
+        if !cancel_reg.is_cancelled(task_id) {
+            let synth_prompt = format!(
+                "Исходная задача пользователя:\n{}\n\nРабота команды (последний раунд):\n{}\n\nСформируй ОДИН финальный ответ пользователю. Без перечисления ролей и без дублирования.",
+                task.prompt, joined
+            );
+            let agent_cancel_key = format!("{task_id}:synth:{}", member.id);
+            let flag = cancel_reg.begin(&agent_cancel_key);
+            if let Ok(text) = inference.generate_reply(
+                settings,
+                &member.model_id,
+                "Ты составляешь единый итоговый ответ команды агентов.",
+                &synth_prompt,
+                &mut None,
+                member.resources.max_tokens.max(512),
+                member.resources.temperature.clamp(0.0, 2.0),
+                Some(&flag),
+            ) {
+                cancel_reg.finish(&agent_cancel_key);
+                let filtered = filter_model_output(settings, &text);
+                if !filtered.trim().is_empty() {
+                    emit_orchestration(
+                        app,
+                        AgentOrchestrationPayload {
+                            task_id: task_id.to_string(),
+                            group_id: group.id.clone(),
+                            group_name: group.name.clone(),
+                            orchestration_mode: task.orchestration_mode.clone(),
+                            round: task.rounds.len() as u32,
+                            phase: "synthesis".into(),
+                            agent_id: Some(member.id.clone()),
+                            agent_name: Some(member.name.clone()),
+                            model_id: Some(member.model_id.clone()),
+                            status: "ok".into(),
+                            message: Some("final_response".into()),
+                        },
+                    );
+                    return filtered;
+                }
+            }
+            cancel_reg.finish(&agent_cancel_key);
+        }
+    }
+
+    merge_last_round(last_round, conflict)
+}
+
+fn merge_last_round(round: &AgentRound, conflict_mode: &str) -> String {
+    let msgs = &round.messages;
+    if msgs.is_empty() {
+        return String::new();
+    }
+    match conflict_mode {
+        "leader_decides" => msgs
+            .iter()
+            .find(|m| m.role == "leader" || m.role == "custom_manager")
+            .or_else(|| msgs.first())
+            .map(|m| m.content.clone())
+            .unwrap_or_default(),
+        "escalate_user" => {
+            let body = msgs
+                .iter()
+                .map(|m| format!("**{}** ({}):\n{}", m.agent_name, m.role, m.content))
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            format!("Команда подготовила несколько вариантов — выберите или уточните:\n\n{body}")
+        }
+        _ => {
+            if msgs.len() == 1 {
+                msgs[0].content.clone()
+            } else {
+                msgs.last().map(|m| m.content.clone()).unwrap_or_default()
+            }
+        }
+    }
 }
 
 fn synthesize_context(mode: &str, msgs: &[AgentMessage], prev: &str, consensus: f32) -> String {

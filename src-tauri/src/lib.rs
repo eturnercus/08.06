@@ -1,3 +1,5 @@
+mod agent_webview;
+mod agent_workspace;
 mod agents;
 mod app_paths;
 mod desktop_agent;
@@ -5,15 +7,18 @@ mod devices;
 mod gguf_runner;
 mod inference;
 mod llama_cli;
+mod llama_runtime;
 mod memory;
 mod network;
 mod settings;
 mod settings_engine;
 mod storage_crypto;
 mod inference_cancel;
+mod llm_sanitize;
 mod stream_sink;
 
 use agents::AgentOrchestrator;
+use agent_webview::AgentWebView;
 use desktop_agent::DesktopAgent;
 use inference_cancel::CancelRegistry;
 use inference::{ChatRequest, InferenceEngine};
@@ -32,6 +37,7 @@ pub struct AppState {
     pub agents: Arc<AgentOrchestrator>,
     pub cancel: Arc<CancelRegistry>,
     pub desktop: Arc<DesktopAgent>,
+    pub webview: Arc<AgentWebView>,
 }
 
 #[tauri::command]
@@ -104,19 +110,71 @@ fn sync_chat_overrides(
     stm_enabled: bool,
     ltm_enabled: bool,
     agent_group_id: Option<String>,
+    workspace_path: Option<String>,
+    ram_limit_mb: Option<u64>,
+    memory_access: Option<String>,
 ) -> Result<(), String> {
     let mut settings = state.settings.lock();
-    settings
-        .per_chat_overrides
-        .insert(chat_id, settings::ChatOverride {
+    let prev = settings.per_chat_overrides.get(&chat_id).cloned();
+    settings.per_chat_overrides.insert(
+        chat_id,
+        settings::ChatOverride {
             allow_internet: Some(allow_internet),
             stm_enabled: Some(stm_enabled),
             ltm_enabled: Some(ltm_enabled),
             agent_group_id,
+            workspace_path: workspace_path.or_else(|| prev.and_then(|p| p.workspace_path)),
+            ram_limit_mb,
+            memory_access,
             ..Default::default()
-        });
+        },
+    );
     save_settings(&settings)?;
     Ok(())
+}
+
+#[tauri::command]
+fn stop_agent_team(state: State<'_, AppState>, task_id: Option<String>) -> Result<(), String> {
+    let id = task_id
+        .or_else(|| state.agents.current_task_id())
+        .ok_or("Нет активной задачи агентов")?;
+    state.agents.stop_task(&state.cancel, &id);
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_agent_member(
+    state: State<'_, AppState>,
+    task_id: String,
+    agent_id: String,
+) -> Result<(), String> {
+    state.agents.stop_agent(&state.cancel, &task_id, &agent_id);
+    Ok(())
+}
+
+#[tauri::command]
+async fn ensure_starter_model(state: State<'_, AppState>) -> Result<Option<inference::ModelInfo>, String> {
+    state.inference.ensure_starter_model().await
+}
+
+#[tauri::command]
+async fn download_starter_model(
+    state: State<'_, AppState>,
+    force: Option<bool>,
+) -> Result<inference::DownloadResult, String> {
+    state.inference.download_starter_model(force.unwrap_or(false)).await
+}
+
+#[tauri::command]
+async fn search_huggingface_models(
+    state: State<'_, AppState>,
+    query: String,
+    limit: Option<u32>,
+) -> Result<Vec<inference::HfModelHit>, String> {
+    state
+        .inference
+        .search_huggingface(&query, limit.unwrap_or(20))
+        .await
 }
 
 #[tauri::command]
@@ -126,7 +184,30 @@ fn get_audit_logs(max_lines: Option<usize>) -> Vec<String> {
 
 #[tauri::command]
 fn get_desktop_agent_state(state: State<'_, AppState>) -> desktop_agent::DesktopAgentSnapshot {
-    state.desktop.snapshot()
+    state.desktop.snapshot(&state.webview)
+}
+
+#[tauri::command]
+fn set_agent_webview_live(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> agent_webview::AgentWebViewState {
+    state.webview.set_live_enabled(&app, enabled);
+    state.webview.snapshot()
+}
+
+#[tauri::command]
+fn show_agent_webview(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    state.webview.show(&app)
+}
+
+#[tauri::command]
+fn hide_agent_webview(app: tauri::AppHandle, state: State<'_, AppState>) {
+    state.webview.hide(&app);
 }
 
 #[tauri::command]
@@ -173,7 +254,15 @@ async fn browser_navigate_in_app(
     state.desktop.set_dual_mouse(true, &app);
     let msg = state
         .desktop
-        .navigate(&app, &state.network, &settings, &url, chat_id.clone(), agent_id.clone())
+        .navigate(
+            &app,
+            &state.network,
+            &settings,
+            &url,
+            chat_id.clone(),
+            agent_id.clone(),
+            &state.webview,
+        )
         .await?;
     settings_engine::audit_log(
         &settings,
@@ -199,7 +288,15 @@ async fn browser_search_in_app(
     state.desktop.set_dual_mouse(true, &app);
     let msg = state
         .desktop
-        .search(&app, &state.network, &settings, &query, chat_id.clone(), agent_id.clone())
+        .search(
+            &app,
+            &state.network,
+            &settings,
+            &query,
+            chat_id.clone(),
+            agent_id.clone(),
+            &state.webview,
+        )
         .await?;
     settings_engine::audit_log(
         &settings,
@@ -216,6 +313,7 @@ async fn browser_click_in_app(
     link_index: Option<usize>,
     x: Option<f32>,
     y: Option<f32>,
+    selector: Option<String>,
     chat_id: Option<String>,
     agent_id: Option<String>,
 ) -> Result<String, String> {
@@ -225,18 +323,40 @@ async fn browser_click_in_app(
         return Err("Интернет отключён для этого чата".into());
     }
     state.desktop.set_dual_mouse(true, &app);
-    let msg = if let (Some(px), Some(py)) = (x, y) {
+    let msg = if let Some(sel) = selector.filter(|s| !s.trim().is_empty()) {
         state
             .desktop
-            .click_at(&app, &state.network, &settings, px, py, chat_id, agent_id)
+            .click_selector(&app, &state.webview, &sel)
+            .await?
+    } else if let (Some(px), Some(py)) = (x, y) {
+        state
+            .desktop
+            .click_at(
+                &app,
+                &state.network,
+                &settings,
+                px,
+                py,
+                chat_id,
+                agent_id,
+                &state.webview,
+            )
             .await?
     } else if let Some(idx) = link_index {
         state
             .desktop
-            .click_link(&app, &state.network, &settings, idx, chat_id, agent_id)
+            .click_link(
+                &app,
+                &state.network,
+                &settings,
+                idx,
+                chat_id,
+                agent_id,
+                &state.webview,
+            )
             .await?
     } else {
-        return Err("Укажите linkIndex или координаты x/y".into());
+        return Err("Укажите linkIndex, selector или координаты x/y".into());
     };
     settings_engine::audit_log(&settings, "browser", &format!("agent-browser click: {msg}"));
     Ok(msg)
@@ -263,7 +383,15 @@ async fn open_browser_url(
         state.desktop.set_dual_mouse(true, &app);
         state
             .desktop
-            .navigate(&app, &state.network, &settings, &url, chat_id.clone(), agent_id.clone())
+            .navigate(
+                &app,
+                &state.network,
+                &settings,
+                &url,
+                chat_id.clone(),
+                agent_id.clone(),
+                &state.webview,
+            )
             .await
             .unwrap_or_else(|e| format!("Ошибка агент-браузера: {e}"))
     } else {
@@ -446,6 +574,8 @@ async fn run_agent_team(
             &state.network,
             &inference,
             &state.desktop,
+            &state.webview,
+            &state.cancel,
             app,
             chat_id,
         )
@@ -521,6 +651,18 @@ fn capture_camera(state: State<'_, AppState>) -> devices::CaptureResult {
 }
 
 #[tauri::command]
+fn ocr_screen(state: State<'_, AppState>) -> devices::CaptureResult {
+    let settings = state.settings.lock().clone();
+    devices::DeviceManager::ocr_screen(&settings.devices)
+}
+
+#[tauri::command]
+fn transcribe_audio(state: State<'_, AppState>) -> devices::CaptureResult {
+    let settings = state.settings.lock().clone();
+    devices::DeviceManager::transcribe_audio(&settings.devices)
+}
+
+#[tauri::command]
 fn get_system_info(state: State<'_, AppState>) -> serde_json::Value {
     let settings = state.settings.lock().clone();
     serde_json::json!({
@@ -528,10 +670,30 @@ fn get_system_info(state: State<'_, AppState>) -> serde_json::Value {
         "cpuCores": settings.system.cpu_cores,
         "threadCount": settings.system.thread_count,
         "gpuLayers": settings.system.gpu_layers,
+        "computeDevice": settings.system.compute_device,
         "gpuMemoryMb": settings.system.gpu_memory_mb,
         "platform": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
     })
+}
+
+#[tauri::command]
+fn get_llama_runtime_status(state: State<'_, AppState>) -> llama_runtime::LlamaRuntimeStatus {
+    let settings = state.settings.lock();
+    llama_runtime::runtime_status_for(&settings)
+}
+
+#[tauri::command]
+async fn ensure_llama_runtime(
+    state: State<'_, AppState>,
+    force: Option<bool>,
+) -> Result<llama_runtime::LlamaRuntimeStatus, String> {
+    let prefer_gpu = {
+        let s = state.settings.lock();
+        matches!(s.system.compute_device.as_str(), "gpu" | "auto")
+    };
+    llama_runtime::ensure_llama_cli(force.unwrap_or(false), prefer_gpu).await?;
+    Ok(llama_runtime::runtime_status_for(&state.settings.lock()))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -540,6 +702,8 @@ pub fn run() {
     let settings = load_settings();
     let memory = Arc::new(MemoryStore::new());
     memory.set_encrypt_at_rest(settings.security.encrypt_memory_at_rest);
+    let prefer_gpu = matches!(settings.system.compute_device.as_str(), "gpu" | "auto");
+    let need_cli = settings_engine::runtime_needs_external_cli(&settings);
     let app_state = AppState {
         settings: Mutex::new(settings),
         memory,
@@ -548,7 +712,16 @@ pub fn run() {
         agents: Arc::new(AgentOrchestrator::new()),
         cancel: Arc::new(CancelRegistry::new()),
         desktop: Arc::new(DesktopAgent::new()),
+        webview: Arc::new(AgentWebView::new()),
     };
+
+    if need_cli {
+        tauri::async_runtime::spawn(async move {
+            if !llama_runtime::resolve_cli_binary().is_some() {
+                let _ = llama_runtime::ensure_llama_cli(false, prefer_gpu).await;
+            }
+        });
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -564,6 +737,9 @@ pub fn run() {
             sync_chat_overrides,
             get_audit_logs,
             get_desktop_agent_state,
+            set_agent_webview_live,
+            show_agent_webview,
+            hide_agent_webview,
             virtual_mouse_move,
             virtual_mouse_scroll,
             browser_navigate_in_app,
@@ -578,7 +754,12 @@ pub fn run() {
             transfer_memory,
             consolidate_memory,
             run_agent_team,
+            stop_agent_team,
+            stop_agent_member,
             list_agent_tasks,
+            ensure_starter_model,
+            download_starter_model,
+            search_huggingface_models,
             load_model,
             download_huggingface_model,
             get_models_directory,
@@ -589,7 +770,11 @@ pub fn run() {
             capture_screen,
             capture_audio,
             capture_camera,
+            ocr_screen,
+            transcribe_audio,
             get_system_info,
+            get_llama_runtime_status,
+            ensure_llama_runtime,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Silenium");

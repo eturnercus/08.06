@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/tauri";
 import { useDesktopAgent } from "../../hooks/useDesktopAgent";
@@ -18,6 +18,22 @@ export function AgentBrowser() {
 
   const browser = state?.browser;
   const mouse = state?.virtualMouse;
+  const webview = state?.webview;
+  const liveOn = webview?.liveEnabled ?? false;
+
+  useEffect(() => {
+    const onMsg = (ev: MessageEvent) => {
+      const data = ev.data as { type?: string; href?: string };
+      if (data?.type !== "silenium-agent-click" || !data.href) return;
+      setBusy(true);
+      api
+        .browserNavigateInApp(data.href)
+        .catch((e) => setError(String(e)))
+        .finally(() => setBusy(false));
+    };
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, []);
 
   const navigate = async (url: string) => {
     setBusy(true);
@@ -45,6 +61,18 @@ export function AgentBrowser() {
     }
   };
 
+  const toggleLive = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      await api.setAgentWebviewLive(!liveOn);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (!enabled) {
     return (
       <div className="agent-browser card">
@@ -61,9 +89,14 @@ export function AgentBrowser() {
           <h3>{t("devices.agentBrowser.title")}</h3>
           <p className="field-hint">{t("devices.agentBrowser.dualMouseHint")}</p>
         </div>
-        <span className={`badge ${state?.dualMouseEnabled ? "badge-purple" : "badge-red"}`}>
-          {state?.dualMouseEnabled ? t("devices.agentBrowser.aiMouseOn") : t("devices.agentBrowser.aiMouseOff")}
-        </span>
+        <div className="agent-browser-badges">
+          <span className={`badge ${state?.dualMouseEnabled ? "badge-purple" : "badge-red"}`}>
+            {state?.dualMouseEnabled ? t("devices.agentBrowser.aiMouseOn") : t("devices.agentBrowser.aiMouseOff")}
+          </span>
+          <span className={`badge ${liveOn ? "badge-green" : "badge-blue"}`}>
+            {liveOn ? t("devices.agentBrowser.liveOn") : t("devices.agentBrowser.liveOff")}
+          </span>
+        </div>
       </div>
 
       <div className="agent-browser-bar">
@@ -80,7 +113,19 @@ export function AgentBrowser() {
         <button type="button" className="m3-tonal-btn" disabled={busy} onClick={search}>
           {t("devices.agentBrowser.search")}
         </button>
+        <button type="button" className={`m3-tonal-btn${liveOn ? " active" : ""}`} disabled={busy} onClick={toggleLive}>
+          {liveOn ? t("devices.agentBrowser.liveDisable") : t("devices.agentBrowser.liveEnable")}
+        </button>
+        {liveOn && (
+          <button type="button" className="m3-tonal-btn" disabled={busy} onClick={() => api.showAgentWebview().catch((e) => setError(String(e)))}>
+            {t("devices.agentBrowser.showWindow")}
+          </button>
+        )}
       </div>
+
+      {liveOn && webview?.lastAction && (
+        <p className="field-hint mono">{t("devices.agentBrowser.domAction")}: {webview.lastAction}</p>
+      )}
 
       {error && <div className="agent-browser-error">{error}</div>}
 
@@ -91,6 +136,7 @@ export function AgentBrowser() {
             {browser?.status ?? "idle"}
           </span>
         </div>
+        <p className="field-hint">{liveOn ? t("devices.agentBrowser.liveHint") : t("devices.agentBrowser.previewHint")}</p>
         <div className="agent-browser-viewport">
           {browser?.htmlSrcdoc ? (
             <iframe

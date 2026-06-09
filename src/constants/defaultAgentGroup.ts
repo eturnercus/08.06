@@ -1,4 +1,5 @@
 import type { AgentGroup, AgentMember } from "../api/tauri";
+import { roleDefaultPrompt } from "./rolePrompts";
 
 export function defaultMember(partial: Partial<AgentMember> & Pick<AgentMember, "id" | "name" | "role">): AgentMember {
   return {
@@ -27,6 +28,7 @@ export function defaultMember(partial: Partial<AgentMember> & Pick<AgentMember, 
     trigger: "always",
     triggerKeyword: "",
     systemPrompt: "",
+    systemPromptCustomized: false,
     ...partial,
   };
 }
@@ -48,8 +50,21 @@ export function createDefaultAgentGroup(name = "Research Team"): AgentGroup {
           veto: true, sharedMemory: true,
         },
         tools: ["delegate", "memory_query", "summarize"],
-        systemPrompt: "You coordinate the team and resolve conflicts.",
-        resources: { ramLimitMb: 4096, cpuCores: [0, 1, 2], maxTokens: 4096, temperature: 0.5, executionOrder: 0 },
+        systemPrompt: roleDefaultPrompt("leader", "ru"),
+        resources: { ramLimitMb: 4096, cpuCores: [0, 1, 2], maxTokens: 3072, temperature: 0.5, executionOrder: 0 },
+      }),
+      defaultMember({
+        id: "summarizer",
+        name: "Summarizer",
+        role: "summarizer",
+        permissions: {
+          internet: false, camera: false, microphone: false, screen: false,
+          stm: true, ltm: true, canDelegate: false, files: false, tools: true,
+          veto: false, sharedMemory: true,
+        },
+        tools: ["summarize", "memory_query"],
+        systemPrompt: roleDefaultPrompt("summarizer", "ru"),
+        resources: { ramLimitMb: 2048, cpuCores: [0, 1], maxTokens: 4096, temperature: 0.4, executionOrder: 3 },
       }),
       defaultMember({
         id: "researcher",
@@ -61,7 +76,7 @@ export function createDefaultAgentGroup(name = "Research Team"): AgentGroup {
           veto: false, sharedMemory: true,
         },
         tools: ["web_search", "memory_query", "file_read"],
-        systemPrompt: "You research topics using web search and files.",
+        systemPrompt: roleDefaultPrompt("researcher", "ru"),
         resources: { ramLimitMb: 3072, cpuCores: [2, 3], maxTokens: 3072, temperature: 0.6, executionOrder: 1 },
       }),
       defaultMember({
@@ -74,7 +89,7 @@ export function createDefaultAgentGroup(name = "Research Team"): AgentGroup {
           veto: false, sharedMemory: true,
         },
         tools: ["code_exec", "file_read", "file_write", "json_parse", "regex"],
-        systemPrompt: "You write and review code.",
+        systemPrompt: roleDefaultPrompt("programmer", "ru"),
         resources: { ramLimitMb: 4096, cpuCores: [4, 5], maxTokens: 4096, temperature: 0.3, executionOrder: 2 },
       }),
     ],

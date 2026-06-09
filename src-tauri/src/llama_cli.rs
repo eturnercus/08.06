@@ -8,6 +8,9 @@ pub struct LlamaCliConfig {
     pub prompt: String,
     pub temperature: f32,
     pub max_tokens: u32,
+    pub top_p: f32,
+    pub top_k: u32,
+    pub repeat_penalty: f32,
     pub n_ctx: u32,
     pub threads: u32,
     pub gpu_layers: u32,
@@ -19,6 +22,9 @@ pub struct LlamaCliRunner;
 
 impl LlamaCliRunner {
     pub fn find_binary() -> Option<PathBuf> {
+        if let Some(p) = crate::llama_runtime::resolve_cli_binary() {
+            return Some(p);
+        }
         let mut candidates: Vec<PathBuf> = Vec::new();
         if let Ok(exe) = std::env::current_exe() {
             if let Some(dir) = exe.parent() {
@@ -71,6 +77,12 @@ impl LlamaCliRunner {
             .arg(cfg.threads.max(1).to_string())
             .arg("--temp")
             .arg(format!("{:.2}", cfg.temperature.clamp(0.0, 2.0)))
+            .arg("--top-p")
+            .arg(format!("{:.2}", cfg.top_p.clamp(0.0, 1.0)))
+            .arg("--top-k")
+            .arg(cfg.top_k.to_string())
+            .arg("--repeat-penalty")
+            .arg(format!("{:.2}", cfg.repeat_penalty.clamp(1.0, 2.0)))
             .arg("-ngl")
             .arg(ngl)
             .arg("--no-display-prompt")
@@ -175,13 +187,20 @@ impl LlamaCliRunner {
 }
 
 pub fn resolve_gpu_layers(
+    compute_device: &str,
     configured: u32,
     gpu_memory_mb: u64,
     vram_reserve_mb: u64,
     model_size_bytes: u64,
 ) -> u32 {
+    if compute_device == "cpu" {
+        return 0;
+    }
     if configured > 0 {
         return configured;
+    }
+    if compute_device == "auto" && gpu_memory_mb == 0 {
+        return 0;
     }
     let avail = gpu_memory_mb.saturating_sub(vram_reserve_mb);
     let mut layers = if avail >= 12_000 {

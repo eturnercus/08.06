@@ -119,7 +119,7 @@ pub fn check_user_input(settings: &AppSettings, text: &str) -> Result<String, St
 }
 
 pub fn filter_model_output(settings: &AppSettings, text: &str) -> String {
-    let mut out = text.to_string();
+    let mut out = crate::llm_sanitize::sanitize_llm_output(text);
     if settings.security.data_exfiltration_guard {
         for pat in EXFIL_PATTERNS {
             if out.to_lowercase().contains(pat) {
@@ -131,7 +131,7 @@ pub fn filter_model_output(settings: &AppSettings, text: &str) -> String {
     if settings.security.clipboard_sanitization {
         out = out.replace('\u{200b}', "");
     }
-    out
+    crate::llm_sanitize::sanitize_llm_output(&out)
 }
 
 // ─── Innovation: context enrichment ─────────────────────────────────────────
@@ -140,10 +140,11 @@ pub fn enrich_system_prompt(
     settings: &AppSettings,
     base: &str,
     user_message: &str,
-    stm_entries: &[StmEntry],
+    _stm_entries: &[StmEntry],
     turn_index: u32,
 ) -> String {
     let inv = &settings.innovation;
+    let ru = settings.language != "en";
     let mut parts: Vec<String> = Vec::new();
     if !base.is_empty() {
         parts.push(base.to_string());
@@ -152,90 +153,62 @@ pub fn enrich_system_prompt(
     if inv.persona_fluidity && !settings.global_message_injection.system_prefix.is_empty() {
         let blend = inv.persona_blend_ratio.clamp(0.0, 1.0);
         if blend > 0.0 {
-            parts.push(format!(
-                "[persona blend {:.0}%] {}",
-                blend * 100.0,
-                settings.global_message_injection.system_prefix
-            ));
+            parts.push(settings.global_message_injection.system_prefix.clone());
         }
     }
 
+    let mut hints: Vec<String> = Vec::new();
+
     if inv.emotion_mirror {
         let tone = detect_emotion_tone(user_message);
-        let intensity = inv.emotion_mirror_intensity.clamp(0.0, 1.0);
-        parts.push(format!(
-            "[emotion mirror {intensity:.1}] Отвечай с учётом тона пользователя: {tone}."
-        ));
+        hints.push(if ru {
+            format!("Учитывай тон пользователя ({tone}).")
+        } else {
+            format!("Match the user's tone ({tone}).")
+        });
     }
 
-    if inv.context_dna {
-        let dna = context_fingerprint(user_message, stm_entries, inv.context_dna_mutation_rate);
-        parts.push(format!("[context DNA] {dna}"));
-    }
-
-    if inv.temporal_anchoring {
-        let window = inv.temporal_anchor_window_min.max(1);
-        parts.push(format!(
-            "[temporal anchor] Учитывай контекст последних {window} минут разговора."
-        ));
-    }
-
-    if inv.holographic_context && !stm_entries.is_empty() {
-        let projection = holographic_project(stm_entries, inv.holographic_projection_dims as usize);
-        parts.push(format!("[holographic context] {projection}"));
-    }
-
-    if inv.quantum_context_layers > 0 && !stm_entries.is_empty() {
-        let layers = quantum_context_stack(stm_entries, inv.quantum_context_layers, inv.quantum_entanglement_strength);
-        parts.push(layers);
-    }
-
-    if inv.attention_cascade && !stm_entries.is_empty() {
-        let cascade = attention_cascade_summary(stm_entries, inv.attention_cascade_depth as usize);
-        parts.push(format!("[attention cascade] {cascade}"));
-    }
-
-    if inv.resonance_tuning {
-        parts.push(format!(
-            "[resonance {:.2} Hz] Подстрой ритм ответа под спокойный, связный стиль.",
-            inv.resonance_frequency_hz
-        ));
-    }
-
-    if inv.meta_cognition_loop && inv.meta_cognition_interval > 0 && turn_index % inv.meta_cognition_interval == 0 {
-        parts.push(
-            "[meta-cognition] Кратко проверь логику ответа и избегай противоречий с историей."
-                .into(),
-        );
+    if inv.meta_cognition_loop
+        && inv.meta_cognition_interval > 0
+        && turn_index % inv.meta_cognition_interval == 0
+    {
+        hints.push(if ru {
+            "Проверь ответ на логику и противоречия с историей диалога.".into()
+        } else {
+            "Check your answer for logic and consistency with the conversation.".into()
+        });
     }
 
     if inv.neural_whisper_mode {
-        parts.push(format!(
-            "[whisper mode] Ответь очень кратко, до {} токенов.",
-            inv.whisper_token_budget.max(16)
-        ));
+        let budget = inv.whisper_token_budget.max(16);
+        hints.push(if ru {
+            format!("Ответь очень кратко (до {budget} токенов).")
+        } else {
+            format!("Reply very briefly (up to {budget} tokens).")
+        });
     }
 
     if inv.thought_streaming {
-        parts.push(format!(
-            "[thought stream {}ms, max {} reasoning tokens] Сначала кратко рассуждай в блоке ..., затем финальный ответ.",
-            inv.thought_stream_buffer_ms.max(16),
-            inv.thought_max_tokens.max(64)
-        ));
-    }
-
-    if inv.neural_mesh_sync && !inv.neural_mesh_peers.is_empty() {
-        parts.push(format!(
-            "[neural mesh] Синхронизация с узлами: {}.",
-            inv.neural_mesh_peers.join(", ")
-        ));
+        hints.push(if ru {
+            "При необходимости кратко обдумай задачу, затем дай понятный ответ пользователю.".into()
+        } else {
+            "Think briefly if needed, then give a clear reply to the user.".into()
+        });
     }
 
     if inv.ambient_context_harvest {
-        parts.push(
-            "[ambient harvest] Учитывай недавний контекст окружения, если он передан во вложениях."
-                .into(),
-        );
+        hints.push(if ru {
+            "Учитывай контекст из вложений, если он есть.".into()
+        } else {
+            "Use attachment context when relevant.".into()
+        });
+    }
+
+    // context_dna, temporal_anchoring, holographic/quantum/cascade layers affect memory
+    // and routing only — not injected as bracketed text (small models echo them verbatim).
+
+    if !hints.is_empty() {
+        parts.push(hints.join(" "));
     }
 
     parts.join("\n")
@@ -254,67 +227,6 @@ fn detect_emotion_tone(text: &str) -> &'static str {
     }
 }
 
-fn context_fingerprint(user: &str, stm: &[StmEntry], mutation: f32) -> String {
-    let mut hash: u64 = 0xcbf29ce484222325;
-    for b in user.bytes().chain(stm.iter().flat_map(|e| e.content.bytes())) {
-        hash ^= b as u64;
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    let mut id = format!("{:016x}", hash);
-    if mutation > 0.0 {
-        let flip = ((mutation * 1000.0) as usize) % id.len().max(1);
-        let mut chars: Vec<char> = id.chars().collect();
-        if let Some(c) = chars.get_mut(flip) {
-            *c = if *c == '0' { '1' } else { '0' };
-        }
-        id = chars.into_iter().collect();
-    }
-    id
-}
-
-fn holographic_project(stm: &[StmEntry], dims: usize) -> String {
-    let dims = dims.clamp(64, 2048);
-    let joined: String = stm
-        .iter()
-        .map(|e| format!("{}:{}", e.role, e.content))
-        .collect::<Vec<_>>()
-        .join("|");
-    let step = (joined.len() / dims).max(1);
-    joined
-        .chars()
-        .step_by(step)
-        .take(dims)
-        .collect()
-}
-
-fn quantum_context_stack(stm: &[StmEntry], layers: u32, strength: f32) -> String {
-    let n = layers.max(1) as usize;
-    let chunk = (stm.len() / n).max(1);
-    let mut out = String::from("[quantum layers]");
-    for (i, slice) in stm.chunks(chunk).take(n).enumerate() {
-        let weight = (strength * (i as f32 + 1.0)).min(1.0);
-        let snippet: String = slice
-            .iter()
-            .map(|e| e.content.chars().take(40).collect::<String>())
-            .collect::<Vec<_>>()
-            .join(" / ");
-        out.push_str(&format!(" L{i}(w={weight:.2}): {snippet}"));
-    }
-    out
-}
-
-fn attention_cascade_summary(stm: &[StmEntry], depth: usize) -> String {
-    let depth = depth.max(1);
-    let mut summaries = Vec::new();
-    let chunk = (stm.len() / depth).max(1);
-    for (i, group) in stm.chunks(chunk).take(depth).enumerate() {
-        let text: String = group.iter().map(|e| &e.content).cloned().collect::<Vec<_>>().join(" ");
-        let brief: String = text.chars().take(120).collect();
-        summaries.push(format!("depth{i}:{brief}"));
-    }
-    summaries.join(" → ")
-}
-
 // ─── Memory helpers ─────────────────────────────────────────────────────────
 
 pub fn recall_ltm(
@@ -322,13 +234,24 @@ pub fn recall_ltm(
     settings: &AppSettings,
     chat_id: &str,
     query: &str,
+    model_id: &str,
 ) -> Vec<MemoryEntry> {
     let top_k = settings.memory.recall_top_k.max(1);
+    let access = settings
+        .per_chat_overrides
+        .get(chat_id)
+        .and_then(|o| o.memory_access.as_deref())
+        .unwrap_or("CHAT_ONLY");
     let mut entries = if settings.innovation.latent_space_navigation {
         latent_recall(memory, chat_id, query, top_k, settings.innovation.latent_navigation_steps)
     } else {
         memory.recall_ltm(chat_id, query, top_k)
     };
+    entries.retain(|e| match access {
+        "GLOBAL" => true,
+        "MODEL_SHARED" => e.chat_id == chat_id || e.model_id == model_id,
+        _ => e.chat_id == chat_id,
+    });
 
     if settings.innovation.temporal_anchoring {
         let cutoff = Utc::now() - Duration::minutes(settings.innovation.temporal_anchor_window_min as i64);
@@ -397,6 +320,11 @@ fn cosine(a: &[f32], b: &[f32]) -> f32 {
 
 pub fn filter_stm(settings: &AppSettings, entries: Vec<StmEntry>) -> Vec<StmEntry> {
     let mut out = entries;
+    let max_msgs = settings.memory.stm_max_messages.max(4) as usize;
+    if out.len() > max_msgs {
+        let skip = out.len() - max_msgs;
+        out = out.into_iter().skip(skip).collect();
+    }
     if settings.innovation.chronosync_memory {
         out = chronosync_bucket(out, &settings.innovation.chronosync_granularity);
     }
@@ -465,7 +393,37 @@ pub struct BackendPreference {
     pub prefer_cli: bool,
 }
 
-pub fn synaptic_backend_pref(settings: &AppSettings) -> BackendPreference {
+pub fn runtime_needs_external_cli(settings: &AppSettings) -> bool {
+    matches!(
+        settings.inference.gguf_runtime.as_str(),
+        "llama_cli" | "external_cli"
+    ) || (settings.inference.gguf_runtime.as_str() == "synaptic_auto"
+        && settings.innovation.synaptic_routing
+        && matches!(
+            settings.innovation.synaptic_path_priority.as_str(),
+            "latency" | "shortest"
+        ))
+}
+
+pub fn resolve_gguf_runtime_pref(settings: &AppSettings) -> BackendPreference {
+    match settings.inference.gguf_runtime.as_str() {
+        "llama_cli" | "external_cli" => BackendPreference {
+            prefer_embedded: false,
+            prefer_cli: true,
+        },
+        "silenium_core" | "embedded" => BackendPreference {
+            prefer_embedded: true,
+            prefer_cli: false,
+        },
+        "synaptic_auto" | "auto" => synaptic_backend_pref(settings),
+        _ => BackendPreference {
+            prefer_embedded: true,
+            prefer_cli: false,
+        },
+    }
+}
+
+fn synaptic_backend_pref(settings: &AppSettings) -> BackendPreference {
     if !settings.innovation.synaptic_routing {
         return BackendPreference {
             prefer_embedded: true,
@@ -512,10 +470,12 @@ pub fn tune_generate_params(settings: &AppSettings, mut p: GenerateParams) -> Ge
             .saturating_mul(perf.tensor_parallel_shards.min(8));
     }
 
-    match perf.mixed_precision.as_str() {
-        "int4" | "int8" => p.gpu_layers = p.gpu_layers.saturating_add(4),
-        "fp16" | "bf16" => {}
-        _ => {}
+    if p.compute_device != "cpu" {
+        match perf.mixed_precision.as_str() {
+            "int4" | "int8" => p.gpu_layers = p.gpu_layers.saturating_add(4),
+            "fp16" | "bf16" => {}
+            _ => {}
+        }
     }
 
     if inv.neural_whisper_mode {
@@ -537,11 +497,7 @@ pub fn tune_generate_params(settings: &AppSettings, mut p: GenerateParams) -> Ge
 }
 
 pub fn effective_max_tokens(settings: &AppSettings, requested: u32) -> u32 {
-    let mut max = requested.min(4096);
-    if settings.innovation.thought_streaming {
-        let reasoning = settings.innovation.thought_max_tokens.max(64);
-        max = max.saturating_add(reasoning).min(8192);
-    }
+    let mut max = requested.clamp(32, 2048);
     if settings.innovation.neural_whisper_mode {
         max = max.min(settings.innovation.whisper_token_budget.max(16));
     }
@@ -549,6 +505,11 @@ pub fn effective_max_tokens(settings: &AppSettings, requested: u32) -> u32 {
         max = max.min(512);
     }
     max
+}
+
+/// Default cap for a single assistant reply in chat (not context window size).
+pub fn default_reply_max_tokens() -> u32 {
+    512
 }
 
 pub fn effective_temperature(settings: &AppSettings, base: f32) -> f32 {

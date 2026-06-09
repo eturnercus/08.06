@@ -2,6 +2,8 @@
 .agent-browser-head {
   display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px;
 }
+.agent-browser-badges { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.agent-browser-bar .m3-tonal-btn.active { background: rgba(157, 143, 255, 0.25); border-color: var(--accent); }
 .agent-browser-head h3 { font-size: 15px; margin-bottom: 4px; }
 .agent-browser-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 .agent-browser-bar .m3-input { flex: 1; min-width: 200px; }

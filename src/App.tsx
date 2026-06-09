@@ -15,6 +15,7 @@ import { ModelsView } from "./components/ModelsView";
 import i18n from "./i18n";
 import { createDefaultAgentGroup } from "./constants/defaultAgentGroup";
 import { useTheme } from "./hooks/useTheme";
+import { isTauri } from "./api/browserFallback";
 
 function MainRouter() {
   const view = useAppStore((s) => s.activeView);
@@ -61,6 +62,14 @@ export default function App() {
             setSettings(withGroup);
           }
         }
+
+        if (isTauri()) {
+          try {
+            await api.ensureStarterModel();
+          } catch {
+            /* offline — user can download from chat properties */
+          }
+        }
       } catch {
         setPhase("language");
       }
@@ -70,7 +79,7 @@ export default function App() {
 
   if (phase === "language") return <LanguagePicker />;
   if (phase === "onboarding") return <Onboarding />;
-  if (!settings) return <div className="app-loading">Loading...</div>;
+  if (!settings) return <div className="app-loading">{i18n.t("app.loading")}</div>;
 
   return (
     <Layout>

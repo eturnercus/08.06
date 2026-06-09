@@ -1,10 +1,21 @@
 import { create } from "zustand";
 import type { AppSettings } from "../api/tauri";
+import { sanitizeLlmOutput } from "../utils/sanitizeLlm";
+
+export interface MessageAttachment {
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+}
 
 export interface ChatMessage {
+  id: string;
   role: "user" | "assistant";
   content: string;
+  attachments?: MessageAttachment[];
   tokens?: number;
+  promptTokens?: number;
+  completionTokens?: number;
   latencyMs?: number;
   streaming?: boolean;
   streamTokens?: number;
@@ -34,6 +45,7 @@ export interface Chat {
   memoryAccess: string;
   systemPrompt: string;
   agentGroupId?: string;
+  workspacePath?: string;
   ramLimitMb: number;
   maxTokens: number;
   temperature: number;
@@ -49,6 +61,15 @@ export interface MonitorEvent {
   message: string;
   status: "ok" | "error" | "running";
   streaming?: boolean;
+  round?: number;
+  orchestrationMode?: string;
+  modelId?: string;
+}
+
+export interface ActiveAgentTask {
+  taskId: string;
+  groupId: string;
+  groupName: string;
 }
 
 interface AppStore {
@@ -61,6 +82,7 @@ interface AppStore {
   monitorEvents: MonitorEvent[];
   selectedGroupId: string | null;
   activeGenerationChatId: string | null;
+  activeAgentTask: ActiveAgentTask | null;
   setPhase: (p: "language" | "onboarding" | "app") => void;
   setSettings: (s: AppSettings) => void;
   setActiveView: (v: string) => void;
@@ -69,7 +91,7 @@ interface AppStore {
   addChat: () => string;
   setActiveChat: (id: string) => void;
   updateChat: (id: string, patch: Partial<Chat>) => void;
-  addMessage: (chatId: string, msg: ChatMessage) => void;
+  addMessage: (chatId: string, msg: Omit<ChatMessage, "id"> & { id?: string }) => void;
   deleteChat: (chatId: string) => void;
   exportChat: (chatId: string) => string;
   setActiveGeneration: (chatId: string | null) => void;
@@ -79,6 +101,8 @@ interface AppStore {
     patch: {
       content?: string;
       tokens?: number;
+      promptTokens?: number;
+      completionTokens?: number;
       latencyMs?: number;
       error?: string;
       cancelled?: boolean;
@@ -94,6 +118,7 @@ interface AppStore {
   ) => void;
   finalizeAgentStream: (taskId: string, agentId: string) => void;
   clearMonitor: () => void;
+  setActiveAgentTask: (task: ActiveAgentTask | null) => void;
   loadChats: () => void;
   persistChats: () => void;
 }
@@ -141,6 +166,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   monitorEvents: [],
   selectedGroupId: null,
   activeGenerationChatId: null,
+  activeAgentTask: null,
   setPhase: (p) => set({ phase: p }),
   setSettings: (s) => set({ settings: s }),
   setActiveView: (v) => set({ activeView: v }),
@@ -151,7 +177,15 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const raw = localStorage.getItem(CHATS_KEY);
       const active = localStorage.getItem(ACTIVE_KEY);
       if (raw) {
-        const chats = JSON.parse(raw) as Chat[];
+        const chats = (JSON.parse(raw) as Chat[]).map((c) => ({
+          ...c,
+          modelId: c.modelId === "default" ? "silenium-starter" : c.modelId,
+          maxTokens: c.maxTokens >= 4096 ? 512 : c.maxTokens,
+          messages: c.messages.map((m, i) => ({
+            ...m,
+            id: m.id ?? `legacy-${c.id}-${i}`,
+          })),
+        }));
         set({ chats, activeChatId: active && chats.some((c) => c.id === active) ? active : chats[0]?.id ?? null });
       }
     } catch { /* ignore */ }
@@ -166,13 +200,13 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const chat: Chat = {
       id,
       title: `Chat ${n}`,
-      modelId: "default",
+      modelId: "silenium-starter",
       messages: [],
       permissions: defaultPerms(),
       memoryAccess: "CHAT_ONLY",
       systemPrompt: "",
       ramLimitMb: 4096,
-      maxTokens: 4096,
+      maxTokens: 512,
       temperature: 0.7,
     };
     set((s) => {
@@ -208,8 +242,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setActiveGeneration: (chatId) => set({ activeGenerationChatId: chatId }),
   addMessage: (chatId, msg) =>
     set((s) => {
+      const full: ChatMessage = {
+        ...msg,
+        id: msg.id ?? `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      };
       const chats = s.chats.map((c) =>
-        c.id === chatId ? { ...c, messages: [...c.messages, msg] } : c
+        c.id === chatId ? { ...c, messages: [...c.messages, full] } : c
       );
       persist(chats, s.activeChatId);
       return { chats };
@@ -222,13 +260,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
         for (let i = messages.length - 1; i >= 0; i--) {
           if (messages[i].role === "assistant" && messages[i].streaming) {
             const combined = messages[i].content + delta;
-            const streamTokens = Math.max(1, Math.floor(combined.length / 4));
             const split = splitThinkingStream(combined);
             messages[i] = {
               ...messages[i],
-              content: split.content,
+              content: sanitizeLlmOutput(split.content),
               thinking: split.thinking ?? messages[i].thinking,
-              streamTokens,
             };
             break;
           }
@@ -245,15 +281,27 @@ export const useAppStore = create<AppStore>((set, get) => ({
         const messages = [...c.messages];
         for (let i = messages.length - 1; i >= 0; i--) {
           if (messages[i].role === "assistant" && messages[i].streaming) {
+            const prev = messages[i];
+            const hasBody = Boolean(prev.content?.trim() || prev.thinking?.trim());
+            const rawContent =
+              patch.content ?? (hasBody ? prev.content : (patch.error ?? prev.content));
+            const content = sanitizeLlmOutput(rawContent);
             messages[i] = {
-              ...messages[i],
+              ...prev,
               streaming: false,
               streamTokens: undefined,
-              content: patch.content ?? (patch.error ? patch.error : messages[i].content),
-              tokens: patch.tokens ?? messages[i].streamTokens,
-              latencyMs: patch.latencyMs,
-              cancelled: patch.cancelled,
-              meta: patch.meta ?? messages[i].meta,
+              content,
+              thinking: prev.thinking,
+              tokens: patch.completionTokens ?? patch.tokens ?? prev.tokens,
+              promptTokens: patch.promptTokens ?? prev.promptTokens,
+              completionTokens: patch.completionTokens ?? patch.tokens ?? prev.completionTokens,
+              latencyMs: patch.latencyMs ?? prev.latencyMs,
+              cancelled: patch.cancelled ?? prev.cancelled,
+              meta: {
+                ...prev.meta,
+                ...patch.meta,
+                ...(patch.cancelled ? { stopped: true } : {}),
+              },
             };
             break;
           }
@@ -274,7 +322,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         const events = [...s.monitorEvents];
         events[idx] = {
           ...events[idx],
-          message: events[idx].message + delta,
+          message: sanitizeLlmOutput(events[idx].message + delta),
         };
         return { monitorEvents: events };
       }
@@ -304,4 +352,5 @@ export const useAppStore = create<AppStore>((set, get) => ({
       ),
     })),
   clearMonitor: () => set({ monitorEvents: [] }),
+  setActiveAgentTask: (task) => set({ activeAgentTask: task }),
 }));

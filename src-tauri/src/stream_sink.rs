@@ -11,7 +11,21 @@ pub struct ChatStreamPayload {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tokens_used: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub completion_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub latency_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub memory_recalled: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub injection_applied: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_tokens_limit: Option<u32>,
+    #[serde(default)]
+    pub cancelled: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
 }
@@ -52,7 +66,17 @@ impl StreamSink {
         }
     }
 
-    pub fn finish(&mut self, tokens_used: u32, latency_ms: u64) {
+    pub fn finish(
+        &mut self,
+        tokens_used: u32,
+        prompt_tokens: u32,
+        completion_tokens: u32,
+        latency_ms: u64,
+        model_id: &str,
+        memory_recalled: u32,
+        injection_applied: bool,
+        max_tokens_limit: u32,
+    ) {
         TokenSink::flush(self);
         let _ = self.app.emit(
             "chat-stream",
@@ -61,7 +85,36 @@ impl StreamSink {
                 delta: String::new(),
                 done: true,
                 tokens_used: Some(tokens_used),
+                prompt_tokens: Some(prompt_tokens),
+                completion_tokens: Some(completion_tokens),
                 latency_ms: Some(latency_ms),
+                model_id: Some(model_id.to_string()),
+                memory_recalled: Some(memory_recalled),
+                injection_applied: Some(injection_applied),
+                max_tokens_limit: Some(max_tokens_limit),
+                cancelled: false,
+                error: None,
+            },
+        );
+    }
+
+    pub fn cancelled(&mut self, latency_ms: u64) {
+        TokenSink::flush(self);
+        let _ = self.app.emit(
+            "chat-stream",
+            ChatStreamPayload {
+                chat_id: self.chat_id.clone(),
+                delta: String::new(),
+                done: true,
+                tokens_used: None,
+                prompt_tokens: None,
+                completion_tokens: None,
+                latency_ms: Some(latency_ms),
+                model_id: None,
+                memory_recalled: None,
+                injection_applied: None,
+                max_tokens_limit: None,
+                cancelled: true,
                 error: None,
             },
         );
@@ -75,7 +128,14 @@ impl StreamSink {
                 delta: String::new(),
                 done: true,
                 tokens_used: None,
+                prompt_tokens: None,
+                completion_tokens: None,
                 latency_ms: None,
+                model_id: None,
+                memory_recalled: None,
+                injection_applied: None,
+                max_tokens_limit: None,
+                cancelled: false,
                 error: Some(message),
             },
         );
@@ -112,7 +172,14 @@ impl TokenSink for StreamSink {
                 delta,
                 done: false,
                 tokens_used: None,
+                prompt_tokens: None,
+                completion_tokens: None,
                 latency_ms: None,
+                model_id: None,
+                memory_recalled: None,
+                injection_applied: None,
+                max_tokens_limit: None,
+                cancelled: false,
                 error: None,
             },
         );
@@ -196,6 +263,32 @@ impl TokenSink for AgentStreamSink {
 
 pub fn should_stream_chat(settings: &crate::settings::AppSettings) -> bool {
     settings.inference.streaming || settings.innovation.thought_streaming
+}
+
+pub const AGENT_ORCH_EVENT: &str = "agent-orchestration";
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentOrchestrationPayload {
+    pub task_id: String,
+    pub group_id: String,
+    pub group_name: String,
+    pub orchestration_mode: String,
+    pub round: u32,
+    pub phase: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_id: Option<String>,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+pub fn emit_orchestration(app: &AppHandle, payload: AgentOrchestrationPayload) {
+    let _ = app.emit(AGENT_ORCH_EVENT, payload);
 }
 
 pub fn stream_buffer_ms(settings: &crate::settings::AppSettings) -> u64 {
