@@ -9,7 +9,17 @@
   },
   "nav": {
     "chats": "Chats", "agents": "Agents", "models": "Models", "memory": "Memory",
-    "network": "Network", "devices": "Devices", "settings": "Settings", "help": "Help"
+    "network": "Network", "devices": "Devices", "settings": "Settings", "help": "Help",
+    "subtitle": {
+      "chats": "Talk to local models and agent teams",
+      "agents": "Build multi-model teams with roles and tools",
+      "models": "Load GGUF from disk or Hugging Face",
+      "memory": "Short-term and long-term AI memory",
+      "network": "Request monitor and audit log",
+      "devices": "Camera, microphone, screen, and agent browser",
+      "settings": "150+ performance and security options",
+      "help": "Quick guide to Silenium features"
+    }
   },
   "onboarding": {
     "stepOf": "Step {{current}} of {{total}}",
@@ -128,6 +138,14 @@
     "workspaceFolder": "Agent workspace folder", "workspaceHint": "Agents with file_read/file_write work only inside this folder and subfolders.",
     "workspacePh": "No folder selected", "workspacePick": "Pick folder",
     "systemPromptPh": "Local instructions for this chat only...",
+    "emptyTitle": "No chat selected",
+    "emptyDesc": "Create a new chat to start a dialogue with a local model or agent team.",
+    "sidebarEmpty": "No chats yet. Click «New chat» to get started.",
+    "welcomeTitle": "How to begin",
+    "welcomeStep1": "Open ⚙ Chat properties — pick a model or agent team",
+    "welcomeStep2": "Download Silenium Starter from Models if you need a quick start",
+    "welcomeStep3": "Type a message — replies are generated entirely on your machine",
+    "errorGeneric": "Could not get a reply. Try again or check the model in settings. ({{err}})",
     "welcomeHint": "⚙ Chat properties — Single model vs Agent team, Starter download, and permissions. Camera and mic are at the bottom.",
     "showSettings": "Show properties", "hideSettings": "Hide properties",
     "mediaOnly": "[media attachment]", "enableCamera": "Enable camera in chat permissions",
@@ -306,6 +324,14 @@
       "ggufSynapticAuto": "Synaptic Auto (innovations)",
       "ggufLlamaCli": "llama-cli (external)",
       "modelFormat": "Model format",
+      "context": "Context size",
+      "contextDesc": "How many tokens of history and prompt fit in model memory",
+      "temperature": "Temperature",
+      "temperatureDesc": "Higher = more creative; lower = more precise and predictable",
+      "topK": "Top-K",
+      "topKDesc": "Limit next-token choices (0 = no limit)",
+      "streaming": "Streaming generation",
+      "streamingDesc": "Show the reply as it is generated, not all at once at the end",
       "runtimeTitle": "Engine status",
       "runtimeDesc": "Silenium Core is bundled in the app. llama-cli is only needed for Synaptic (latency) or llama-cli mode.",
       "runtimeBrowser": "Available only in the Tauri desktop app.",
@@ -333,19 +359,28 @@
     "models": { "formats": "GGUF, ONNX, Safetensors, PT, BIN, GGML", "localPath": "Model path", "add": "Load" }
   },
   "memory": {
-    "title": "Memory", "stm": "STM", "ltm": "LTM", "transfer": "Transfer",
+    "title": "Memory",
+    "pageIntro": "Manage short-term (STM) and long-term (LTM) memory: transfer between chats, consolidation, and access levels.",
+    "stm": "STM", "ltm": "LTM", "transfer": "Transfer",
     "fromChat": "From chat", "toChat": "To chat", "consolidate": "Consolidate STM→LTM",
     "accessLevel": "Memory access level", "importance": "Importance",
     "autoSummary": "Auto-summarize", "retention": "Retention period"
   },
   "network": {
-    "title": "Network monitor", "fetch": "Test", "blocked": "Blocked", "allowed": "Allowed", "noLogs": "No requests",
+    "title": "Network monitor",
+    "pageIntro": "All outgoing HTTP requests appear here. In isolation mode, only whitelisted hosts are allowed.",
+    "noLogsTitle": "No requests yet",
+    "noAuditTitle": "Audit log is empty",
+    "fetch": "Test", "blocked": "Blocked", "allowed": "Allowed", "noLogs": "When the app uses the network, entries will show up here.",
     "ddgDesc": "DuckDuckGo Instant Answer API search with real-time activity panel",
     "ddgTip": "Requires internet permission in network settings",
     "ddgPlaceholder": "Search query...", "ddgSearch": "Search",
     "audit": "Audit log", "noAudit": "Audit log is empty"
   },
   "models": {
+    "pageIntro": "Add models from disk, download from Hugging Face, or use built-in Silenium Starter for a quick start.",
+    "emptyTitle": "No models found",
+    "emptyDesc": "Drop a .gguf file in the models folder, download from Hugging Face, or install Silenium Starter on the Local tab.",
     "localTab": "Local", "hfTab": "Hugging Face", "allTab": "All models",
     "loadedTab": "Loaded", "none": "No loaded models", "noneLocal": "Put GGUF/ONNX files in the models folder or click Browse",
     "select": "Neural network for chat", "selectTip": "Choose a loaded local model or built-in default",
@@ -401,6 +436,8 @@
     "title": "AI agent teams",
     "subtitle": "Multi-model teamwork: roles, tools, orchestration, permissions",
     "tabs": { "groups": "Groups", "editor": "Editor", "monitor": "Monitor" },
+    "emptyTitle": "No agent teams yet",
+    "emptyDesc": "Create a team — several models with roles, tools, and shared orchestration. Then pick it in chat properties.",
     "addGroup": "New group", "newGroup": "New team",
     "groupName": "Group name", "groupSettings": "Group settings",
     "orchestration": "Orchestration strategy", "conflictMode": "Conflict resolution",

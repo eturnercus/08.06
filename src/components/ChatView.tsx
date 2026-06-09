@@ -9,6 +9,7 @@ import { ChatSettingsPanel } from "./chats/ChatSettingsPanel";
 import { api } from "../api/tauri";
 import { isTauri } from "../api/browserFallback";
 import { MediaCapture, MediaAttachment } from "./chat/MediaCapture";
+import { EmptyState } from "./ui/EmptyState";
 
 export function ChatView() {
   const { t } = useTranslation();
@@ -165,7 +166,7 @@ export function ChatView() {
           error: stopped ? undefined : `Error: ${e}`,
         });
       } else {
-        addMessage(chat.id, { role: "assistant", content: `Error: ${e}` });
+        addMessage(chat.id, { role: "assistant", content: t("chat.errorGeneric", { err: String(e) }) });
       }
     }
     setLoading(false);
@@ -174,11 +175,16 @@ export function ChatView() {
 
   if (!chat) {
     return (
-      <div className="chat-empty">
-        <div className="chat-empty-icon">💬</div>
-        <h2>{t("chat.newChat")}</h2>
-        <button type="button" className="m3-filled-btn" onClick={() => addChat()}>{t("chat.newChat")}</button>
-      </div>
+      <EmptyState
+        icon="💬"
+        title={t("chat.emptyTitle")}
+        description={t("chat.emptyDesc")}
+        action={
+          <button type="button" className="m3-filled-btn" onClick={() => addChat()}>
+            + {t("chat.newChat")}
+          </button>
+        }
+      />
     );
   }
 
@@ -221,8 +227,13 @@ export function ChatView() {
       >
         {chat.messages.length === 0 && (
           <div className="chat-welcome">
-            <span className="chat-welcome-icon">🧠</span>
-            <p>{t("chat.welcomeHint")}</p>
+            <span className="chat-welcome-icon" aria-hidden>👋</span>
+            <h3 className="chat-welcome-title">{t("chat.welcomeTitle")}</h3>
+            <ul className="chat-welcome-steps">
+              <li>{t("chat.welcomeStep1")}</li>
+              <li>{t("chat.welcomeStep2")}</li>
+              <li>{t("chat.welcomeStep3")}</li>
+            </ul>
           </div>
         )}
         {chat.messages.map((m) => (

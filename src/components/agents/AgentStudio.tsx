@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../store/appStore";
 import { AgentGroup, AgentMember } from "../../api/tauri";
 import { Tooltip } from "../ui/Tooltip";
+import { EmptyState } from "../ui/EmptyState";
 import {
   AGENT_ROLES, AGENT_TOOLS, ORCHESTRATION_STRATEGIES,
   CONFLICT_MODES, TRIGGER_CONDITIONS,
@@ -243,6 +244,18 @@ export function AgentStudio() {
               </div>
             </div>
             <div className="agent-grid">
+              {groups.length === 0 && (
+                <EmptyState
+                  icon="🤝"
+                  title={t("agents.emptyTitle")}
+                  description={t("agents.emptyDesc")}
+                  action={
+                    <button type="button" className="m3-filled-btn" onClick={addGroup}>
+                      + {t("agents.addGroup")}
+                    </button>
+                  }
+                />
+              )}
               {groups.map((g) => (
                 <div key={g.id} className="m3-card agent-member-card agent-group-card">
                   <div

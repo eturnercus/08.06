@@ -23,6 +23,14 @@ export function ChatSidebar() {
         </button>
       </div>
       <div className="scroll-y chat-list">
+        {chats.length === 0 && (
+          <div className="chat-list-empty">
+            <p>{t("chat.sidebarEmpty")}</p>
+            <button type="button" className="m3-tonal-btn" onClick={() => addChat()}>
+              + {t("chat.newChat")}
+            </button>
+          </div>
+        )}
         {chats.map((c) => (
           <div
             key={c.id}
