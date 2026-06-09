@@ -528,10 +528,12 @@ pub fn tune_generate_params(settings: &AppSettings, mut p: GenerateParams) -> Ge
             .saturating_mul(perf.tensor_parallel_shards.min(8));
     }
 
-    match perf.mixed_precision.as_str() {
-        "int4" | "int8" => p.gpu_layers = p.gpu_layers.saturating_add(4),
-        "fp16" | "bf16" => {}
-        _ => {}
+    if p.compute_device != "cpu" {
+        match perf.mixed_precision.as_str() {
+            "int4" | "int8" => p.gpu_layers = p.gpu_layers.saturating_add(4),
+            "fp16" | "bf16" => {}
+            _ => {}
+        }
     }
 
     if inv.neural_whisper_mode {

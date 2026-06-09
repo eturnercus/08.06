@@ -22,6 +22,9 @@ pub struct LlamaCliRunner;
 
 impl LlamaCliRunner {
     pub fn find_binary() -> Option<PathBuf> {
+        if let Some(p) = crate::llama_runtime::resolve_cli_binary() {
+            return Some(p);
+        }
         let mut candidates: Vec<PathBuf> = Vec::new();
         if let Ok(exe) = std::env::current_exe() {
             if let Some(dir) = exe.parent() {
@@ -184,13 +187,20 @@ impl LlamaCliRunner {
 }
 
 pub fn resolve_gpu_layers(
+    compute_device: &str,
     configured: u32,
     gpu_memory_mb: u64,
     vram_reserve_mb: u64,
     model_size_bytes: u64,
 ) -> u32 {
+    if compute_device == "cpu" {
+        return 0;
+    }
     if configured > 0 {
         return configured;
+    }
+    if compute_device == "auto" && gpu_memory_mb == 0 {
+        return 0;
     }
     let avail = gpu_memory_mb.saturating_sub(vram_reserve_mb);
     let mut layers = if avail >= 12_000 {

@@ -48,6 +48,7 @@ pub struct GenerateParams {
     pub n_ctx: u32,
     pub threads: u32,
     pub gpu_layers: u32,
+    pub compute_device: String,
     pub gpu_memory_mb: u64,
     pub vram_reserve_mb: u64,
     pub ram_limit_mb: u64,
@@ -112,8 +113,13 @@ impl GgufRuntime {
             );
         }
 
-        let gpu_layers =
-            resolve_gpu_layers(p.gpu_layers, p.gpu_memory_mb, p.vram_reserve_mb, p.model_size_bytes);
+        let gpu_layers = resolve_gpu_layers(
+            &p.compute_device,
+            p.gpu_layers,
+            p.gpu_memory_mb,
+            p.vram_reserve_mb,
+            p.model_size_bytes,
+        );
         let mlock = resolve_mlock(p.mlock_enabled, &p.swap_usage, &p.oom_policy);
         let _mmap = resolve_mmap(p.mmap_enabled, &p.swap_usage);
         let n_ctx = resolve_context_len(p.n_ctx, p.ram_limit_mb, &p.swap_usage);
@@ -371,8 +377,13 @@ fn run_cli_backend(
     stream: Option<&mut dyn TokenSink>,
     cancel: Option<&std::sync::atomic::AtomicBool>,
 ) -> Result<GenerateResult, String> {
-    let gpu_layers =
-        resolve_gpu_layers(p.gpu_layers, p.gpu_memory_mb, p.vram_reserve_mb, p.model_size_bytes);
+    let gpu_layers = resolve_gpu_layers(
+        &p.compute_device,
+        p.gpu_layers,
+        p.gpu_memory_mb,
+        p.vram_reserve_mb,
+        p.model_size_bytes,
+    );
     let mlock = resolve_mlock(p.mlock_enabled, &p.swap_usage, &p.oom_policy);
     let mmap = resolve_mmap(p.mmap_enabled, &p.swap_usage);
     let n_ctx = resolve_context_len(p.n_ctx, p.ram_limit_mb, &p.swap_usage);
@@ -430,6 +441,7 @@ impl GenerateParams {
             n_ctx: self.n_ctx,
             threads: self.threads,
             gpu_layers: self.gpu_layers,
+            compute_device: self.compute_device.clone(),
             gpu_memory_mb: self.gpu_memory_mb,
             vram_reserve_mb: self.vram_reserve_mb,
             ram_limit_mb: self.ram_limit_mb,
@@ -458,6 +470,7 @@ impl Clone for GenerateParams {
             n_ctx: self.n_ctx,
             threads: self.threads,
             gpu_layers: self.gpu_layers,
+            compute_device: self.compute_device.clone(),
             gpu_memory_mb: self.gpu_memory_mb,
             vram_reserve_mb: self.vram_reserve_mb,
             ram_limit_mb: self.ram_limit_mb,

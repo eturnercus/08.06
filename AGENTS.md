@@ -42,7 +42,9 @@ Built artifacts: `src-tauri/target/release/bundle/`
 - **Where to find key features:**
   - **Agent Studio** (10 orchestration strategies, 12 roles, 14 tools, permissions, resources): nav rail → **Агенты / Agents** → tabs Группы / Редактор / Монитор.
   - **150+ settings**: nav → **Настройки / Settings** (RAM, CPU, inference, innovations, security, performance, injections, AI memory, internet, permissions, appearance, advanced).
-  - **Linux dev run**: if `libllama.so.0` missing, set `LD_LIBRARY_PATH` to `src-tauri/target/llama-cmake-cache/*/build/bin` before `npm run tauri:dev`.
+  - **Linux dev run**: release `.deb` bundles `libllama.so.0` into `/usr/lib/Silenium` with `RUNPATH=$ORIGIN/../lib/Silenium`. For `tauri dev`, if needed: `export LD_LIBRARY_PATH=src-tauri/target/llama-cmake-cache/*/build/bin`.
+  - **llama-cli**: auto-downloaded on first launch to `~/.local/share/silenium/llama-cli/`; manual install/reinstall in **Настройки → Вывод по умолчанию → Движок llama.cpp**.
+  - **Compute device**: **Настройки → Память и ОЗУ → Устройство вычислений** — CPU / GPU / Авто (controls `gpu_layers`).
 - **Agent help / orchestration**: nav → **Агенты** → **? Справка**, Monitor swimlanes, per-agent stop; chat team returns one `finalResponse`.
 - **Chat workspace**: ⚙ properties → workspace folder when an agent team is assigned (file tools sandbox).
 - **Agent browser + dual AI mouse**: nav → **Устройства / Devices** (requires Browser automation + Desktop control in Settings → Permissions).

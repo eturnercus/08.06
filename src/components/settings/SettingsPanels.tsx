@@ -18,7 +18,18 @@ export function SystemPanel({ d, u }: { d: Draft; u: Updater }) {
       <SettingNumber title={t("settings.system.vramReserve")} desc={t("settings.system.vramReserveDesc")} value={(s.vramReserveMb as number) ?? 512} onChange={(v) => u("system", "vramReserveMb", v)} />
       <SettingText title={t("settings.system.cpuCores")} desc={t("settings.system.cpuCoresDesc")} value={((s.cpuCores as number[] | undefined) ?? []).join(",")} onChange={(v) => u("system", "cpuCores", v.split(",").map(Number).filter((n) => !isNaN(n)))} />
       <SettingSelect title={t("settings.system.cpuAffinity")} value={s.cpuAffinityMode as string} options={["auto", "manual", "performance", "efficiency", "hybrid"]} onChange={(v) => u("system", "cpuAffinityMode", v)} />
-      <SettingNumber title={t("settings.system.gpuLayers")} value={s.gpuLayers as number} onChange={(v) => u("system", "gpuLayers", v)} />
+      <SettingSelect
+        title={t("settings.system.computeDevice")}
+        desc={t("settings.system.computeDeviceDesc")}
+        value={(s.computeDevice as string) || "auto"}
+        options={[
+          { v: "cpu", l: t("settings.system.computeCpu") },
+          { v: "gpu", l: t("settings.system.computeGpu") },
+          { v: "auto", l: t("settings.system.computeAuto") },
+        ]}
+        onChange={(v) => u("system", "computeDevice", v)}
+      />
+      <SettingNumber title={t("settings.system.gpuLayers")} desc={t("settings.system.gpuLayersDesc")} value={(s.gpuLayers as number) ?? 0} onChange={(v) => u("system", "gpuLayers", v)} />
       <SettingSlider title={t("settings.system.gpuMemory")} value={s.gpuMemoryMb as number} onChange={(v) => u("system", "gpuMemoryMb", v)} min={0} max={24576} step={256} />
       <SettingNumber title={t("settings.system.threads")} value={s.threadCount as number} onChange={(v) => u("system", "threadCount", v)} />
       <SettingNumber title={t("settings.system.batchSize")} value={s.batchSize as number} onChange={(v) => u("system", "batchSize", v)} />

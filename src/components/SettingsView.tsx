@@ -12,6 +12,7 @@ import {
   InnovationPanel, InjectionPanel, MemoryPanel,
   NetworkPanel, PerformancePanel, SecurityPanel, SystemPanel,
 } from "./settings/SettingsPanels";
+import { InferenceRuntimePanel } from "./settings/InferenceRuntimePanel";
 import "./ui/ui.css";
 
 /* 9 категорий по ТЗ */
@@ -157,6 +158,7 @@ export function SettingsView() {
           {tab === "injection" && <InjectionPanel d={d} u={update} />}
           {tab === "inference" && (
             <>
+              <InferenceRuntimePanel />
               <SectionTitle>{t("settings.inference.section")}</SectionTitle>
               <SettingSelect title="Backend" value={inf.defaultBackend as string} options={["gguf", "onnx", "safetensors", "pytorch", "tensorrt"]} onChange={(v) => update("inference", "defaultBackend", v)} />
               <SettingSlider title="Context" value={inf.contextLength as number} onChange={(v) => update("inference", "contextLength", v)} min={2048} max={131072} step={1024} />

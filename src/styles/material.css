@@ -428,3 +428,18 @@ body {
   font-size: 10px; padding: 2px 8px; vertical-align: middle;
   background: var(--m3-primary-container); color: var(--m3-on-primary-container);
 }
+.inference-runtime-card { margin-bottom: 16px; }
+.runtime-status-list { list-style: none; margin: 12px 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.runtime-status-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.runtime-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.badge-warn { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+.gen-preset-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.gen-preset-btn {
+  padding: 6px 12px; border-radius: var(--m3-radius-sm, 8px);
+  background: var(--m3-surface-container-high); color: var(--m3-on-surface-variant);
+  border: 1px solid var(--m3-outline-variant); font-size: 12px;
+}
+.gen-preset-btn.active {
+  background: var(--m3-primary-container); color: var(--m3-on-primary-container);
+  border-color: var(--m3-primary);
+}

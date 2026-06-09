@@ -154,6 +154,22 @@ export const api = {
       query,
       limit,
     }),
+  getLlamaRuntimeStatus: () =>
+    invoke<{
+      embeddedAvailable: boolean;
+      cliPath?: string;
+      cliReady: boolean;
+      version?: string;
+      message: string;
+    }>("get_llama_runtime_status"),
+  ensureLlamaRuntime: (force?: boolean) =>
+    invoke<{
+      embeddedAvailable: boolean;
+      cliPath?: string;
+      cliReady: boolean;
+      version?: string;
+      message: string;
+    }>("ensure_llama_runtime", { force: force ?? false }),
   getAuditLogs: (maxLines?: number) => invoke<string[]>("get_audit_logs", { maxLines }),
   openBrowserUrl: (url: string, chatId?: string, agentId?: string) =>
     invoke<NetworkLog>("open_browser_url", { url, chatId, agentId }),

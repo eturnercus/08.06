@@ -154,6 +154,29 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
       </div>
 
       {!teamMode && (
+      <>
+      <div className="form-row">
+        <label className="form-label">{t("chat.genPreset")}</label>
+        <div className="gen-preset-row" role="group">
+          {(
+            [
+              ["creative", 1.0],
+              ["balanced", 0.7],
+              ["precise", 0.3],
+              ["code", 0.15],
+            ] as const
+          ).map(([key, temp]) => (
+            <button
+              key={key}
+              type="button"
+              className={`gen-preset-btn${Math.abs(chat.temperature - temp) < 0.05 ? " active" : ""}`}
+              onClick={() => updateChat(chatId, { temperature: temp })}
+            >
+              {t(`chat.preset${key.charAt(0).toUpperCase()}${key.slice(1)}` as "chat.presetCreative")}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="chat-settings-grid">
         <div>
           <label className="form-label">{t("chat.temperature")}</label>
@@ -193,6 +216,7 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
           />
         </div>
       </div>
+      </>
       )}
 
       {teamMode && (

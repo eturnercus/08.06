@@ -7,6 +7,7 @@ mod devices;
 mod gguf_runner;
 mod inference;
 mod llama_cli;
+mod llama_runtime;
 mod memory;
 mod network;
 mod settings;
@@ -669,10 +670,28 @@ fn get_system_info(state: State<'_, AppState>) -> serde_json::Value {
         "cpuCores": settings.system.cpu_cores,
         "threadCount": settings.system.thread_count,
         "gpuLayers": settings.system.gpu_layers,
+        "computeDevice": settings.system.compute_device,
         "gpuMemoryMb": settings.system.gpu_memory_mb,
         "platform": std::env::consts::OS,
         "arch": std::env::consts::ARCH,
     })
+}
+
+#[tauri::command]
+fn get_llama_runtime_status() -> llama_runtime::LlamaRuntimeStatus {
+    llama_runtime::runtime_status()
+}
+
+#[tauri::command]
+async fn ensure_llama_runtime(
+    state: State<'_, AppState>,
+    force: Option<bool>,
+) -> Result<llama_runtime::LlamaRuntimeStatus, String> {
+    let prefer_gpu = {
+        let s = state.settings.lock();
+        matches!(s.system.compute_device.as_str(), "gpu" | "auto")
+    };
+    llama_runtime::ensure_llama_cli(force.unwrap_or(false), prefer_gpu).await
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -681,6 +700,7 @@ pub fn run() {
     let settings = load_settings();
     let memory = Arc::new(MemoryStore::new());
     memory.set_encrypt_at_rest(settings.security.encrypt_memory_at_rest);
+    let prefer_gpu = matches!(settings.system.compute_device.as_str(), "gpu" | "auto");
     let app_state = AppState {
         settings: Mutex::new(settings),
         memory,
@@ -691,6 +711,12 @@ pub fn run() {
         desktop: Arc::new(DesktopAgent::new()),
         webview: Arc::new(AgentWebView::new()),
     };
+
+    tauri::async_runtime::spawn(async move {
+        if !llama_runtime::resolve_cli_binary().is_some() {
+            let _ = llama_runtime::ensure_llama_cli(false, prefer_gpu).await;
+        }
+    });
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -742,6 +768,8 @@ pub fn run() {
             ocr_screen,
             transcribe_audio,
             get_system_info,
+            get_llama_runtime_status,
+            ensure_llama_runtime,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Silenium");

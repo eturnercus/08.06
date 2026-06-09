@@ -139,6 +139,8 @@ pub struct SystemSettings {
     pub cpu_cores: Vec<u32>,
     pub cpu_affinity_mode: String,
     pub gpu_layers: u32,
+    #[serde(default = "default_compute_device")]
+    pub compute_device: String,
     pub gpu_memory_mb: u64,
     pub thread_count: u32,
     pub batch_size: u32,
@@ -560,6 +562,10 @@ impl Default for PerformanceSettings {
     }
 }
 
+fn default_compute_device() -> String {
+    "auto".into()
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -572,6 +578,7 @@ impl Default for AppSettings {
                 cpu_cores: vec![0, 1, 2, 3],
                 cpu_affinity_mode: "auto".into(),
                 gpu_layers: 0,
+                compute_device: default_compute_device(),
                 gpu_memory_mb: 4096,
                 thread_count: 4,
                 batch_size: 512,
