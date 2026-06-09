@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../store/appStore";
-import { api, AgentGroup, AgentMember } from "../../api/tauri";
+import { AgentGroup, AgentMember } from "../../api/tauri";
 import { Tooltip } from "../ui/Tooltip";
 import {
   AGENT_ROLES, AGENT_TOOLS, ORCHESTRATION_STRATEGIES,
@@ -11,6 +11,8 @@ import { OrchestrationMonitor } from "./OrchestrationMonitor";
 import { AgentSystemsGuide } from "./AgentSystemsGuide";
 import { ModelSelect } from "../models/ModelSelect";
 import { useModels } from "../../hooks/useModels";
+import { applyRoleDefaults, roleDefaultPrompt } from "../../constants/rolePrompts";
+import { api } from "../../api/tauri";
 
 function cloneMember(member: AgentMember, nameSuffix?: string): AgentMember {
   return {
@@ -34,7 +36,7 @@ function cloneGroup(group: AgentGroup, t: (k: string) => string): AgentGroup {
   };
 }
 
-function newMember(): AgentMember {
+function newMember(lang: "ru" | "en"): AgentMember {
   return {
     id: `agent-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     name: "Agent",
@@ -52,8 +54,9 @@ function newMember(): AgentMember {
     tools: ["memory_query", "calculator"],
     trigger: "always",
     triggerKeyword: "",
-    systemPrompt: "",
-  } as AgentMember;
+    systemPrompt: roleDefaultPrompt("worker", lang),
+    systemPromptCustomized: false,
+  } as AgentMember & { systemPromptCustomized?: boolean };
 }
 
 export function AgentStudio() {
@@ -65,6 +68,8 @@ export function AgentStudio() {
   const [tab, setTab] = useState<"groups" | "editor" | "monitor">("groups");
   const [runPrompt, setRunPrompt] = useState("");
   const [running, setRunning] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
+  const [focusMemberId, setFocusMemberId] = useState<string | null>(null);
 
   const groups = (settings?.agentGroups || []) as (AgentGroup & {
     conflictMode?: string; timeoutSec?: number; feedbackLoops?: boolean;
@@ -86,7 +91,7 @@ export function AgentStudio() {
       name: t("agents.newGroup"),
       enabled: true,
       orchestrationMode: "sequential",
-      members: [newMember(), newMember()],
+      members: [newMember(lang), newMember(lang)],
       sharedMemory: true,
       maxRounds: 5,
       parallelExecution: false,
@@ -199,7 +204,22 @@ export function AgentStudio() {
       </div>
 
       <div className="scroll" style={{ flex: 1, padding: 16 }}>
-        <AgentSystemsGuide />
+        <div className="agent-studio-topbar">
+          <AgentSystemsGuide
+            open={guideOpen}
+            onOpenChange={setGuideOpen}
+            selectedMember={selected?.members.find((m) => m.id === focusMemberId)}
+            onApplyRole={(roleId) => {
+              if (!selected || !focusMemberId) return;
+              const m = selected.members.find((x) => x.id === focusMemberId);
+              if (!m) return;
+              updateMember(focusMemberId, {
+                ...applyRoleDefaults(m as AgentMember & { systemPromptCustomized?: boolean }, roleId, lang),
+                systemPromptCustomized: false,
+              });
+            }}
+          />
+        </div>
 
         {tab === "groups" && (
           <div>
@@ -311,6 +331,8 @@ export function AgentStudio() {
             <h4 style={{ margin: "24px 0 12px", fontSize: 14 }}>{t("agents.membersTitle")}</h4>
             {selected.members.map((m) => (
               <MemberEditor key={m.id} member={m} lang={lang} t={t}
+                onFocusMember={() => setFocusMemberId(m.id)}
+                onOpenHelp={() => { setFocusMemberId(m.id); setGuideOpen(true); }}
                 onChange={(p) => updateMember(m.id, p)}
                 onRemove={() => updateGroup({ members: selected.members.filter((x) => x.id !== m.id) })}
                 onDuplicate={() => updateGroup({
@@ -319,16 +341,23 @@ export function AgentStudio() {
                 onCopyJson={() => navigator.clipboard.writeText(JSON.stringify(m, null, 2))}
               />
             ))}
-            <button type="button" className="m3-outlined-btn" style={{ marginTop: 8 }} onClick={() => updateGroup({ members: [...selected.members, newMember()] })}>
+            <button type="button" className="m3-outlined-btn" style={{ marginTop: 8 }} onClick={() => updateGroup({ members: [...selected.members, newMember(lang)] })}>
               + {t("agents.addMember")}
             </button>
 
             <div style={{ marginTop: 24, padding: 16, background: "var(--m3-surface-container-highest)", borderRadius: 12 }}>
               <label className="form-label">{t("agents.prompt")}</label>
               <textarea className="m3-input" rows={3} value={runPrompt} onChange={(e) => setRunPrompt(e.target.value)} />
-              <button type="button" className="m3-filled-btn" style={{ marginTop: 10 }} onClick={runTeam} disabled={running}>
-                {running ? "..." : t("agents.runTeam")}
-              </button>
+              <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                <button type="button" className="m3-filled-btn" onClick={runTeam} disabled={running}>
+                  {running ? "..." : t("agents.runTeam")}
+                </button>
+                {running && (
+                  <button type="button" className="m3-outlined-btn danger" onClick={() => api.stopAgentTeam().catch(() => {})}>
+                    {t("agents.stopTeam")}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -340,22 +369,24 @@ export function AgentStudio() {
 }
 
 function MemberEditor({
-  member, lang, t, onChange, onRemove, onDuplicate, onCopyJson,
+  member, lang, t, onChange, onRemove, onDuplicate, onCopyJson, onFocusMember, onOpenHelp,
 }: {
-  member: AgentMember & { tools?: string[]; trigger?: string; triggerKeyword?: string; systemPrompt?: string; resources?: Record<string, unknown> };
+  member: AgentMember & { tools?: string[]; trigger?: string; triggerKeyword?: string; systemPrompt?: string; systemPromptCustomized?: boolean; resources?: Record<string, unknown> };
   lang: "ru" | "en";
   t: (k: string) => string;
   onChange: (p: Partial<AgentMember>) => void;
   onRemove: () => void;
   onDuplicate: () => void;
   onCopyJson: () => void;
+  onFocusMember: () => void;
+  onOpenHelp: () => void;
 }) {
   const [open, setOpen] = useState(true);
   const res = member.resources || { ramLimitMb: 2048, cpuCores: [0, 1], maxTokens: 2048, temperature: 0.7, executionOrder: 0 };
 
   return (
     <div className="m3-card" style={{ marginBottom: 12 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} onClick={() => setOpen(!open)}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} onClick={() => { setOpen(!open); onFocusMember(); }}>
         <span>{open ? "▼" : "▶"}</span>
         <input className="m3-input" style={{ flex: 1, padding: "6px 10px" }} value={member.name}
           onChange={(e) => onChange({ name: e.target.value })} onClick={(e) => e.stopPropagation()} />
@@ -364,6 +395,9 @@ function MemberEditor({
         </Tooltip>
         <Tooltip text={t("agents.duplicateMemberTip")}>
           <button type="button" className="m3-tonal-btn sm" onClick={(e) => { e.stopPropagation(); onDuplicate(); }}>⧉</button>
+        </Tooltip>
+        <Tooltip text={t("agents.guide.title")}>
+          <button type="button" className="m3-tonal-btn sm" onClick={(e) => { e.stopPropagation(); onOpenHelp(); }}>?</button>
         </Tooltip>
         <button type="button" className="m3-outlined-btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={(e) => { e.stopPropagation(); onRemove(); }}>✕</button>
       </div>
@@ -378,7 +412,10 @@ function MemberEditor({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <div>
               <label className="form-label">{t("agents.role")}</label>
-              <select className="m3-input" value={member.role} onChange={(e) => onChange({ role: e.target.value })}>
+              <select className="m3-input" value={member.role} onChange={(e) => {
+                const roleId = e.target.value;
+                onChange(applyRoleDefaults(member, roleId, lang));
+              }}>
                 {AGENT_ROLES.map((r) => <option key={r.id} value={r.id}>{r[lang]}</option>)}
               </select>
             </div>
@@ -392,7 +429,16 @@ function MemberEditor({
 
           <div>
             <label className="form-label">{t("agents.systemPrompt")}</label>
-            <textarea className="m3-input" rows={2} value={member.systemPrompt || ""} onChange={(e) => onChange({ systemPrompt: e.target.value } as Partial<AgentMember>)} placeholder={t("agents.systemPromptPh")} />
+            <textarea
+              className="m3-input"
+              rows={3}
+              value={member.systemPrompt || ""}
+              onChange={(e) => onChange({ systemPrompt: e.target.value, systemPromptCustomized: true } as Partial<AgentMember>)}
+              placeholder={t("agents.systemPromptPh")}
+            />
+            {!member.systemPromptCustomized && (
+              <p className="field-hint">{t("agents.roleAutoPrompt")}</p>
+            )}
           </div>
 
           <div>

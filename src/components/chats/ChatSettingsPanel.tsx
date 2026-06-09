@@ -1,8 +1,10 @@
 import { useTranslation } from "react-i18next";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useAppStore } from "../../store/appStore";
 import { Tooltip } from "../ui/Tooltip";
 import { ModelSelect } from "../models/ModelSelect";
 import { MEMORY_ACCESS_LEVELS } from "../../constants/agents";
+import { isTauri } from "../../api/browserFallback";
 
 export function ChatSettingsPanel({ chatId }: { chatId: string }) {
   const { t, i18n } = useTranslation();
@@ -77,6 +79,38 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
           {MEMORY_ACCESS_LEVELS.map((l) => <option key={l.id} value={l.id}>{l[lang]}</option>)}
         </select>
       </div>
+
+      {chat.agentGroupId && isTauri() && (
+        <div className="form-row">
+          <label className="form-label">{t("chat.workspaceFolder")}</label>
+          <p className="field-hint">{t("chat.workspaceHint")}</p>
+          <div className="workspace-picker">
+            <input
+              className="m3-input mono"
+              readOnly
+              value={chat.workspacePath ?? ""}
+              placeholder={t("chat.workspacePh")}
+            />
+            <button
+              type="button"
+              className="m3-tonal-btn"
+              onClick={async () => {
+                const selected = await open({ directory: true, multiple: false });
+                if (typeof selected === "string") {
+                  updateChat(chatId, { workspacePath: selected });
+                }
+              }}
+            >
+              {t("chat.workspacePick")}
+            </button>
+            {chat.workspacePath && (
+              <button type="button" className="m3-outlined-btn" onClick={() => updateChat(chatId, { workspacePath: undefined })}>
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="form-row">
         <label className="form-label">{t("chat.permsTitle")}</label>

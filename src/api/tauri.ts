@@ -69,6 +69,7 @@ export interface AgentMember {
   trigger?: string;
   triggerKeyword?: string;
   systemPrompt?: string;
+  systemPromptCustomized?: boolean;
 }
 
 export interface ModelInfo {
@@ -123,7 +124,12 @@ export const api = {
     stmEnabled: boolean;
     ltmEnabled: boolean;
     agentGroupId?: string;
+    workspacePath?: string;
   }) => invoke<void>("sync_chat_overrides", p),
+  stopAgentTeam: (taskId?: string) => invoke<void>("stop_agent_team", { taskId }),
+  stopAgentMember: (taskId: string, agentId: string) =>
+    invoke<void>("stop_agent_member", { taskId, agentId }),
+  ensureStarterModel: () => invoke<ModelInfo | null>("ensure_starter_model"),
   getAuditLogs: (maxLines?: number) => invoke<string[]>("get_audit_logs", { maxLines }),
   openBrowserUrl: (url: string, chatId?: string, agentId?: string) =>
     invoke<NetworkLog>("open_browser_url", { url, chatId, agentId }),
@@ -216,7 +222,8 @@ export interface AgentTask {
   status: string;
   prompt: string;
   orchestrationMode?: string;
-  rounds: { roundNumber: number; messages: { agentName: string; role: string; content: string; usedInternet: boolean; toolsUsed?: string[] }[] }[];
+  finalResponse?: string;
+  rounds: { roundNumber: number; messages: { agentId?: string; agentName: string; role: string; content: string; usedInternet: boolean; toolsUsed?: string[] }[] }[];
 }
 
 export interface DeviceStatus {

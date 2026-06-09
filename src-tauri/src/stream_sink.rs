@@ -198,6 +198,32 @@ pub fn should_stream_chat(settings: &crate::settings::AppSettings) -> bool {
     settings.inference.streaming || settings.innovation.thought_streaming
 }
 
+pub const AGENT_ORCH_EVENT: &str = "agent-orchestration";
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentOrchestrationPayload {
+    pub task_id: String,
+    pub group_id: String,
+    pub group_name: String,
+    pub orchestration_mode: String,
+    pub round: u32,
+    pub phase: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub agent_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model_id: Option<String>,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
+}
+
+pub fn emit_orchestration(app: &AppHandle, payload: AgentOrchestrationPayload) {
+    let _ = app.emit(AGENT_ORCH_EVENT, payload);
+}
+
 pub fn stream_buffer_ms(settings: &crate::settings::AppSettings) -> u64 {
     if settings.innovation.thought_streaming {
         settings.innovation.thought_stream_buffer_ms.max(0) as u64

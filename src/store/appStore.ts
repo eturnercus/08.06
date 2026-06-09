@@ -34,6 +34,7 @@ export interface Chat {
   memoryAccess: string;
   systemPrompt: string;
   agentGroupId?: string;
+  workspacePath?: string;
   ramLimitMb: number;
   maxTokens: number;
   temperature: number;
@@ -49,6 +50,15 @@ export interface MonitorEvent {
   message: string;
   status: "ok" | "error" | "running";
   streaming?: boolean;
+  round?: number;
+  orchestrationMode?: string;
+  modelId?: string;
+}
+
+export interface ActiveAgentTask {
+  taskId: string;
+  groupId: string;
+  groupName: string;
 }
 
 interface AppStore {
@@ -61,6 +71,7 @@ interface AppStore {
   monitorEvents: MonitorEvent[];
   selectedGroupId: string | null;
   activeGenerationChatId: string | null;
+  activeAgentTask: ActiveAgentTask | null;
   setPhase: (p: "language" | "onboarding" | "app") => void;
   setSettings: (s: AppSettings) => void;
   setActiveView: (v: string) => void;
@@ -94,6 +105,7 @@ interface AppStore {
   ) => void;
   finalizeAgentStream: (taskId: string, agentId: string) => void;
   clearMonitor: () => void;
+  setActiveAgentTask: (task: ActiveAgentTask | null) => void;
   loadChats: () => void;
   persistChats: () => void;
 }
@@ -141,6 +153,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
   monitorEvents: [],
   selectedGroupId: null,
   activeGenerationChatId: null,
+  activeAgentTask: null,
   setPhase: (p) => set({ phase: p }),
   setSettings: (s) => set({ settings: s }),
   setActiveView: (v) => set({ activeView: v }),
@@ -313,4 +326,5 @@ export const useAppStore = create<AppStore>((set, get) => ({
       ),
     })),
   clearMonitor: () => set({ monitorEvents: [] }),
+  setActiveAgentTask: (task) => set({ activeAgentTask: task }),
 }));

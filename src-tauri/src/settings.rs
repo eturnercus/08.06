@@ -336,6 +336,8 @@ pub struct ChatOverride {
     pub ram_limit_mb: Option<u64>,
     pub agent_group_id: Option<String>,
     pub custom_injection: Option<String>,
+    #[serde(default)]
+    pub workspace_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -388,6 +390,8 @@ pub struct AgentMember {
     pub trigger_keyword: String,
     #[serde(default)]
     pub system_prompt: String,
+    #[serde(default)]
+    pub system_prompt_customized: bool,
 }
 
 fn default_trigger() -> String {

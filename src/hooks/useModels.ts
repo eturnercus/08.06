@@ -13,6 +13,21 @@ export function useModels(autoLoad = true) {
         api.listModels(),
         api.getModelsDirectory(),
       ]);
+      const hasReal = list.some((m) => m.path && m.loaded);
+      if (!hasReal) {
+        try {
+          const starter = await api.ensureStarterModel();
+          if (starter) {
+            const next = await api.listModels();
+            setModels(next);
+            setModelsDir(dir);
+            setLoading(false);
+            return;
+          }
+        } catch {
+          /* offline — keep list */
+        }
+      }
       setModels(list);
       setModelsDir(dir);
     } catch {

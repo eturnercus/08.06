@@ -260,6 +260,29 @@ body {
 .agent-guide-panel h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; color: var(--m3-primary); }
 .agent-guide-lead { color: var(--text-secondary); }
 .agent-guide-list { margin: 8px 0 0 16px; }
+.agent-guide-role-item { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 10px; }
+.agent-guide-role-desc { font-size: 12px; color: var(--text-secondary); margin: 4px 0; }
+.agent-guide-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.agent-guide-panel { max-height: 420px; }
+.workspace-picker { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.workspace-picker .m3-input { flex: 1; min-width: 180px; }
+.orch-monitor-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.orch-badges, .orch-monitor-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.orch-flow { display: flex; gap: 12px; padding: 12px 0 20px; overflow-x: auto; }
+.orch-round-col { min-width: 220px; max-width: 280px; flex-shrink: 0; }
+.orch-round-title { font-size: 11px; text-transform: uppercase; color: var(--m3-primary); margin-bottom: 8px; }
+.orch-round-lane { display: flex; flex-direction: column; gap: 8px; }
+.orch-node { padding: 10px; border-radius: 10px; border: 1px solid var(--m3-outline-variant); background: var(--m3-surface-container); font-size: 12px; }
+.orch-node.running { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(157, 143, 255, 0.25); }
+.orch-node.error, .orch-node.cancelled { border-color: var(--danger); }
+.orch-node-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.orch-phase { font-size: 10px; text-transform: uppercase; color: var(--m3-outline); }
+.orch-model { font-size: 10px; opacity: 0.8; }
+.orch-node-body { color: var(--text-secondary); word-break: break-word; max-height: 80px; overflow: hidden; }
+.orch-mode { font-size: 10px; margin-top: 6px; color: var(--m3-primary); }
+.orch-empty { color: var(--m3-outline); text-align: center; padding: 24px; }
+.monitor-time { min-width: 70px; font-size: 11px; color: var(--m3-outline); }
+.monitor-body { flex: 1; min-width: 0; }
 .agent-group-card { display: flex; flex-direction: column; gap: 8px; }
 .agent-group-card-body { cursor: pointer; flex: 1; }
 .agent-group-card-actions { display: flex; gap: 6px; justify-content: flex-end; }

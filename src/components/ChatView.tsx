@@ -64,11 +64,15 @@ export function ChatView() {
       stmEnabled: chat.permissions.stm,
       ltmEnabled: chat.permissions.ltm,
       agentGroupId: chat.agentGroupId,
+      workspacePath: chat.workspacePath,
     });
   };
 
   const handleStop = async () => {
     if (!chat || !isTauri()) return;
+    if (chat.agentGroupId) {
+      await api.stopAgentTeam().catch(() => {});
+    }
     await api.stopChat(chat.id);
     finalizeStreamMessage(chat.id, { cancelled: true });
     setLoading(false);
@@ -94,19 +98,20 @@ export function ChatView() {
     try {
       if (useAgentTeam) {
         const task = await api.runAgentTeam(chat.agentGroupId!, userText, chat.id);
-        task.rounds.forEach((round) => {
-          round.messages.forEach((m) => {
-            addMessage(chat.id, {
-              role: "assistant",
-              agentName: m.agentName,
-              content: m.content,
-              meta: {
-                round: round.roundNumber,
-                tools: m.toolsUsed?.join(", ") ?? "",
-                internet: m.usedInternet ? "yes" : "no",
-              },
-            });
-          });
+        const finalText =
+          task.finalResponse?.trim() ||
+          task.rounds.at(-1)?.messages.at(-1)?.content ||
+          t("chat.agentNoResponse");
+        addMessage(chat.id, {
+          role: "assistant",
+          agentName: agentGroup?.name ?? t("chat.agentTeam"),
+          content: finalText,
+          meta: {
+            team: true,
+            rounds: task.rounds.length,
+            status: task.status,
+            agents: task.rounds.reduce((n, r) => n + r.messages.length, 0),
+          },
         });
       } else {
         const resp = await api.sendChat({

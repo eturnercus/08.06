@@ -1,4 +1,5 @@
 mod agent_webview;
+mod agent_workspace;
 mod agents;
 mod app_paths;
 mod desktop_agent;
@@ -107,19 +108,47 @@ fn sync_chat_overrides(
     stm_enabled: bool,
     ltm_enabled: bool,
     agent_group_id: Option<String>,
+    workspace_path: Option<String>,
 ) -> Result<(), String> {
     let mut settings = state.settings.lock();
-    settings
-        .per_chat_overrides
-        .insert(chat_id, settings::ChatOverride {
+    let prev = settings.per_chat_overrides.get(&chat_id).cloned();
+    settings.per_chat_overrides.insert(
+        chat_id,
+        settings::ChatOverride {
             allow_internet: Some(allow_internet),
             stm_enabled: Some(stm_enabled),
             ltm_enabled: Some(ltm_enabled),
             agent_group_id,
+            workspace_path: workspace_path.or_else(|| prev.and_then(|p| p.workspace_path)),
             ..Default::default()
-        });
+        },
+    );
     save_settings(&settings)?;
     Ok(())
+}
+
+#[tauri::command]
+fn stop_agent_team(state: State<'_, AppState>, task_id: Option<String>) -> Result<(), String> {
+    let id = task_id
+        .or_else(|| state.agents.current_task_id())
+        .ok_or("Нет активной задачи агентов")?;
+    state.agents.stop_task(&state.cancel, &id);
+    Ok(())
+}
+
+#[tauri::command]
+fn stop_agent_member(
+    state: State<'_, AppState>,
+    task_id: String,
+    agent_id: String,
+) -> Result<(), String> {
+    state.agents.stop_agent(&state.cancel, &task_id, &agent_id);
+    Ok(())
+}
+
+#[tauri::command]
+async fn ensure_starter_model(state: State<'_, AppState>) -> Result<Option<inference::ModelInfo>, String> {
+    state.inference.ensure_starter_model().await
 }
 
 #[tauri::command]
@@ -520,6 +549,7 @@ async fn run_agent_team(
             &inference,
             &state.desktop,
             &state.webview,
+            &state.cancel,
             app,
             chat_id,
         )
@@ -668,7 +698,10 @@ pub fn run() {
             transfer_memory,
             consolidate_memory,
             run_agent_team,
+            stop_agent_team,
+            stop_agent_member,
             list_agent_tasks,
+            ensure_starter_model,
             load_model,
             download_huggingface_model,
             get_models_directory,

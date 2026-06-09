@@ -351,6 +351,9 @@ impl InferenceEngine {
         system: &str,
         user_message: &str,
         agent_stream: &mut Option<AgentStreamSink>,
+        max_tokens: u32,
+        temperature: f32,
+        cancel: Option<&std::sync::atomic::AtomicBool>,
     ) -> Result<String, String> {
         let model_info = self.loaded_models.read().get(model_id).cloned();
         let model_path = model_info
@@ -370,8 +373,8 @@ impl InferenceEngine {
         let mut gen = GenerateParams {
             model_path,
             messages,
-            temperature: effective_temperature(settings, settings.inference.temperature),
-            max_tokens: effective_max_tokens(settings, 512),
+            temperature: effective_temperature(settings, temperature),
+            max_tokens: effective_max_tokens(settings, max_tokens.max(64)),
             n_ctx: settings.inference.context_length.max(2048),
             threads: settings.system.thread_count.max(1),
             gpu_layers: settings.system.gpu_layers,
@@ -393,16 +396,48 @@ impl InferenceEngine {
         {
             let gguf_guard = self.gguf.lock();
             return match agent_stream.as_mut() {
-                Some(sink) => {
-                    generate_with_best_backend(gguf_guard.as_ref(), gen, Some(sink as &mut dyn TokenSink), None)
-                }
-                None => generate_with_best_backend(gguf_guard.as_ref(), gen, None, None),
+                Some(sink) => generate_with_best_backend(
+                    gguf_guard.as_ref(),
+                    gen,
+                    Some(sink as &mut dyn TokenSink),
+                    cancel,
+                ),
+                None => generate_with_best_backend(gguf_guard.as_ref(), gen, None, cancel),
             };
         }
         #[cfg(not(feature = "embedded-llama"))]
         match agent_stream.as_mut() {
-            Some(sink) => generate_with_best_backend(gen, Some(sink as &mut dyn TokenSink), None),
-            None => generate_with_best_backend(gen, None, None),
+            Some(sink) => generate_with_best_backend(gen, Some(sink as &mut dyn TokenSink), cancel),
+            None => generate_with_best_backend(gen, None, cancel),
+        }
+    }
+
+    pub const STARTER_MODEL_REPO: &str = "bartowski/SmolLM2-360M-Instruct-GGUF";
+
+    pub fn has_usable_local_model(&self) -> bool {
+        self.loaded_models
+            .read()
+            .values()
+            .any(|m| !m.path.is_empty() && m.loaded)
+    }
+
+    pub async fn ensure_starter_model(&self) -> Result<Option<ModelInfo>, String> {
+        if self.has_usable_local_model() {
+            return Ok(None);
+        }
+        let starter_id = "starter-smollm2";
+        if let Some(m) = self.loaded_models.read().get(starter_id).cloned() {
+            if !m.path.is_empty() {
+                return Ok(Some(m));
+            }
+        }
+        let result = self
+            .download_huggingface(Self::STARTER_MODEL_REPO)
+            .await?;
+        if result.success {
+            Ok(result.model)
+        } else {
+            Err(result.message)
         }
     }
 
