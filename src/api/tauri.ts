@@ -127,6 +127,16 @@ export const api = {
   getAuditLogs: (maxLines?: number) => invoke<string[]>("get_audit_logs", { maxLines }),
   openBrowserUrl: (url: string, chatId?: string, agentId?: string) =>
     invoke<NetworkLog>("open_browser_url", { url, chatId, agentId }),
+  getDesktopAgentState: () => invoke<DesktopAgentSnapshot>("get_desktop_agent_state"),
+  virtualMouseMove: (x: number, y: number, label?: string) =>
+    invoke<void>("virtual_mouse_move", { x, y, label }),
+  virtualMouseScroll: (deltaY: number) => invoke<void>("virtual_mouse_scroll", { deltaY }),
+  browserNavigateInApp: (url: string, chatId?: string, agentId?: string) =>
+    invoke<string>("browser_navigate_in_app", { url, chatId, agentId }),
+  browserSearchInApp: (query: string, chatId?: string, agentId?: string) =>
+    invoke<string>("browser_search_in_app", { query, chatId, agentId }),
+  browserClickInApp: (p: { linkIndex?: number; x?: number; y?: number; chatId?: string; agentId?: string }) =>
+    invoke<string>("browser_click_in_app", p),
   getMemoryStm: (chatId: string) => invoke<StmEntry[]>("get_memory_stm", { chatId }),
   getMemoryLtm: (chatId?: string) => invoke<LtmEntry[]>("get_memory_ltm", { chatId }),
   transferMemory: (p: {
@@ -202,4 +212,33 @@ export interface DeviceStatus {
   microphoneAvailable: boolean;
   screenCaptureAvailable: boolean;
   virtualDisplayActive: boolean;
+}
+
+export interface VirtualMouseState {
+  x: number;
+  y: number;
+  visible: boolean;
+  clicking: boolean;
+  label: string;
+}
+
+export interface BrowserLink {
+  index: number;
+  text: string;
+  href: string;
+}
+
+export interface AgentBrowserState {
+  url: string;
+  title: string;
+  htmlSrcdoc: string;
+  status: string;
+  message: string;
+  links: BrowserLink[];
+}
+
+export interface DesktopAgentSnapshot {
+  dualMouseEnabled: boolean;
+  virtualMouse: VirtualMouseState;
+  browser: AgentBrowserState;
 }

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+use crate::desktop_agent::{self, DesktopAgent};
 use crate::inference::InferenceEngine;
 use crate::memory::MemoryStore;
 use crate::network::NetworkManager;
@@ -62,6 +63,7 @@ impl AgentOrchestrator {
         memory: &MemoryStore,
         network: &NetworkManager,
         inference: &InferenceEngine,
+        desktop: &DesktopAgent,
         app: AppHandle,
         chat_id: Option<String>,
     ) -> Result<AgentTask, String> {
@@ -130,11 +132,13 @@ impl AgentOrchestrator {
                     &injection,
                     settings,
                     network,
+                    desktop,
                     &prompt,
                     &mode,
                     inference,
                     memory,
                     &task_id,
+                    chat_id.as_deref(),
                     &app,
                 )
                 .await;
@@ -251,11 +255,13 @@ async fn execute_member(
     injection: &str,
     settings: &AppSettings,
     network: &NetworkManager,
+    desktop: &DesktopAgent,
     prompt: &str,
     mode: &str,
     inference: &InferenceEngine,
     memory: &MemoryStore,
     task_id: &str,
+    chat_id: Option<&str>,
     app: &AppHandle,
 ) -> (String, bool, Vec<String>) {
     let tools_used: Vec<String> = member.tools.clone();
@@ -291,6 +297,74 @@ async fn execute_member(
         }
     } else if member.tools.iter().any(|t| t == "web_search") && !member.permissions.internet {
         tool_notes.push("web_search [skipped]: интернет отключён для этого агента".into());
+    }
+
+    let browser_tools = member.tools.iter().any(|t| {
+        t == "browser_navigate" || t == "browser_click" || t == "browser_search"
+    });
+    if browser_tools {
+        if !member.permissions.screen {
+            tool_notes.push("browser_* [skipped]: нет разрешения «Экран»".into());
+        } else if !settings.devices.browser_automation_enabled || !settings.devices.desktop_control_enabled {
+            tool_notes.push("browser_* [skipped]: включите Browser automation и Desktop control".into());
+        } else if !member.permissions.internet {
+            tool_notes.push("browser_* [skipped]: интернет отключён для агента".into());
+        } else {
+            desktop.set_dual_mouse(true, app);
+            used_internet = true;
+            if member.tools.iter().any(|t| t == "browser_navigate") {
+                if let Some(url) = desktop_agent::extract_url_from_text(prompt) {
+                    match desktop
+                        .navigate(
+                            app,
+                            network,
+                            settings,
+                            &url,
+                            chat_id.map(str::to_string),
+                            Some(member.id.clone()),
+                        )
+                        .await
+                    {
+                        Ok(msg) => tool_notes.push(format!("browser_navigate [ok]: {msg}")),
+                        Err(e) => tool_notes.push(format!("browser_navigate [error]: {e}")),
+                    }
+                }
+            }
+            if member.tools.iter().any(|t| t == "browser_search") {
+                let q = prompt.chars().take(120).collect::<String>();
+                match desktop
+                    .search(
+                        app,
+                        network,
+                        settings,
+                        &q,
+                        chat_id.map(str::to_string),
+                        Some(member.id.clone()),
+                    )
+                    .await
+                {
+                    Ok(msg) => tool_notes.push(format!("browser_search [ok]: {msg}")),
+                    Err(e) => tool_notes.push(format!("browser_search [error]: {e}")),
+                }
+            }
+            if member.tools.iter().any(|t| t == "browser_click") {
+                let idx = find_link_index_in_prompt(prompt, &desktop.snapshot().browser.links);
+                match desktop
+                    .click_link(
+                        app,
+                        network,
+                        settings,
+                        idx,
+                        chat_id.map(str::to_string),
+                        Some(member.id.clone()),
+                    )
+                    .await
+                {
+                    Ok(msg) => tool_notes.push(format!("browser_click [ok]: {msg}")),
+                    Err(e) => tool_notes.push(format!("browser_click [error]: {e}")),
+                }
+            }
+        }
     }
 
     if member.tools.iter().any(|t| t == "memory_query") {
@@ -374,6 +448,16 @@ fn synthesize_context(mode: &str, msgs: &[AgentMessage], prev: &str, consensus: 
         "chain_of_thought" => format!("{prev}\n--- reasoning chain ---\n{joined}"),
         _ => joined,
     }
+}
+
+fn find_link_index_in_prompt(prompt: &str, links: &[desktop_agent::BrowserLink]) -> usize {
+    let lower = prompt.to_lowercase();
+    for link in links {
+        if !link.text.is_empty() && lower.contains(&link.text.to_lowercase()) {
+            return link.index;
+        }
+    }
+    links.first().map(|l| l.index).unwrap_or(0)
 }
 
 fn importance_for_role(role: &str) -> f32 {

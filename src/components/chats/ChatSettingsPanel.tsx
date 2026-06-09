@@ -20,7 +20,7 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
   const groups = settings?.agentGroups ?? [];
 
   return (
-    <div className="chat-settings-panel">
+    <div className="chat-settings-panel scroll-y">
       <div className="chat-settings-header">{t("chat.settingsTitle")}</div>
 
       <div className="form-row">
@@ -36,7 +36,7 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
 
       <div className="form-row">
         <label className="form-label">{t("chat.systemPrompt")}</label>
-        <textarea className="m3-input" rows={2} value={chat.systemPrompt}
+        <textarea className="m3-input scroll-y" rows={2} value={chat.systemPrompt}
           onChange={(e) => updateChat(chatId, { systemPrompt: e.target.value })}
           placeholder={t("chat.systemPromptPh")} />
       </div>

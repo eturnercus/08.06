@@ -337,5 +337,20 @@
       "files": "Files", "tools": "Tools", "canDelegate": "Delegate",
       "veto": "Veto", "stm": "STM", "ltm": "LTM", "sharedMemory": "Shared memory"
     }
+  },
+  "devices": {
+    "agentBrowser": {
+      "title": "Agent browser & AI mouse",
+      "disabledHint": "Enable «Browser automation» and «Desktop control» in Settings → Permissions → Devices.",
+      "dualMouseHint": "Your system mouse is untouched — the purple cursor belongs to the agent.",
+      "aiMouseOn": "AI mouse active",
+      "aiMouseOff": "AI mouse off",
+      "aiCursor": "Agent cursor",
+      "urlPh": "URL or search query…",
+      "go": "Open",
+      "search": "Search",
+      "empty": "Page appears after agent navigation",
+      "links": "Links on page"
+    }
   }
 }

@@ -147,6 +147,30 @@ impl NetworkManager {
         .await
     }
 
+    /// Полная загрузка HTML для встроенного агент-браузера (без усечения preview).
+    pub async fn fetch_page_html(&self, params: FetchParams) -> Result<(u16, String), String> {
+        if let Err(reason) = self.is_allowed(&params.url, &params) {
+            return Err(reason);
+        }
+        let method = params.method.to_uppercase();
+        let mut req = match method.as_str() {
+            "POST" => self.client.post(&params.url),
+            "PUT" => self.client.put(&params.url),
+            "DELETE" => self.client.delete(&params.url),
+            _ => self.client.get(&params.url),
+        };
+        if let Some(body) = &params.body {
+            req = req.body(body.clone());
+        }
+        let resp = req.send().await.map_err(|e| e.to_string())?;
+        let status = resp.status().as_u16();
+        let mut html = resp.text().await.unwrap_or_default();
+        if html.len() > 2_000_000 {
+            html.truncate(2_000_000);
+        }
+        Ok((status, html))
+    }
+
     pub async fn fetch(&self, params: FetchParams) -> Result<NetworkRequestLog, String> {
         let id = Uuid::new_v4().to_string();
         let start = std::time::Instant::now();

@@ -1,4 +1,5 @@
 mod agents;
+mod desktop_agent;
 mod devices;
 mod gguf_runner;
 mod inference;
@@ -12,6 +13,7 @@ mod inference_cancel;
 mod stream_sink;
 
 use agents::AgentOrchestrator;
+use desktop_agent::DesktopAgent;
 use inference_cancel::CancelRegistry;
 use inference::{ChatRequest, InferenceEngine};
 use memory::MemoryStore;
@@ -28,6 +30,7 @@ pub struct AppState {
     pub inference: Arc<InferenceEngine>,
     pub agents: Arc<AgentOrchestrator>,
     pub cancel: Arc<CancelRegistry>,
+    pub desktop: Arc<DesktopAgent>,
 }
 
 #[tauri::command]
@@ -121,7 +124,126 @@ fn get_audit_logs(max_lines: Option<usize>) -> Vec<String> {
 }
 
 #[tauri::command]
+fn get_desktop_agent_state(state: State<'_, AppState>) -> desktop_agent::DesktopAgentSnapshot {
+    state.desktop.snapshot()
+}
+
+#[tauri::command]
+fn virtual_mouse_move(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    x: f32,
+    y: f32,
+    label: Option<String>,
+) -> Result<(), String> {
+    let settings = state.settings.lock().clone();
+    desktop_agent::ensure_desktop_browser(&settings)?;
+    state.desktop.set_dual_mouse(true, &app);
+    state.desktop.move_mouse(&app, x, y, label);
+    Ok(())
+}
+
+#[tauri::command]
+fn virtual_mouse_scroll(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    delta_y: f32,
+) -> Result<(), String> {
+    let settings = state.settings.lock().clone();
+    desktop_agent::ensure_desktop_browser(&settings)?;
+    state.desktop.set_dual_mouse(true, &app);
+    state.desktop.scroll(&app, delta_y);
+    Ok(())
+}
+
+#[tauri::command]
+async fn browser_navigate_in_app(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    url: String,
+    chat_id: Option<String>,
+    agent_id: Option<String>,
+) -> Result<String, String> {
+    let settings = state.settings.lock().clone();
+    desktop_agent::ensure_desktop_browser(&settings)?;
+    if !desktop_agent::internet_allowed(&settings, chat_id.as_deref()) {
+        return Err("Интернет отключён для этого чата".into());
+    }
+    state.desktop.set_dual_mouse(true, &app);
+    let msg = state
+        .desktop
+        .navigate(&app, &state.network, &settings, &url, chat_id.clone(), agent_id.clone())
+        .await?;
+    settings_engine::audit_log(
+        &settings,
+        "browser",
+        &format!("agent-browser navigate url={url} chat={chat_id:?} agent={agent_id:?}"),
+    );
+    Ok(msg)
+}
+
+#[tauri::command]
+async fn browser_search_in_app(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    query: String,
+    chat_id: Option<String>,
+    agent_id: Option<String>,
+) -> Result<String, String> {
+    let settings = state.settings.lock().clone();
+    desktop_agent::ensure_desktop_browser(&settings)?;
+    if !desktop_agent::internet_allowed(&settings, chat_id.as_deref()) {
+        return Err("Интернет отключён для этого чата".into());
+    }
+    state.desktop.set_dual_mouse(true, &app);
+    let msg = state
+        .desktop
+        .search(&app, &state.network, &settings, &query, chat_id.clone(), agent_id.clone())
+        .await?;
+    settings_engine::audit_log(
+        &settings,
+        "browser",
+        &format!("agent-browser search q={query} chat={chat_id:?} agent={agent_id:?}"),
+    );
+    Ok(msg)
+}
+
+#[tauri::command]
+async fn browser_click_in_app(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    link_index: Option<usize>,
+    x: Option<f32>,
+    y: Option<f32>,
+    chat_id: Option<String>,
+    agent_id: Option<String>,
+) -> Result<String, String> {
+    let settings = state.settings.lock().clone();
+    desktop_agent::ensure_desktop_browser(&settings)?;
+    if !desktop_agent::internet_allowed(&settings, chat_id.as_deref()) {
+        return Err("Интернет отключён для этого чата".into());
+    }
+    state.desktop.set_dual_mouse(true, &app);
+    let msg = if let (Some(px), Some(py)) = (x, y) {
+        state
+            .desktop
+            .click_at(&app, &state.network, &settings, px, py, chat_id, agent_id)
+            .await?
+    } else if let Some(idx) = link_index {
+        state
+            .desktop
+            .click_link(&app, &state.network, &settings, idx, chat_id, agent_id)
+            .await?
+    } else {
+        return Err("Укажите linkIndex или координаты x/y".into());
+    };
+    settings_engine::audit_log(&settings, "browser", &format!("agent-browser click: {msg}"));
+    Ok(msg)
+}
+
+#[tauri::command]
 async fn open_browser_url(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     url: String,
     chat_id: Option<String>,
@@ -131,15 +253,23 @@ async fn open_browser_url(
     if !settings.devices.browser_automation_enabled {
         return Err("Управление браузером отключено в Настройки → Устройства".into());
     }
-    let allow = chat_id
-        .as_ref()
-        .and_then(|id| settings.per_chat_overrides.get(id))
-        .and_then(|o| o.allow_internet)
-        .unwrap_or(settings.network.allow_internet);
+    let allow = desktop_agent::internet_allowed(&settings, chat_id.as_deref());
     if !allow {
         return Err("Интернет отключён для этого чата".into());
     }
-    open_system_url(&url)?;
+
+    let preview = if settings.devices.desktop_control_enabled {
+        state.desktop.set_dual_mouse(true, &app);
+        state
+            .desktop
+            .navigate(&app, &state.network, &settings, &url, chat_id.clone(), agent_id.clone())
+            .await
+            .unwrap_or_else(|e| format!("Ошибка агент-браузера: {e}"))
+    } else {
+        open_system_url(&url)?;
+        "Открыто во внешнем браузере".into()
+    };
+
     settings_engine::audit_log(
         &settings,
         "browser",
@@ -149,11 +279,15 @@ async fn open_browser_url(
         id: uuid::Uuid::new_v4().to_string(),
         agent_id,
         chat_id,
-        method: "OPEN".into(),
+        method: if settings.devices.desktop_control_enabled {
+            "AGENT_BROWSER".into()
+        } else {
+            "OPEN".into()
+        },
         url: url.clone(),
         status: Some(200),
         request_headers: std::collections::HashMap::new(),
-        response_preview: "Открыто во внешнем браузере".into(),
+        response_preview: preview,
         duration_ms: 0,
         blocked: false,
         block_reason: None,
@@ -310,6 +444,7 @@ async fn run_agent_team(
             &state.memory,
             &state.network,
             &inference,
+            &state.desktop,
             app,
             chat_id,
         )
@@ -411,6 +546,7 @@ pub fn run() {
         inference: Arc::new(InferenceEngine::new()),
         agents: Arc::new(AgentOrchestrator::new()),
         cancel: Arc::new(CancelRegistry::new()),
+        desktop: Arc::new(DesktopAgent::new()),
     };
 
     tauri::Builder::default()
@@ -426,6 +562,12 @@ pub fn run() {
             stop_chat,
             sync_chat_overrides,
             get_audit_logs,
+            get_desktop_agent_state,
+            virtual_mouse_move,
+            virtual_mouse_scroll,
+            browser_navigate_in_app,
+            browser_search_in_app,
+            browser_click_in_app,
             open_browser_url,
             agent_fetch,
             get_network_logs,

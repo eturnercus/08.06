@@ -120,14 +120,14 @@ export function SettingsView() {
               <SecurityPanel d={d} u={update} />
               <SectionTitle>{t("settings.tabs.devices")}</SectionTitle>
               <SettingToggle
-                title="Browser automation (open URLs)"
-                desc="Позволяет агентам открывать ссылки во внешнем браузере с записью в аудит"
+                title="Browser automation"
+                desc="Агенты открывают страницы во встроенном браузере (или во внешнем, если Desktop control выкл.)"
                 value={(d.devices?.browserAutomationEnabled as boolean) ?? false}
                 onChange={(v) => update("devices", "browserAutomationEnabled", v)}
               />
               <SettingToggle
-                title="Desktop control (experimental)"
-                desc="Зарезервировано для управления мышью/окнами — требует отдельного разрешения ОС"
+                title="Desktop control (dual mouse)"
+                desc="Виртуальная ИИ-мышь и агент-браузер на вкладке «Устройства». Системный курсор не затрагивается."
                 value={(d.devices?.desktopControlEnabled as boolean) ?? false}
                 onChange={(v) => update("devices", "desktopControlEnabled", v)}
               />
