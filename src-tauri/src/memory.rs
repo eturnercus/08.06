@@ -77,8 +77,7 @@ impl MemoryStore {
     }
 
     fn data_dir() -> PathBuf {
-        let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-        path.push("neuroforge");
+        let mut path = crate::app_paths::app_data_dir();
         path.push("memory");
         fs::create_dir_all(&path).ok();
         path

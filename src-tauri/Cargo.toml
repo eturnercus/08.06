@@ -1,13 +1,13 @@
 [package]
-name = "neuroforge"
+name = "silenium"
 version = "1.0.0"
-description = "NeuroForge — локальный AI-рантайм (© 2026 eturnercus)"
+description = "Silenium — локальный AI-рантайм (© 2026 eturnercus)"
 authors = ["eturnercus"]
 license-file = "../LICENSE"
 edition = "2021"
 
 [lib]
-name = "neuroforge_lib"
+name = "silenium_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [build-dependencies]

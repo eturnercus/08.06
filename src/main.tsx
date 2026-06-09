@@ -1,5 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { migrateLegacyStorage } from "./utils/migrateLegacyStorage";
+migrateLegacyStorage();
 import "./i18n";
 import "./styles/global.css";
 import "./styles/material.css";

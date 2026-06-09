@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "NeuroForge",
+  "productName": "Silenium",
   "version": "1.0.0",
-  "identifier": "com.neuroforge.desktop",
+  "identifier": "com.silenium.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "NeuroForge",
+        "title": "Silenium",
         "width": 1280,
         "height": 860,
         "minWidth": 960,
@@ -36,8 +36,8 @@
       "icons/icon.ico"
     ],
     "copyright": "Copyright (c) 2026 eturnercus. All Rights Reserved.",
-    "shortDescription": "NeuroForge by eturnercus — локальный AI с Agent Studio и памятью ИИ",
-    "longDescription": "NeuroForge © 2026 eturnercus. Кроссплатформенный локальный AI-рантайм: Agent Studio (10 стратегий оркестровки, 12 ролей, 14 инструментов), STM/LTM память (CHAT_ONLY/MODEL_SHARED/GLOBAL), 79+ настроек в 9 категориях, изоляция сети, DuckDuckGo, Hugging Face, Material 3 UI, RU/EN. Все права защищены — см. COPYRIGHT.md и LICENSE.",
+    "shortDescription": "Silenium by eturnercus — локальный AI с Agent Studio и памятью ИИ",
+    "longDescription": "Silenium © 2026 eturnercus. Изолированный локальный AI-рантайм: Agent Studio, двухуровневая память, агент-браузер с ИИ-мышью, 150+ настроек, изоляция сети, GGUF/Hugging Face, RU/EN. См. COPYRIGHT.md и LICENSE.",
     "category": "DeveloperTool",
     "resources": {
       "bin/llama/": "llama/"

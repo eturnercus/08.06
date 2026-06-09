@@ -114,7 +114,29 @@ export const api = {
   agentFetch: (url: string, chatId?: string, agentId?: string) =>
     invoke<NetworkLog>("agent_fetch", { url, chatId, agentId }),
   getNetworkLogs: () => invoke<NetworkLog[]>("get_network_logs"),
-  webSearch: (query: string, agentId?: string) => invoke<NetworkLog>("web_search", { query, agentId }),
+  webSearch: (query: string, agentId?: string, chatId?: string) =>
+    invoke<NetworkLog>("web_search", { query, agentId, chatId }),
+  stopChat: (chatId: string) => invoke<void>("stop_chat", { chatId }),
+  syncChatOverrides: (p: {
+    chatId: string;
+    allowInternet: boolean;
+    stmEnabled: boolean;
+    ltmEnabled: boolean;
+    agentGroupId?: string;
+  }) => invoke<void>("sync_chat_overrides", p),
+  getAuditLogs: (maxLines?: number) => invoke<string[]>("get_audit_logs", { maxLines }),
+  openBrowserUrl: (url: string, chatId?: string, agentId?: string) =>
+    invoke<NetworkLog>("open_browser_url", { url, chatId, agentId }),
+  getDesktopAgentState: () => invoke<DesktopAgentSnapshot>("get_desktop_agent_state"),
+  virtualMouseMove: (x: number, y: number, label?: string) =>
+    invoke<void>("virtual_mouse_move", { x, y, label }),
+  virtualMouseScroll: (deltaY: number) => invoke<void>("virtual_mouse_scroll", { deltaY }),
+  browserNavigateInApp: (url: string, chatId?: string, agentId?: string) =>
+    invoke<string>("browser_navigate_in_app", { url, chatId, agentId }),
+  browserSearchInApp: (query: string, chatId?: string, agentId?: string) =>
+    invoke<string>("browser_search_in_app", { query, chatId, agentId }),
+  browserClickInApp: (p: { linkIndex?: number; x?: number; y?: number; chatId?: string; agentId?: string }) =>
+    invoke<string>("browser_click_in_app", p),
   getMemoryStm: (chatId: string) => invoke<StmEntry[]>("get_memory_stm", { chatId }),
   getMemoryLtm: (chatId?: string) => invoke<LtmEntry[]>("get_memory_ltm", { chatId }),
   transferMemory: (p: {
@@ -127,8 +149,8 @@ export const api = {
   }) => invoke("transfer_memory", p),
   consolidateMemory: (chatId: string, modelId: string) =>
     invoke("consolidate_memory", { chatId, modelId }),
-  runAgentTeam: (groupId: string, prompt: string) =>
-    invoke<AgentTask>("run_agent_team", { groupId, prompt }),
+  runAgentTeam: (groupId: string, prompt: string, chatId?: string) =>
+    invoke<AgentTask>("run_agent_team", { groupId, prompt, chatId }),
   listAgentTasks: () => invoke<AgentTask[]>("list_agent_tasks"),
   loadModel: (path: string, name: string) => invoke<ModelInfo>("load_model", { path, name }),
   downloadHuggingfaceModel: (repo: string) => invoke<DownloadResult>("download_huggingface_model", { repo }),
@@ -139,7 +161,7 @@ export const api = {
   getModelsDirectory: () =>
     isTauri()
       ? invoke<string>("get_models_directory")
-      : Promise.resolve("~/.local/share/neuroforge/models"),
+      : Promise.resolve("~/.local/share/silenium/models"),
   getDeviceStatus: () => invoke<DeviceStatus>("get_device_status"),
   captureScreen: () => invoke("capture_screen"),
   captureAudio: () => invoke("capture_audio"),
@@ -157,6 +179,8 @@ export interface NetworkLog {
   responsePreview: string;
   durationMs: number;
   timestamp: string;
+  agentId?: string;
+  chatId?: string;
 }
 
 export interface StmEntry {
@@ -188,4 +212,33 @@ export interface DeviceStatus {
   microphoneAvailable: boolean;
   screenCaptureAvailable: boolean;
   virtualDisplayActive: boolean;
+}
+
+export interface VirtualMouseState {
+  x: number;
+  y: number;
+  visible: boolean;
+  clicking: boolean;
+  label: string;
+}
+
+export interface BrowserLink {
+  index: number;
+  text: string;
+  href: string;
+}
+
+export interface AgentBrowserState {
+  url: string;
+  title: string;
+  htmlSrcdoc: string;
+  status: string;
+  message: string;
+  links: BrowserLink[];
+}
+
+export interface DesktopAgentSnapshot {
+  dualMouseEnabled: boolean;
+  virtualMouse: VirtualMouseState;
+  browser: AgentBrowserState;
 }

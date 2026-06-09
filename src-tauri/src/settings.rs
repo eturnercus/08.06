@@ -28,7 +28,7 @@ pub struct AppSettings {
     pub custom_models: Vec<CustomModelEntry>,
 }
 
-/// Передовые инновационные настройки NeuroForge
+/// Передовые инновационные настройки Silenium
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InnovationSettings {
@@ -42,6 +42,8 @@ pub struct InnovationSettings {
     pub context_dna_mutation_rate: f32,
     pub thought_streaming: bool,
     pub thought_stream_buffer_ms: u32,
+    #[serde(default = "default_thought_max_tokens")]
+    pub thought_max_tokens: u32,
     pub emotion_mirror: bool,
     pub emotion_mirror_intensity: f32,
     pub neural_mesh_sync: bool,
@@ -265,6 +267,14 @@ pub struct DeviceSettings {
     pub ocr_on_images: bool,
     pub transcribe_audio: bool,
     pub frame_rate: u32,
+    #[serde(default)]
+    pub browser_automation_enabled: bool,
+    #[serde(default)]
+    pub desktop_control_enabled: bool,
+}
+
+fn default_thought_max_tokens() -> u32 {
+    1024
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -315,6 +325,7 @@ pub struct GlobalMessageInjection {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[derive(Default)]
 pub struct ChatOverride {
     pub allow_internet: Option<bool>,
     pub stm_enabled: Option<bool>,
@@ -449,6 +460,7 @@ impl Default for InnovationSettings {
             context_dna_mutation_rate: 0.02,
             thought_streaming: true,
             thought_stream_buffer_ms: 120,
+            thought_max_tokens: 1024,
             emotion_mirror: false,
             emotion_mirror_intensity: 0.5,
             neural_mesh_sync: false,
@@ -586,7 +598,7 @@ impl Default for AppSettings {
                 max_concurrent_requests: 4,
                 log_all_requests: true,
                 block_private_ips: true,
-                user_agent: "NeuroForge/1.0".into(),
+                user_agent: "Silenium/1.0".into(),
                 tls_verify: true,
                 websocket_enabled: false,
                 huggingface_mirror: String::new(),
@@ -667,6 +679,8 @@ impl Default for AppSettings {
                 ocr_on_images: true,
                 transcribe_audio: true,
                 frame_rate: 30,
+                browser_automation_enabled: false,
+                desktop_control_enabled: false,
             },
             ui: UiSettings {
                 theme: "dark".into(),
@@ -715,9 +729,7 @@ impl Default for AppSettings {
 }
 
 pub fn settings_path() -> PathBuf {
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("neuroforge");
-    fs::create_dir_all(&path).ok();
+    let mut path = crate::app_paths::app_data_dir();
     path.push("settings.json");
     path
 }

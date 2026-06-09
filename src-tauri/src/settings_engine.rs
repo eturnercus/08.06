@@ -36,8 +36,7 @@ const EXFIL_PATTERNS: &[&str] = &[
 ];
 
 pub fn audit_log_raw(detail: &str) {
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("neuroforge");
+    let mut path = crate::app_paths::app_data_dir();
     path.push("audit.log");
     let _ = fs::create_dir_all(path.parent().unwrap_or(&path));
     let line = format!("{} [network] {}\n", Utc::now().to_rfc3339(), detail);
@@ -46,12 +45,28 @@ pub fn audit_log_raw(detail: &str) {
     }
 }
 
+pub fn read_audit_log_tail(max_lines: usize) -> Vec<String> {
+    let mut path = crate::app_paths::app_data_dir();
+    path.push("audit.log");
+    if !path.exists() {
+        return Vec::new();
+    }
+    let Ok(text) = fs::read_to_string(&path) else {
+        return Vec::new();
+    };
+    let lines: Vec<String> = text.lines().map(|l| l.to_string()).collect();
+    if lines.len() <= max_lines {
+        lines
+    } else {
+        lines[lines.len() - max_lines..].to_vec()
+    }
+}
+
 pub fn audit_log(settings: &AppSettings, category: &str, detail: &str) {
     if !settings.security.audit_log_enabled {
         return;
     }
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("neuroforge");
+    let mut path = crate::app_paths::app_data_dir();
     path.push("audit.log");
     let _ = fs::create_dir_all(path.parent().unwrap_or(&path));
     let line = format!(
@@ -203,8 +218,9 @@ pub fn enrich_system_prompt(
 
     if inv.thought_streaming {
         parts.push(format!(
-            "[thought stream {}ms] Отвечай пошагово, короткими блоками.",
-            inv.thought_stream_buffer_ms.max(16)
+            "[thought stream {}ms, max {} reasoning tokens] Сначала кратко рассуждай в блоке ..., затем финальный ответ.",
+            inv.thought_stream_buffer_ms.max(16),
+            inv.thought_max_tokens.max(64)
         ));
     }
 
@@ -522,6 +538,10 @@ pub fn tune_generate_params(settings: &AppSettings, mut p: GenerateParams) -> Ge
 
 pub fn effective_max_tokens(settings: &AppSettings, requested: u32) -> u32 {
     let mut max = requested.min(4096);
+    if settings.innovation.thought_streaming {
+        let reasoning = settings.innovation.thought_max_tokens.max(64);
+        max = max.saturating_add(reasoning).min(8192);
+    }
     if settings.innovation.neural_whisper_mode {
         max = max.min(settings.innovation.whisper_token_budget.max(16));
     }

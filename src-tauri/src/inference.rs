@@ -89,8 +89,7 @@ pub struct InferenceEngine {
 }
 
 pub fn models_directory() -> PathBuf {
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("neuroforge");
+    let mut path = crate::app_paths::app_data_dir();
     path.push("models");
     fs::create_dir_all(&path).ok();
     path
@@ -105,7 +104,7 @@ impl InferenceEngine {
         let engine = Self {
             loaded_models: RwLock::new(HashMap::new()),
             client: Client::builder()
-                .user_agent("NeuroForge/1.0")
+                .user_agent("Silenium/1.0")
                 .timeout(std::time::Duration::from_secs(600))
                 .build()
                 .unwrap_or_default(),
@@ -395,15 +394,15 @@ impl InferenceEngine {
             let gguf_guard = self.gguf.lock();
             return match agent_stream.as_mut() {
                 Some(sink) => {
-                    generate_with_best_backend(gguf_guard.as_ref(), gen, Some(sink as &mut dyn TokenSink))
+                    generate_with_best_backend(gguf_guard.as_ref(), gen, Some(sink as &mut dyn TokenSink), None)
                 }
-                None => generate_with_best_backend(gguf_guard.as_ref(), gen, None),
+                None => generate_with_best_backend(gguf_guard.as_ref(), gen, None, None),
             };
         }
         #[cfg(not(feature = "embedded-llama"))]
         match agent_stream.as_mut() {
-            Some(sink) => generate_with_best_backend(gen, Some(sink as &mut dyn TokenSink)),
-            None => generate_with_best_backend(gen, None),
+            Some(sink) => generate_with_best_backend(gen, Some(sink as &mut dyn TokenSink), None),
+            None => generate_with_best_backend(gen, None, None),
         }
     }
 
@@ -483,6 +482,7 @@ impl InferenceEngine {
         memory: &MemoryStore,
         request: &ChatRequest,
         stream: &mut Option<StreamSink>,
+        cancel: Option<&std::sync::atomic::AtomicBool>,
     ) -> ChatResponse {
         settings_engine::audit_log(
             settings,
@@ -630,8 +630,9 @@ impl InferenceEngine {
                         gguf_guard.as_ref(),
                         gen,
                         Some(sink as &mut dyn TokenSink),
+                        cancel,
                     ),
-                    None => generate_with_best_backend(gguf_guard.as_ref(), gen, None),
+                    None => generate_with_best_backend(gguf_guard.as_ref(), gen, None, cancel),
                 }
             };
             #[cfg(not(feature = "embedded-llama"))]

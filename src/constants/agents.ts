@@ -41,6 +41,9 @@ export const AGENT_TOOLS = [
   { id: "calculator", ru: "Калькулятор", en: "Calculator" },
   { id: "json_parse", ru: "Разбор JSON", en: "JSON Parse" },
   { id: "regex", ru: "Регулярные выражения", en: "Regex" },
+  { id: "browser_navigate", ru: "Браузер: переход", en: "Browser Navigate" },
+  { id: "browser_search", ru: "Браузер: поиск", en: "Browser Search" },
+  { id: "browser_click", ru: "Браузер: клик", en: "Browser Click" },
 ] as const;
 
 export const TRIGGER_CONDITIONS = [

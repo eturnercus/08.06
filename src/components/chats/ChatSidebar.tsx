@@ -5,7 +5,7 @@ import { ChatSettingsPanel } from "./ChatSettingsPanel";
 
 export function ChatSidebar() {
   const { t } = useTranslation();
-  const { chats, activeChatId, setActiveChat, addChat } = useAppStore();
+  const { chats, activeChatId, setActiveChat, addChat, deleteChat, exportChat } = useAppStore();
   const { models } = useModels();
 
   const modelLabel = (id: string) => models.find((m) => m.id === id)?.name?.slice(0, 12) ?? id.slice(0, 8);
@@ -26,8 +26,32 @@ export function ChatSidebar() {
             role="button"
             tabIndex={0}
           >
-            <div className="title">{c.title}</div>
-            <div className="chat-list-model mono">{modelLabel(c.modelId)}</div>
+            <div className="chat-list-item-head">
+              <div className="title">{c.title}</div>
+              <div className="chat-list-actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="chat-icon-btn"
+                  title={t("chat.export")}
+                  onClick={() => {
+                    const blob = new Blob([exportChat(c.id)], { type: "application/json" });
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `${c.title.replace(/\s+/g, "_")}.json`;
+                    a.click();
+                  }}
+                >💾</button>
+                <button
+                  type="button"
+                  className="chat-icon-btn danger"
+                  title={t("chat.delete")}
+                  onClick={() => { if (confirm(t("chat.deleteConfirm"))) deleteChat(c.id); }}
+                >✕</button>
+              </div>
+            </div>
+            <div className="chat-list-model mono">
+              {c.agentGroupId ? `🧩 ${c.agentGroupId.slice(0, 10)}` : modelLabel(c.modelId)}
+            </div>
             <div className="perms">
               {c.permissions.stm && <span className="m3-chip sm">STM</span>}
               {c.permissions.ltm && <span className="m3-chip sm">LTM</span>}

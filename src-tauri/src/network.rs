@@ -63,7 +63,7 @@ impl NetworkManager {
 
     pub fn new() -> Self {
         let client = Client::builder()
-            .user_agent("NeuroForge/1.0")
+            .user_agent("Silenium/1.0")
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .unwrap_or_default();
@@ -76,6 +76,10 @@ impl NetworkManager {
 
     pub fn get_logs(&self) -> Vec<NetworkRequestLog> {
         self.logs.read().iter().cloned().collect()
+    }
+
+    pub fn record_log(&self, log: NetworkRequestLog) {
+        self.push_log(log);
     }
 
     fn push_log(&self, log: NetworkRequestLog) {
@@ -114,7 +118,14 @@ impl NetworkManager {
         }
     }
 
-    pub async fn web_search(&self, query: &str, agent_id: Option<String>) -> Result<NetworkRequestLog, String> {
+    pub async fn web_search(
+        &self,
+        query: &str,
+        agent_id: Option<String>,
+        chat_id: Option<String>,
+        allow_internet: bool,
+        settings: &crate::settings::AppSettings,
+    ) -> Result<NetworkRequestLog, String> {
         let url = format!(
             "https://api.duckduckgo.com/?q={}&format=json&no_html=1",
             urlencoding::encode(query)
@@ -124,19 +135,40 @@ impl NetworkManager {
             method: "GET".into(),
             body: None,
             agent_id,
-            chat_id: None,
-            allow_internet: true,
-            isolation_mode: "api_only".into(),
-            api_endpoints: vec![
-                "https://api.duckduckgo.com".into(),
-                "https://*.duckduckgo.com".into(),
-            ],
-            data_exfiltration_guard: false,
-            audit_enabled: false,
-            block_private_ips: false,
-            network_fingerprint_check: false,
+            chat_id,
+            allow_internet,
+            isolation_mode: settings.network.isolation_mode.clone(),
+            api_endpoints: settings.network.api_only_endpoints.clone(),
+            data_exfiltration_guard: settings.security.data_exfiltration_guard,
+            audit_enabled: settings.security.audit_log_enabled,
+            block_private_ips: settings.network.block_private_ips,
+            network_fingerprint_check: settings.security.network_fingerprint_check,
         })
         .await
+    }
+
+    /// Полная загрузка HTML для встроенного агент-браузера (без усечения preview).
+    pub async fn fetch_page_html(&self, params: FetchParams) -> Result<(u16, String), String> {
+        if let Err(reason) = self.is_allowed(&params.url, &params) {
+            return Err(reason);
+        }
+        let method = params.method.to_uppercase();
+        let mut req = match method.as_str() {
+            "POST" => self.client.post(&params.url),
+            "PUT" => self.client.put(&params.url),
+            "DELETE" => self.client.delete(&params.url),
+            _ => self.client.get(&params.url),
+        };
+        if let Some(body) = &params.body {
+            req = req.body(body.clone());
+        }
+        let resp = req.send().await.map_err(|e| e.to_string())?;
+        let status = resp.status().as_u16();
+        let mut html = resp.text().await.unwrap_or_default();
+        if html.len() > 2_000_000 {
+            html.truncate(2_000_000);
+        }
+        Ok((status, html))
     }
 
     pub async fn fetch(&self, params: FetchParams) -> Result<NetworkRequestLog, String> {

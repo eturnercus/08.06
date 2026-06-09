@@ -1,5 +1,5 @@
 {
-  "app": { "name": "NeuroForge", "tagline": "Next-generation local AI runtime" },
+  "app": { "name": "Silenium", "tagline": "Isolated local AI: agents, memory, dual mouse" },
   "layout": { "online": "Local" },
   "language": {
     "title": "Choose language",
@@ -20,7 +20,7 @@
       "permissions": "Permissions", "innovation": "Advanced", "ready": "Ready"
     },
     "welcome": {
-      "title": "Welcome to NeuroForge",
+      "title": "Welcome to Silenium",
       "desc": "A next-gen platform for running neural networks locally with full control over data, resources, and AI behavior.",
       "feat1": "Cross-platform: Windows and Linux",
       "feat2": "150+ performance and security settings",
@@ -70,7 +70,7 @@
     },
     "innovation": {
       "title": "Innovative technologies",
-      "desc": "NeuroForge includes cutting-edge algorithms: neuroplastic memory, quantum context layers, holographic compression.",
+      "desc": "Silenium includes cutting-edge algorithms: neuroplastic memory, quantum context layers, holographic compression.",
       "feat1": "Cognitive load balancer",
       "feat2": "Synaptic request routing",
       "feat3": "Meta-cognition and dream consolidation",
@@ -78,13 +78,15 @@
     },
     "ready": {
       "title": "All set!",
-      "desc": "NeuroForge is ready. All parameters can be changed in Settings — 150+ options available.",
+      "desc": "Silenium is ready. All parameters can be changed in Settings — 150+ options available.",
       "feat1": "One-click reset to defaults",
       "feat2": "Help with description of every feature"
     }
   },
   "chat": {
-    "newChat": "New chat", "placeholder": "Type a message...", "send": "Send", "generating": "Model is generating (first run may take minutes)...",
+    "newChat": "New chat", "placeholder": "Type a message...", "send": "Send", "stop": "Stop", "stopped": "Stopped",
+    "delete": "Delete chat", "deleteConfirm": "Delete this chat permanently?", "export": "Save chat",
+    "thinking": "Reasoning", "generating": "Model is generating (first run may take minutes)...",
     "attach": "Attach", "stm": "STM", "ltm": "LTM", "internet": "Internet",
     "tokens": "Tokens", "latency": "Latency", "offline": "No internet",
     "camera": "Camera", "mic": "Microphone", "stopMic": "Stop",
@@ -141,7 +143,7 @@
       "thermal": "Thermal throttle (°C)"
     },
     "innovation": {
-      "badge": "NEW", "title": "NeuroForge innovative technologies",
+      "badge": "NEW", "title": "Silenium innovative technologies",
       "desc": "Cutting-edge algorithms for context, memory, and cognitive load management.",
       "cognitive": "Cognitive layer", "context": "Context", "streaming": "Streaming", "advanced": "Advanced",
       "cognitiveLoadBalancer": "Cognitive load balancer",
@@ -163,6 +165,8 @@
       "quantumEntangle": "Quantum entanglement",
       "thoughtStream": "Thought streaming",
       "thoughtStreamDesc": "Intermediate model reasoning in real time",
+      "thoughtMaxTokens": "Reasoning token budget",
+      "thoughtMaxTokensDesc": "Max tokens for the model reasoning (think) block",
       "streamBuffer": "Buffer (ms)",
       "attentionCascade": "Attention cascade",
       "cascadeDepth": "Cascade depth",
@@ -256,7 +260,8 @@
     "title": "Network monitor", "fetch": "Test", "blocked": "Blocked", "allowed": "Allowed", "noLogs": "No requests",
     "ddgDesc": "DuckDuckGo Instant Answer API search with real-time activity panel",
     "ddgTip": "Requires internet permission in network settings",
-    "ddgPlaceholder": "Search query...", "ddgSearch": "Search"
+    "ddgPlaceholder": "Search query...", "ddgSearch": "Search",
+    "audit": "Audit log", "noAudit": "Audit log is empty"
   },
   "models": {
     "localTab": "Local", "hfTab": "Hugging Face", "allTab": "All models",
@@ -277,7 +282,7 @@
     "mmprojWarn": "mmproj — not a text model"
   },
   "help": {
-    "title": "Help", "intro": "NeuroForge — local AI runtime: 79+ settings in 9 categories, Agent Studio, AI memory, network isolation.",
+    "title": "Help", "intro": "Silenium — local AI runtime: 79+ settings in 9 categories, Agent Studio, AI memory, network isolation.",
     "featureMatrix": "Feature checklist",
     "sections": {
       "system": "RAM, CPU, GPU, priorities, and turbo mode.",
@@ -287,7 +292,7 @@
       "agents": "Agents section: 10 strategies, 12 roles, 14 tools, permissions and resources.",
       "devices": "Camera, microphone, screen, files — multi-mode input.",
       "reset": "Reset all settings to defaults.",
-      "models": "Models tab: folder ~/.local/share/neuroforge/models (Linux). Drop .gguf files there or download from Hugging Face. Each chat and agent member has its own model selector."
+      "models": "Models tab: folder ~/.local/share/silenium/models (Linux). Drop .gguf files there or download from Hugging Face. Each chat and agent member has its own model selector."
     },
     "features": {
       "orchestration": "10 orchestration strategies",
@@ -320,6 +325,7 @@
     "permissions": "Permissions", "systemPrompt": "System role", "systemPromptPh": "Instructions for this role...",
     "maxTokens": "Max tokens", "model": "Neural network (model)", "runTeam": "Run team", "prompt": "Task for the team",
     "results": "Results", "monitorTitle": "Orchestration monitor",
+    "monitorLive": "Active", "monitorAgents": "Agents",
     "monitorDesc": "Real-time execution events: start, agent replies, errors",
     "clearMonitor": "Clear", "noEvents": "Run a team task — events will appear here",
     "tip": {
@@ -330,6 +336,21 @@
       "internet": "Internet", "camera": "Camera", "microphone": "Microphone", "screen": "Screen",
       "files": "Files", "tools": "Tools", "canDelegate": "Delegate",
       "veto": "Veto", "stm": "STM", "ltm": "LTM", "sharedMemory": "Shared memory"
+    }
+  },
+  "devices": {
+    "agentBrowser": {
+      "title": "Agent browser & AI mouse",
+      "disabledHint": "Enable «Browser automation» and «Desktop control» in Settings → Permissions → Devices.",
+      "dualMouseHint": "Your system mouse is untouched — the purple cursor belongs to the agent.",
+      "aiMouseOn": "AI mouse active",
+      "aiMouseOff": "AI mouse off",
+      "aiCursor": "Agent cursor",
+      "urlPh": "URL or search query…",
+      "go": "Open",
+      "search": "Search",
+      "empty": "Page appears after agent navigation",
+      "links": "Links on page"
     }
   }
 }

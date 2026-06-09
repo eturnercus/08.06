@@ -49,7 +49,7 @@ export function Onboarding() {
       <div className="onb-shell">
         <header className="onb-header">
           <div className="onb-brand">
-            <span className="onb-logo">NF</span>
+            <span className="onb-logo">Si</span>
             <span>{t("app.name")}</span>
           </div>
           <div className="onb-progress-wrap">

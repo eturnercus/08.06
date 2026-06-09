@@ -14,6 +14,7 @@ import { DevicesView } from "./components/DevicesView";
 import { ModelsView } from "./components/ModelsView";
 import i18n from "./i18n";
 import { createDefaultAgentGroup } from "./constants/defaultAgentGroup";
+import { useTheme } from "./hooks/useTheme";
 
 function MainRouter() {
   const view = useAppStore((s) => s.activeView);
@@ -32,6 +33,7 @@ function MainRouter() {
 
 export default function App() {
   const { phase, setPhase, setSettings, addChat, settings, loadChats } = useAppStore();
+  useTheme();
 
   useEffect(() => {
     const init = async () => {
@@ -45,7 +47,7 @@ export default function App() {
         } else {
           if (s.language) {
             i18n.changeLanguage(s.language);
-            localStorage.setItem("neuroforge-lang", s.language);
+            localStorage.setItem("silenium-lang", s.language);
           }
           setPhase("app");
         }

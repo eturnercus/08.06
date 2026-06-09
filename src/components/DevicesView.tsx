@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, DeviceStatus } from "../api/tauri";
+import { AgentBrowser } from "./devices/AgentBrowser";
+import "../styles/agent-browser.css";
 
 export function DevicesView() {
   const { t } = useTranslation();
@@ -31,6 +33,7 @@ export function DevicesView() {
         <button className="btn-secondary" onClick={() => capture("audio")}>🎤 {t("settings.devices.microphone")}</button>
         <button className="btn-secondary" onClick={() => capture("camera")}>📷 {t("settings.devices.camera")}</button>
       </div>
+      <AgentBrowser />
       {lastCapture && <div className="card" style={{ marginTop: 16 }}>{lastCapture}</div>}
       <style>{`
         .devices-view { padding: 16px; }

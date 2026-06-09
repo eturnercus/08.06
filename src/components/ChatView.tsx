@@ -3,13 +3,23 @@ import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store/appStore";
 import { useModels } from "../hooks/useModels";
 import { useChatStream } from "../hooks/useChatStream";
+import { useChatScroll } from "../hooks/useChatScroll";
+import { MessageBubble } from "./chat/MessageBubble";
 import { api } from "../api/tauri";
 import { isTauri } from "../api/browserFallback";
 import { MediaCapture, MediaAttachment } from "./chat/MediaCapture";
 
 export function ChatView() {
   const { t } = useTranslation();
-  const { chats, activeChatId, addChat, addMessage, finalizeStreamMessage } = useAppStore();
+  const {
+    chats,
+    activeChatId,
+    addChat,
+    addMessage,
+    finalizeStreamMessage,
+    setActiveGeneration,
+    settings,
+  } = useAppStore();
   useChatStream();
   const { models } = useModels();
   const [input, setInput] = useState("");
@@ -19,57 +29,117 @@ export function ChatView() {
 
   const chat = chats.find((c) => c.id === activeChatId);
   const modelName = models.find((m) => m.id === chat?.modelId)?.name ?? chat?.modelId;
+  const agentGroup = (settings?.agentGroups as { id: string; name: string }[] | undefined)?.find(
+    (g) => g.id === chat?.agentGroupId
+  );
+
+  const { containerRef, onScroll, onFocus } = useChatScroll([
+    chat?.id,
+    chat?.messages.length,
+    chat?.messages[chat.messages.length - 1]?.content,
+    chat?.messages[chat.messages.length - 1]?.streamTokens,
+  ]);
+
+  const streamOn =
+    isTauri() &&
+    Boolean(
+      (settings as { inference?: { streaming?: boolean }; innovation?: { thoughtStreaming?: boolean } } | null)
+        ?.inference?.streaming ||
+        (settings as { innovation?: { thoughtStreaming?: boolean } } | null)?.innovation?.thoughtStreaming
+    );
+
+  const syncOverrides = async () => {
+    if (!chat || !isTauri()) return;
+    await api.syncChatOverrides({
+      chatId: chat.id,
+      allowInternet: chat.permissions.internet,
+      stmEnabled: chat.permissions.stm,
+      ltmEnabled: chat.permissions.ltm,
+      agentGroupId: chat.agentGroupId,
+    });
+  };
+
+  const handleStop = async () => {
+    if (!chat || !isTauri()) return;
+    await api.stopChat(chat.id);
+    finalizeStreamMessage(chat.id, { cancelled: true, error: t("chat.stopped") });
+    setLoading(false);
+    setActiveGeneration(null);
+  };
 
   const handleSend = async () => {
     if ((!input.trim() && attachments.length === 0) || !chat) return;
     setLoading(true);
+    setActiveGeneration(chat.id);
     const userText = input.trim() || t("chat.mediaOnly");
     addMessage(chat.id, { role: "user", content: userText });
-    const settings = useAppStore.getState().settings;
-    const streamOn =
-      isTauri() &&
-      Boolean(
-        (settings as { inference?: { streaming?: boolean }; innovation?: { thoughtStreaming?: boolean } } | null)
-          ?.inference?.streaming ||
-          (settings as { innovation?: { thoughtStreaming?: boolean } } | null)?.innovation
-            ?.thoughtStreaming
-      );
+    await syncOverrides();
+
     if (streamOn) {
-      addMessage(chat.id, { role: "assistant", content: "", streaming: true });
+      addMessage(chat.id, { role: "assistant", content: "", streaming: true, streamTokens: 0 });
     }
+
     try {
-      const resp = await api.sendChat({
-        chatId: chat.id,
-        modelId: chat.modelId,
-        message: userText,
-        systemPrompt: chat.systemPrompt || undefined,
-        temperature: chat.temperature,
-        maxTokens: chat.maxTokens,
-        attachments: attachments.map((a) => ({
-          name: a.name,
-          mimeType: a.mimeType,
-          sizeBytes: a.sizeBytes,
-          dataBase64: a.dataBase64,
-        })),
-      });
-      if (!streamOn) {
-        addMessage(chat.id, {
-          role: "assistant",
-          content: resp.content,
-          tokens: resp.tokensUsed,
-          latencyMs: resp.latencyMs,
+      if (chat.agentGroupId && isTauri()) {
+        const task = await api.runAgentTeam(chat.agentGroupId, userText, chat.id);
+        task.rounds.forEach((round) => {
+          round.messages.forEach((m) => {
+            addMessage(chat.id, {
+              role: "assistant",
+              agentName: m.agentName,
+              content: m.content,
+              meta: {
+                round: round.roundNumber,
+                tools: m.toolsUsed?.join(", ") ?? "",
+                internet: m.usedInternet ? "yes" : "no",
+              },
+            });
+          });
         });
+      } else {
+        const resp = await api.sendChat({
+          chatId: chat.id,
+          modelId: chat.modelId,
+          message: userText,
+          systemPrompt: chat.systemPrompt || undefined,
+          temperature: chat.temperature,
+          maxTokens: chat.maxTokens,
+          attachments: attachments.map((a) => ({
+            name: a.name,
+            mimeType: a.mimeType,
+            sizeBytes: a.sizeBytes,
+            dataBase64: a.dataBase64,
+          })),
+        });
+        if (!streamOn) {
+          addMessage(chat.id, {
+            role: "assistant",
+            content: resp.content,
+            tokens: resp.tokensUsed,
+            latencyMs: resp.latencyMs,
+            meta: {
+              modelId: resp.modelId,
+              memoryRecalled: resp.memoryRecalled,
+              injection: resp.injectionApplied,
+            },
+          });
+        }
       }
       setInput("");
       setAttachments([]);
     } catch (e) {
-      if (streamOn) {
-        finalizeStreamMessage(chat.id, { error: `Error: ${e}` });
+      const err = String(e);
+      if (streamOn || err.includes("остановлена")) {
+        finalizeStreamMessage(chat.id, {
+          cancelled: err.includes("остановлена"),
+          error: err.includes("остановлена") ? t("chat.stopped") : `Error: ${e}`,
+        });
       } else {
         addMessage(chat.id, { role: "assistant", content: `Error: ${e}` });
       }
     }
     setLoading(false);
+    setActiveGeneration(null);
   };
 
   if (!chat) {
@@ -83,25 +153,32 @@ export function ChatView() {
   }
 
   return (
-    <div className="chat">
+    <div className="chat" onFocus={onFocus} tabIndex={-1}>
       <div className="chat-toolbar">
         <div className="chat-title-wrap">
           <h2>{chat.title}</h2>
           <div className="chat-badges">
-            <span className="badge badge-purple">🧠 {modelName}</span>
+            {agentGroup ? (
+              <span className="badge badge-purple">🧩 {agentGroup.name}</span>
+            ) : (
+              <span className="badge badge-purple">🧠 {modelName}</span>
+            )}
             {chat.permissions.stm && <span className="badge badge-blue">{t("chat.stm")}</span>}
             {chat.permissions.ltm && <span className="badge badge-cyan">{t("chat.ltm")}</span>}
             {chat.permissions.internet
               ? <span className="badge badge-green">{t("chat.internet")}</span>
               : <span className="badge badge-red">{t("chat.offline")}</span>}
-            {chat.permissions.camera && <span className="badge badge-green">📷</span>}
-            {chat.permissions.microphone && <span className="badge badge-green">🎤</span>}
           </div>
         </div>
         <button type="button" className="m3-outlined-btn" onClick={() => addChat()}>+ {t("chat.newChat")}</button>
       </div>
 
-      <div className="chat-messages scroll-y">
+      <div
+        ref={containerRef}
+        className="chat-messages scroll-y"
+        onScroll={onScroll}
+        onClick={onFocus}
+      >
         {chat.messages.length === 0 && (
           <div className="chat-welcome">
             <span className="chat-welcome-icon">🧠</span>
@@ -109,20 +186,7 @@ export function ChatView() {
           </div>
         )}
         {chat.messages.map((m, i) => (
-          <div key={i} className={`bubble-row ${m.role}`}>
-            <div className="bubble-avatar">{m.role === "user" ? "👤" : "🤖"}</div>
-            <div className="bubble">
-              <div className="bubble-text">
-                {m.content}
-                {m.streaming && <span className="stream-cursor">▍</span>}
-              </div>
-              {m.tokens !== undefined && (
-                <div className="bubble-meta mono">
-                  {t("chat.tokens")}: {m.tokens} · {t("chat.latency")}: {m.latencyMs}ms
-                </div>
-              )}
-            </div>
-          </div>
+          <MessageBubble key={i} message={m} />
         ))}
         {loading && !chat.messages.some((m) => m.streaming) && (
           <div className="bubble-row assistant">
@@ -156,14 +220,12 @@ export function ChatView() {
             const bytes = new Uint8Array(buf);
             let binary = "";
             bytes.forEach((b) => { binary += String.fromCharCode(b); });
-            const dataBase64 = btoa(binary);
-            const previewUrl = f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined;
             next.push({
               name: f.name,
               mimeType: f.type || "application/octet-stream",
               sizeBytes: f.size,
-              dataBase64,
-              previewUrl,
+              dataBase64: btoa(binary),
+              previewUrl: f.type.startsWith("image/") ? URL.createObjectURL(f) : undefined,
             });
           }
           setAttachments((prev) => [...prev, ...next]);
@@ -186,9 +248,20 @@ export function ChatView() {
             rows={2}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
           />
-          <button type="button" className="m3-filled-btn composer-send" onClick={handleSend} disabled={loading || (!input.trim() && attachments.length === 0)}>
-            {t("chat.send")}
-          </button>
+          {loading ? (
+            <button type="button" className="m3-filled-btn composer-send stop-btn" onClick={handleStop}>
+              {t("chat.stop")}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="m3-filled-btn composer-send"
+              onClick={handleSend}
+              disabled={!input.trim() && attachments.length === 0}
+            >
+              {t("chat.send")}
+            </button>
+          )}
         </div>
       </div>
     </div>
