@@ -99,11 +99,14 @@ export function DevicesView() {
 }
 
 function StatusCard({ label, active }: { label: string; active: boolean }) {
+  const { t } = useTranslation();
   return (
     <div className="card">
       <div className="toggle-row">
         <span>{label}</span>
-        <span className={`badge ${active ? "badge-green" : "badge-red"}`}>{active ? "ON" : "OFF"}</span>
+        <span className={`badge ${active ? "badge-green" : "badge-red"}`}>
+          {active ? t("settings.devices.statusOn") : t("settings.devices.statusOff")}
+        </span>
       </div>
     </div>
   );

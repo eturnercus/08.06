@@ -2,14 +2,31 @@ import { Toggle } from "./Toggle";
 import { Slider } from "./Slider";
 
 export function SettingToggle({
-  title, desc, value, onChange, badge,
-}: { title: string; desc?: string; value: boolean; onChange: (v: boolean) => void; badge?: string }) {
+  title, desc, value, onChange, innovationHint,
+}: {
+  title: string;
+  desc?: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  /** Show ! tooltip for experimental Silenium features */
+  innovationHint?: boolean;
+}) {
+  const hint = desc || title;
   return (
     <div className="setting-row">
       <div className="setting-info">
         <div className="setting-title">
           {title}
-          {badge && <span className="badge badge-innovation" style={{ marginLeft: 8 }}>{badge}</span>}
+          {innovationHint && (
+            <span
+              className="badge badge-innovation feature-hint-badge"
+              style={{ marginLeft: 8 }}
+              title={hint}
+              aria-label={hint}
+            >
+              !
+            </span>
+          )}
         </div>
         {desc && <div className="setting-desc">{desc}</div>}
       </div>

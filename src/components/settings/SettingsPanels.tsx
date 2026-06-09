@@ -51,7 +51,6 @@ export function SystemPanel({ d, u }: { d: Draft; u: Updater }) {
 export function InnovationPanel({ d, u }: { d: Draft; u: Updater }) {
   const { t } = useTranslation();
   const inv = d.innovation ?? {};
-  const badge = t("settings.innovation.badge");
   return (
     <>
       <div className="innovation-hero">
@@ -59,58 +58,62 @@ export function InnovationPanel({ d, u }: { d: Draft; u: Updater }) {
         <p>{t("settings.innovation.desc")}</p>
       </div>
       <SectionTitle>{t("settings.innovation.cognitive")}</SectionTitle>
-      <SettingToggle badge={badge} title={t("settings.innovation.cognitiveLoadBalancer")} desc={t("settings.innovation.cognitiveLoadBalancerDesc")} value={(inv.cognitiveLoadBalancer as boolean) ?? true} onChange={(v) => u("innovation", "cognitiveLoadBalancer", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.cognitiveLoadBalancer")} desc={t("settings.innovation.cognitiveLoadBalancerDesc")} value={(inv.cognitiveLoadBalancer as boolean) ?? true} onChange={(v) => u("innovation", "cognitiveLoadBalancer", v)} />
       <SettingSlider title={t("settings.innovation.cognitiveThreshold")} value={(inv.cognitiveLoadThreshold as number) ?? 0.75} onChange={(v) => u("innovation", "cognitiveLoadThreshold", v)} min={0} max={1} step={0.05} />
-      <SettingToggle badge={badge} title={t("settings.innovation.neuroplastic")} desc={t("settings.innovation.neuroplasticDesc")} value={(inv.neuroplasticMemory as boolean) ?? true} onChange={(v) => u("innovation", "neuroplasticMemory", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.neuroplastic")} desc={t("settings.innovation.neuroplasticDesc")} value={(inv.neuroplasticMemory as boolean) ?? true} onChange={(v) => u("innovation", "neuroplasticMemory", v)} />
       <SettingSlider title={t("settings.innovation.adaptationRate")} value={(inv.neuroplasticAdaptationRate as number) ?? 0.05} onChange={(v) => u("innovation", "neuroplasticAdaptationRate", v)} min={0} max={1} step={0.01} />
-      <SettingToggle badge={badge} title={t("settings.innovation.synapticRouting")} desc={t("settings.innovation.synapticRoutingDesc")} value={(inv.synapticRouting as boolean) ?? true} onChange={(v) => u("innovation", "synapticRouting", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.synapticRouting")} desc={t("settings.innovation.synapticRoutingDesc")} value={(inv.synapticRouting as boolean) ?? true} onChange={(v) => u("innovation", "synapticRouting", v)} />
       <SettingSelect title={t("settings.innovation.synapticPriority")} value={(inv.synapticPathPriority as string) ?? "adaptive"} options={["shortest", "adaptive", "quality", "latency"]} onChange={(v) => u("innovation", "synapticPathPriority", v)} />
       <SectionTitle>{t("settings.innovation.context")}</SectionTitle>
-      <SettingToggle badge={badge} title={t("settings.innovation.contextDna")} desc={t("settings.innovation.contextDnaDesc")} value={(inv.contextDna as boolean) ?? true} onChange={(v) => u("innovation", "contextDna", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.contextDna")} desc={t("settings.innovation.contextDnaDesc")} value={(inv.contextDna as boolean) ?? true} onChange={(v) => u("innovation", "contextDna", v)} />
       <SettingSlider title={t("settings.innovation.dnaMutation")} value={(inv.contextDnaMutationRate as number) ?? 0.02} onChange={(v) => u("innovation", "contextDnaMutationRate", v)} min={0} max={0.5} step={0.01} />
-      <SettingToggle badge={badge} title={t("settings.innovation.holographic")} desc={t("settings.innovation.holographicDesc")} value={(inv.holographicContext as boolean) ?? true} onChange={(v) => u("innovation", "holographicContext", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.holographic")} desc={t("settings.innovation.holographicDesc")} value={(inv.holographicContext as boolean) ?? true} onChange={(v) => u("innovation", "holographicContext", v)} />
       <SettingNumber title={t("settings.innovation.holographicDims")} value={(inv.holographicProjectionDims as number) ?? 512} onChange={(v) => u("innovation", "holographicProjectionDims", v)} />
       <SettingNumber title={t("settings.innovation.quantumLayers")} value={(inv.quantumContextLayers as number) ?? 4} onChange={(v) => u("innovation", "quantumContextLayers", v)} />
       <SettingSlider title={t("settings.innovation.quantumEntangle")} value={(inv.quantumEntanglementStrength as number) ?? 0.3} onChange={(v) => u("innovation", "quantumEntanglementStrength", v)} min={0} max={1} step={0.05} />
       <SectionTitle>{t("settings.innovation.streaming")}</SectionTitle>
-      <SettingToggle badge={badge} title={t("settings.innovation.thoughtStream")} desc={t("settings.innovation.thoughtStreamDesc")} value={(inv.thoughtStreaming as boolean) ?? true} onChange={(v) => u("innovation", "thoughtStreaming", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.thoughtStream")} desc={t("settings.innovation.thoughtStreamDesc")} value={(inv.thoughtStreaming as boolean) ?? true} onChange={(v) => u("innovation", "thoughtStreaming", v)} />
       <SettingNumber title={t("settings.innovation.streamBuffer")} value={(inv.thoughtStreamBufferMs as number) ?? 120} onChange={(v) => u("innovation", "thoughtStreamBufferMs", v)} />
       <SettingNumber title={t("settings.innovation.thoughtMaxTokens")} desc={t("settings.innovation.thoughtMaxTokensDesc")} value={(inv.thoughtMaxTokens as number) ?? 1024} onChange={(v) => u("innovation", "thoughtMaxTokens", v)} min={64} max={8192} />
-      <SettingToggle badge={badge} title={t("settings.innovation.attentionCascade")} value={(inv.attentionCascade as boolean) ?? true} onChange={(v) => u("innovation", "attentionCascade", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.attentionCascade")} value={(inv.attentionCascade as boolean) ?? true} onChange={(v) => u("innovation", "attentionCascade", v)} />
       <SettingNumber title={t("settings.innovation.cascadeDepth")} value={(inv.attentionCascadeDepth as number) ?? 6} onChange={(v) => u("innovation", "attentionCascadeDepth", v)} />
       <SectionTitle>{t("settings.innovation.advanced")}</SectionTitle>
-      <SettingToggle badge={badge} title={t("settings.innovation.emotionMirror")} value={(inv.emotionMirror as boolean) ?? false} onChange={(v) => u("innovation", "emotionMirror", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.emotionMirror")} value={(inv.emotionMirror as boolean) ?? false} onChange={(v) => u("innovation", "emotionMirror", v)} />
       <SettingSlider title={t("settings.innovation.emotionIntensity")} value={(inv.emotionMirrorIntensity as number) ?? 0.5} onChange={(v) => u("innovation", "emotionMirrorIntensity", v)} min={0} max={1} step={0.05} />
-      <SettingToggle badge={badge} title={t("settings.innovation.neuralMesh")} desc={t("settings.innovation.neuralMeshDesc")} value={(inv.neuralMeshSync as boolean) ?? false} onChange={(v) => u("innovation", "neuralMeshSync", v)} />
-      <SettingToggle badge={badge} title={t("settings.innovation.dreamConsolidation")} desc={t("settings.innovation.dreamDesc")} value={(inv.dreamConsolidation as boolean) ?? true} onChange={(v) => u("innovation", "dreamConsolidation", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.neuralMesh")} desc={t("settings.innovation.neuralMeshDesc")} value={(inv.neuralMeshSync as boolean) ?? false} onChange={(v) => u("innovation", "neuralMeshSync", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.dreamConsolidation")} desc={t("settings.innovation.dreamDesc")} value={(inv.dreamConsolidation as boolean) ?? true} onChange={(v) => u("innovation", "dreamConsolidation", v)} />
       <SettingSelect title={t("settings.innovation.dreamSchedule")} value={(inv.dreamConsolidationSchedule as string) ?? "idle"} options={["idle", "nightly", "manual"]} onChange={(v) => u("innovation", "dreamConsolidationSchedule", v)} />
-      <SettingToggle badge={badge} title={t("settings.innovation.crossModal")} value={(inv.crossModalFusion as boolean) ?? true} onChange={(v) => u("innovation", "crossModalFusion", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.crossModal")} value={(inv.crossModalFusion as boolean) ?? true} onChange={(v) => u("innovation", "crossModalFusion", v)} />
       <SettingSlider title={t("settings.innovation.visionWeight")} value={(inv.crossModalWeightVision as number) ?? 0.4} onChange={(v) => u("innovation", "crossModalWeightVision", v)} min={0} max={1} step={0.05} />
       <SettingSlider title={t("settings.innovation.audioWeight")} value={(inv.crossModalWeightAudio as number) ?? 0.35} onChange={(v) => u("innovation", "crossModalWeightAudio", v)} min={0} max={1} step={0.05} />
-      <SettingToggle badge={badge} title={t("settings.innovation.predictivePrefetch")} value={(inv.predictivePrefetch as boolean) ?? true} onChange={(v) => u("innovation", "predictivePrefetch", v)} />
-      <SettingToggle badge={badge} title={t("settings.innovation.neuralFirewall")} value={(inv.neuralFirewall as boolean) ?? true} onChange={(v) => u("innovation", "neuralFirewall", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.predictivePrefetch")} value={(inv.predictivePrefetch as boolean) ?? true} onChange={(v) => u("innovation", "predictivePrefetch", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.neuralFirewall")} value={(inv.neuralFirewall as boolean) ?? true} onChange={(v) => u("innovation", "neuralFirewall", v)} />
       <SettingSlider title={t("settings.innovation.firewallSens")} value={(inv.firewallSensitivity as number) ?? 0.7} onChange={(v) => u("innovation", "firewallSensitivity", v)} min={0} max={1} step={0.05} />
-      <SettingToggle badge={badge} title={t("settings.innovation.metaCognition")} desc={t("settings.innovation.metaCognitionDesc")} value={(inv.metaCognitionLoop as boolean) ?? true} onChange={(v) => u("innovation", "metaCognitionLoop", v)} />
-      <SettingToggle badge={badge} title={t("settings.innovation.echoBreaker")} desc={t("settings.innovation.echoBreakerDesc")} value={(inv.echoChamberBreaker as boolean) ?? true} onChange={(v) => u("innovation", "echoChamberBreaker", v)} />
-      <SettingToggle badge={badge} title={t("settings.innovation.chronosync")} value={(inv.chronosyncMemory as boolean) ?? true} onChange={(v) => u("innovation", "chronosyncMemory", v)} />
-      <SettingToggle badge={badge} title={t("settings.innovation.swarm")} value={(inv.swarmIntelligence as boolean) ?? false} onChange={(v) => u("innovation", "swarmIntelligence", v)} />
-      <SettingToggle badge={badge} title={t("settings.innovation.latentNav")} value={(inv.latentSpaceNavigation as boolean) ?? true} onChange={(v) => u("innovation", "latentSpaceNavigation", v)} />
-      <SettingToggle badge={badge} title={t("settings.innovation.whisperMode")} value={(inv.neuralWhisperMode as boolean) ?? false} onChange={(v) => u("innovation", "neuralWhisperMode", v)} />
-      <SettingNumber title="Whisper token budget" value={(inv.whisperTokenBudget as number) ?? 64} onChange={(v) => u("innovation", "whisperTokenBudget", v)} />
-      <SettingNumber title="Prefetch horizon (tokens)" value={(inv.prefetchHorizonTokens as number) ?? 256} onChange={(v) => u("innovation", "prefetchHorizonTokens", v)} />
-      <SettingToggle badge={badge} title="Persona fluidity" value={(inv.personaFluidity as boolean) ?? false} onChange={(v) => u("innovation", "personaFluidity", v)} />
-      <SettingSlider title="Persona blend ratio" value={(inv.personaBlendRatio as number) ?? 0.3} onChange={(v) => u("innovation", "personaBlendRatio", v)} min={0} max={1} step={0.05} />
-      <SettingToggle badge={badge} title="Temporal anchoring" value={(inv.temporalAnchoring as boolean) ?? true} onChange={(v) => u("innovation", "temporalAnchoring", v)} />
-      <SettingNumber title="Temporal window (min)" value={(inv.temporalAnchorWindowMin as number) ?? 60} onChange={(v) => u("innovation", "temporalAnchorWindowMin", v)} />
-      <SettingNumber title="Meta-cognition interval" value={(inv.metaCognitionInterval as number) ?? 10} onChange={(v) => u("innovation", "metaCognitionInterval", v)} />
-      <SettingSlider title="Echo diversity boost" value={(inv.echoDiversityBoost as number) ?? 0.25} onChange={(v) => u("innovation", "echoDiversityBoost", v)} min={0} max={1} step={0.05} />
-      <SettingSelect title="Chronosync granularity" value={(inv.chronosyncGranularity as string) ?? "message"} options={["message", "session", "day"]} onChange={(v) => u("innovation", "chronosyncGranularity", v)} />
-      <SettingNumber title="Swarm particles" value={(inv.swarmParticleCount as number) ?? 8} onChange={(v) => u("innovation", "swarmParticleCount", v)} />
-      <SettingNumber title="Latent nav steps" value={(inv.latentNavigationSteps as number) ?? 3} onChange={(v) => u("innovation", "latentNavigationSteps", v)} />
-      <SettingToggle badge={badge} title="Ambient context harvest" value={(inv.ambientContextHarvest as boolean) ?? false} onChange={(v) => u("innovation", "ambientContextHarvest", v)} />
-      <SettingNumber title="Ambient harvest interval (sec)" value={(inv.ambientHarvestIntervalSec as number) ?? 300} onChange={(v) => u("innovation", "ambientHarvestIntervalSec", v)} />
-      <SettingToggle badge={badge} title="Resonance tuning" value={(inv.resonanceTuning as boolean) ?? false} onChange={(v) => u("innovation", "resonanceTuning", v)} />
-      <SettingNumber title="Resonance frequency (Hz)" value={(inv.resonanceFrequencyHz as number) ?? 7.83} onChange={(v) => u("innovation", "resonanceFrequencyHz", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.metaCognition")} desc={t("settings.innovation.metaCognitionDesc")} value={(inv.metaCognitionLoop as boolean) ?? true} onChange={(v) => u("innovation", "metaCognitionLoop", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.echoBreaker")} desc={t("settings.innovation.echoBreakerDesc")} value={(inv.echoChamberBreaker as boolean) ?? true} onChange={(v) => u("innovation", "echoChamberBreaker", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.chronosync")} value={(inv.chronosyncMemory as boolean) ?? true} onChange={(v) => u("innovation", "chronosyncMemory", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.swarm")} value={(inv.swarmIntelligence as boolean) ?? false} onChange={(v) => u("innovation", "swarmIntelligence", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.latentNav")} value={(inv.latentSpaceNavigation as boolean) ?? true} onChange={(v) => u("innovation", "latentSpaceNavigation", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.whisperMode")} value={(inv.neuralWhisperMode as boolean) ?? false} onChange={(v) => u("innovation", "neuralWhisperMode", v)} />
+      <SettingNumber title={t("settings.innovation.whisperBudget")} value={(inv.whisperTokenBudget as number) ?? 64} onChange={(v) => u("innovation", "whisperTokenBudget", v)} />
+      <SettingNumber title={t("settings.innovation.prefetchHorizon")} value={(inv.prefetchHorizonTokens as number) ?? 256} onChange={(v) => u("innovation", "prefetchHorizonTokens", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.personaFluidity")} desc={t("settings.innovation.personaFluidityDesc")} value={(inv.personaFluidity as boolean) ?? false} onChange={(v) => u("innovation", "personaFluidity", v)} />
+      <SettingSlider title={t("settings.innovation.personaBlend")} value={(inv.personaBlendRatio as number) ?? 0.3} onChange={(v) => u("innovation", "personaBlendRatio", v)} min={0} max={1} step={0.05} />
+      <SettingToggle innovationHint title={t("settings.innovation.temporalAnchor")} desc={t("settings.innovation.temporalAnchorDesc")} value={(inv.temporalAnchoring as boolean) ?? true} onChange={(v) => u("innovation", "temporalAnchoring", v)} />
+      <SettingNumber title={t("settings.innovation.temporalWindow")} value={(inv.temporalAnchorWindowMin as number) ?? 60} onChange={(v) => u("innovation", "temporalAnchorWindowMin", v)} />
+      <SettingNumber title={t("settings.innovation.metaInterval")} value={(inv.metaCognitionInterval as number) ?? 10} onChange={(v) => u("innovation", "metaCognitionInterval", v)} />
+      <SettingSlider title={t("settings.innovation.echoBoost")} value={(inv.echoDiversityBoost as number) ?? 0.25} onChange={(v) => u("innovation", "echoDiversityBoost", v)} min={0} max={1} step={0.05} />
+      <SettingSelect title={t("settings.innovation.chronosyncGranularity")} value={(inv.chronosyncGranularity as string) ?? "message"} options={[
+        { v: "message", l: t("settings.innovation.chronosyncMessage") },
+        { v: "session", l: t("settings.innovation.chronosyncSession") },
+        { v: "day", l: t("settings.innovation.chronosyncDay") },
+      ]} onChange={(v) => u("innovation", "chronosyncGranularity", v)} />
+      <SettingNumber title={t("settings.innovation.swarmParticles")} value={(inv.swarmParticleCount as number) ?? 8} onChange={(v) => u("innovation", "swarmParticleCount", v)} />
+      <SettingNumber title={t("settings.innovation.latentSteps")} value={(inv.latentNavigationSteps as number) ?? 3} onChange={(v) => u("innovation", "latentNavigationSteps", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.ambientHarvest")} desc={t("settings.innovation.ambientHarvestDesc")} value={(inv.ambientContextHarvest as boolean) ?? false} onChange={(v) => u("innovation", "ambientContextHarvest", v)} />
+      <SettingNumber title={t("settings.innovation.ambientInterval")} value={(inv.ambientHarvestIntervalSec as number) ?? 300} onChange={(v) => u("innovation", "ambientHarvestIntervalSec", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.resonance")} desc={t("settings.innovation.resonanceDesc")} value={(inv.resonanceTuning as boolean) ?? false} onChange={(v) => u("innovation", "resonanceTuning", v)} />
+      <SettingNumber title={t("settings.innovation.resonanceHz")} value={(inv.resonanceFrequencyHz as number) ?? 7.83} onChange={(v) => u("innovation", "resonanceFrequencyHz", v)} />
     </>
   );
 }
@@ -135,11 +138,11 @@ export function PerformancePanel({ d, u }: { d: Draft; u: Updater }) {
       <SettingToggle title={t("settings.performance.idlePower")} value={(p.idlePowerSave as boolean) ?? true} onChange={(v) => u("performance", "idlePowerSave", v)} />
       <SettingNumber title={t("settings.performance.latencyTarget")} value={(p.latencyTargetMs as number) ?? 200} onChange={(v) => u("performance", "latencyTargetMs", v)} />
       <SettingNumber title={t("settings.performance.queueDepth")} value={(p.maxQueueDepth as number) ?? 16} onChange={(v) => u("performance", "maxQueueDepth", v)} />
-      <SettingNumber title="Dynamic batch max" value={(p.dynamicBatchMax as number) ?? 32} onChange={(v) => u("performance", "dynamicBatchMax", v)} />
-      <SettingNumber title="Prefix cache TTL (min)" value={(p.prefixCacheTtlMin as number) ?? 60} onChange={(v) => u("performance", "prefixCacheTtlMin", v)} />
-      <SettingNumber title="Idle power threshold (min)" value={(p.idlePowerThresholdMin as number) ?? 5} onChange={(v) => u("performance", "idlePowerThresholdMin", v)} />
-      <SettingToggle title="Priority queue inference" value={(p.priorityQueueInference as boolean) ?? true} onChange={(v) => u("performance", "priorityQueueInference", v)} />
-      <SettingNumber title="Tensor parallel shards" value={(p.tensorParallelShards as number) ?? 1} onChange={(v) => u("performance", "tensorParallelShards", v)} />
+      <SettingNumber title={t("settings.performance.dynamicBatchMax")} value={(p.dynamicBatchMax as number) ?? 32} onChange={(v) => u("performance", "dynamicBatchMax", v)} />
+      <SettingNumber title={t("settings.performance.prefixCacheTtl")} value={(p.prefixCacheTtlMin as number) ?? 60} onChange={(v) => u("performance", "prefixCacheTtlMin", v)} />
+      <SettingNumber title={t("settings.performance.idleThreshold")} value={(p.idlePowerThresholdMin as number) ?? 5} onChange={(v) => u("performance", "idlePowerThresholdMin", v)} />
+      <SettingToggle title={t("settings.performance.priorityQueue")} value={(p.priorityQueueInference as boolean) ?? true} onChange={(v) => u("performance", "priorityQueueInference", v)} />
+      <SettingNumber title={t("settings.performance.tensorShards")} value={(p.tensorParallelShards as number) ?? 1} onChange={(v) => u("performance", "tensorParallelShards", v)} />
     </>
   );
 }
@@ -161,9 +164,9 @@ export function SecurityPanel({ d, u }: { d: Draft; u: Updater }) {
       <SettingToggle title={t("settings.security.clipboard")} value={(sec.clipboardSanitization as boolean) ?? true} onChange={(v) => u("security", "clipboardSanitization", v)} />
       <SettingToggle title={t("settings.security.modelIntegrity")} value={(sec.modelIntegrityVerify as boolean) ?? true} onChange={(v) => u("security", "modelIntegrityVerify", v)} />
       <SettingNumber title={t("settings.security.autoLock")} value={(sec.autoLockMinutes as number) ?? 0} onChange={(v) => u("security", "autoLockMinutes", v)} />
-      <SettingNumber title="Audit log retention (days)" value={(sec.auditLogRetentionDays as number) ?? 30} onChange={(v) => u("security", "auditLogRetentionDays", v)} />
-      <SettingToggle title="API key vault" value={(sec.apiKeyVault as boolean) ?? true} onChange={(v) => u("security", "apiKeyVault", v)} />
-      <SettingToggle title="Network fingerprint check" value={(sec.networkFingerprintCheck as boolean) ?? true} onChange={(v) => u("security", "networkFingerprintCheck", v)} />
+      <SettingNumber title={t("settings.security.auditRetention")} value={(sec.auditLogRetentionDays as number) ?? 30} onChange={(v) => u("security", "auditLogRetentionDays", v)} />
+      <SettingToggle title={t("settings.security.apiKeyVault")} value={(sec.apiKeyVault as boolean) ?? true} onChange={(v) => u("security", "apiKeyVault", v)} />
+      <SettingToggle title={t("settings.security.networkFingerprint")} value={(sec.networkFingerprintCheck as boolean) ?? true} onChange={(v) => u("security", "networkFingerprintCheck", v)} />
     </>
   );
 }

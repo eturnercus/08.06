@@ -108,6 +108,33 @@ pub fn generation_should_stop(text: &str) -> bool {
         || detect_repetition_loop(text)
 }
 
+/// Trailing partial ChatML token the model started but did not finish.
+pub fn strip_trailing_template_fragment(text: &str) -> String {
+    let mut s = text.to_string();
+    const FRAGS: &[&str] = &[
+        "<|im_start|>",
+        "<|im_end|>",
+        "<|redacted_im_start|>",
+        "<|eot_id|>",
+        "<|endoftext|>",
+        "<|im",
+        "<|",
+        "<",
+    ];
+    loop {
+        let before = s.len();
+        for frag in FRAGS {
+            if s.ends_with(frag) {
+                s.truncate(s.len().saturating_sub(frag.len()));
+            }
+        }
+        if s.len() == before {
+            break;
+        }
+    }
+    s.trim_end().to_string()
+}
+
 pub fn sanitize_llm_output(text: &str) -> String {
     let mut out = truncate_at_template_leak(text);
     for marker in TEMPLATE_MARKERS {
@@ -118,7 +145,18 @@ pub fn sanitize_llm_output(text: &str) -> String {
     while out.contains("\n\n\n") {
         out = out.replace("\n\n\n", "\n\n");
     }
-    out.trim().to_string()
+    strip_trailing_template_fragment(&out)
+}
+
+/// Sanitize a streaming buffer and return only the new safe suffix for the UI.
+pub fn stream_delta_since(prev_sanitized: &str, accumulated_raw: &str) -> (String, String) {
+    let sanitized = sanitize_llm_output(accumulated_raw);
+    let delta = if sanitized.len() > prev_sanitized.len() {
+        sanitized[prev_sanitized.len()..].to_string()
+    } else {
+        String::new()
+    };
+    (delta, sanitized)
 }
 
 #[cfg(test)]
@@ -130,6 +168,12 @@ mod tests {
         let raw = "Назовите то, что вы хотите.<|";
         let s = sanitize_llm_output(raw);
         assert_eq!(s, "Назовите то, что вы хотите.");
+    }
+
+    #[test]
+    fn strips_reported_nelzya_leak() {
+        let raw = "Нельзя.<|";
+        assert_eq!(sanitize_llm_output(raw), "Нельзя.");
     }
 
     #[test]

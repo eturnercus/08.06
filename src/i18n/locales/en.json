@@ -221,7 +221,8 @@
       }
     },
     "innovation": {
-      "badge": "NEW", "title": "Silenium innovative technologies",
+      "badgeHint": "Experimental Silenium feature — hover ! for description",
+      "title": "Silenium innovative technologies",
       "desc": "Cutting-edge algorithms for context, memory, and cognitive load management.",
       "cognitive": "Cognitive layer", "context": "Context", "streaming": "Streaming", "advanced": "Advanced",
       "cognitiveLoadBalancer": "Cognitive load balancer",
@@ -267,7 +268,29 @@
       "chronosync": "ChronoSync memory",
       "swarm": "Swarm intelligence",
       "latentNav": "Latent space navigation",
-      "whisperMode": "Whisper mode"
+      "whisperMode": "Whisper mode",
+      "whisperBudget": "Whisper token budget",
+      "prefetchHorizon": "Prefetch horizon (tokens)",
+      "personaFluidity": "Persona fluidity",
+      "personaFluidityDesc": "Blends global system prefix with assistant role",
+      "personaBlend": "Persona blend ratio",
+      "temporalAnchor": "Temporal anchoring",
+      "temporalAnchorDesc": "Weights recent memory within a time window",
+      "temporalWindow": "Anchor window (min)",
+      "metaInterval": "Meta-cognition interval",
+      "echoBoost": "Echo diversity boost",
+      "chronosyncGranularity": "ChronoSync granularity",
+      "chronosyncMessage": "Per message",
+      "chronosyncSession": "Per session",
+      "chronosyncDay": "Per day",
+      "swarmParticles": "Swarm particles",
+      "latentSteps": "Latent nav steps",
+      "ambientHarvest": "Ambient context harvest",
+      "ambientHarvestDesc": "Periodically harvests ambient context into memory",
+      "ambientInterval": "Harvest interval (sec)",
+      "resonance": "Resonance tuning",
+      "resonanceDesc": "Experimental generation rhythm tuning",
+      "resonanceHz": "Resonance frequency (Hz)"
     },
     "performance": {
       "turbo": "Turbo mode", "turboDesc": "Maximum performance at RAM cost",
@@ -277,7 +300,12 @@
       "kvOffload": "KV-cache offload", "kvDevice": "Offload device",
       "mixedPrecision": "Mixed precision", "compileGraph": "Graph compilation",
       "warmup": "Warmup tokens", "idlePower": "Idle power save",
-      "latencyTarget": "Latency target (ms)", "queueDepth": "Queue depth"
+      "latencyTarget": "Latency target (ms)", "queueDepth": "Queue depth",
+      "dynamicBatchMax": "Dynamic batch max",
+      "prefixCacheTtl": "Prefix cache TTL (min)",
+      "idleThreshold": "Idle power threshold (min)",
+      "priorityQueue": "Priority queue inference",
+      "tensorShards": "Tensor parallel shards"
     },
     "security": {
       "encryptSettings": "Encrypt settings", "encryptMemory": "Encrypt memory",
@@ -285,7 +313,16 @@
       "auditLog": "Audit log", "sandbox": "Process isolation",
       "promptShield": "Injection shield", "shieldAggro": "Aggressiveness",
       "exfilGuard": "Exfiltration guard", "clipboard": "Clipboard sanitization",
-      "modelIntegrity": "Model integrity check", "autoLock": "Auto-lock (min)"
+      "modelIntegrity": "Model integrity check", "autoLock": "Auto-lock (min)",
+      "auditRetention": "Audit log retention (days)",
+      "apiKeyVault": "API key vault",
+      "networkFingerprint": "Network fingerprint check"
+    },
+    "advanced": {
+      "debugMode": "Debug mode",
+      "watchdog": "Watchdog",
+      "sandbox": "Sandbox",
+      "logLevel": "Log level"
     },
     "memory": {
       "stmSection": "Short-term (STM)", "ltmSection": "Long-term (LTM)", "transferSection": "Transfer",
@@ -355,7 +392,13 @@
       "section": "Input/output devices",
       "camera": "Camera", "microphone": "Microphone", "screen": "Screen",
       "virtualDisplay": "Virtual display", "resolution": "Resolution",
-      "maxAttachment": "Max attachment (MB)", "ocr": "OCR", "transcribe": "Transcription", "frameRate": "FPS"
+      "maxAttachment": "Max attachment (MB)", "ocr": "OCR", "transcribe": "Transcription", "frameRate": "FPS",
+      "browserAutomation": "Browser automation",
+      "browserAutomationDesc": "Agents open pages in the built-in browser (or external if desktop control is off)",
+      "desktopControl": "Desktop control (dual mouse)",
+      "desktopControlDesc": "Virtual AI mouse and agent browser on Devices tab. Does not move your system cursor.",
+      "statusOn": "On",
+      "statusOff": "Off"
     },
     "agents": { "addGroup": "Add group" },
     "models": { "formats": "GGUF, ONNX, Safetensors, PT, BIN, GGML", "localPath": "Model path", "add": "Load" }
@@ -517,7 +560,13 @@
       "liveHint": "Live WebView: real page in a separate window; clicks via elementFromPoint / querySelector.",
       "previewHint": "Preview: fetched HTML in iframe; link clicks use postMessage bridge.",
       "showWindow": "Show window",
-      "domAction": "Last DOM action"
+      "domAction": "Last DOM action",
+      "status": {
+        "idle": "idle",
+        "ready": "ready",
+        "loading": "loading",
+        "error": "error"
+      }
     },
     "capture": {
       "ocr": "Screen OCR",

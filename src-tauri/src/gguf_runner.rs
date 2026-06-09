@@ -239,7 +239,11 @@ impl GgufRuntime {
             output.push_str(&piece);
             completion_tokens += 1;
             if let Some(s) = stream.as_mut() {
-                s.push(&piece);
+                let sanitized = crate::llm_sanitize::sanitize_llm_output(&output);
+                let already = s.emitted_chars();
+                if sanitized.len() > already {
+                    s.push(&sanitized[already..]);
+                }
             }
 
             batch.clear();

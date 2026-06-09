@@ -373,6 +373,38 @@ fn dedupe_repetitive_stm(entries: Vec<StmEntry>) -> Vec<StmEntry> {
     out
 }
 
+/// Hint injected when the model keeps repeating the same assistant reply.
+pub fn anti_repeat_hint(settings: &AppSettings, stm: &[crate::memory::StmEntry]) -> Option<String> {
+    if !settings.innovation.echo_chamber_breaker {
+        return None;
+    }
+    let assistants: Vec<&str> = stm
+        .iter()
+        .filter(|e| e.role == "assistant")
+        .map(|e| e.content.as_str())
+        .collect();
+    if assistants.len() < 2 {
+        return None;
+    }
+    let last = assistants.last()?;
+    let prev = assistants.get(assistants.len() - 2)?;
+    if !stm_content_similar(last, prev) {
+        return None;
+    }
+    let ru = settings.language != "en";
+    Some(if ru {
+        "Не повторяй предыдущий ответ. Дай новый конкретный ответ по запросу; если просят код — напиши код сразу."
+            .into()
+    } else {
+        "Do not repeat your previous reply. Give a new, concrete answer; if code was requested, output code now."
+            .into()
+    })
+}
+
+pub fn should_boost_anti_repeat(settings: &AppSettings, stm: &[crate::memory::StmEntry]) -> bool {
+    anti_repeat_hint(settings, stm).is_some()
+}
+
 fn stm_content_similar(a: &str, b: &str) -> bool {
     let na = a.trim().to_lowercase();
     let nb = b.trim().to_lowercase();

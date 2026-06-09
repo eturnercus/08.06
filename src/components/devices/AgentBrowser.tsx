@@ -133,7 +133,7 @@ export function AgentBrowser() {
         <div className="agent-browser-status">
           <span className="mono">{browser?.url || "—"}</span>
           <span className={`badge ${browser?.status === "ready" ? "badge-green" : browser?.status === "error" ? "badge-red" : "badge-blue"}`}>
-            {browser?.status ?? "idle"}
+            {t(`devices.agentBrowser.status.${browser?.status ?? "idle"}`, browser?.status ?? "idle")}
           </span>
         </div>
         <p className="field-hint">{liveOn ? t("devices.agentBrowser.liveHint") : t("devices.agentBrowser.previewHint")}</p>

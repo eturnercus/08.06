@@ -69,7 +69,13 @@ export function Onboarding() {
           </div>
 
           <div className="onb-content">
-            <span className="badge badge-innovation">{t(`onboarding.tags.${stepKey}`)}</span>
+            <span
+              className="badge badge-innovation feature-hint-badge"
+              title={t(`onboarding.${stepKey}.desc`)}
+              aria-label={t(`onboarding.${stepKey}.title`)}
+            >
+              !
+            </span>
             <h1>{t(`onboarding.${stepKey}.title`)}</h1>
             <p className="onb-desc">{t(`onboarding.${stepKey}.desc`)}</p>
 

@@ -93,6 +93,28 @@ export function generationShouldStop(text: string): boolean {
   );
 }
 
+function stripTrailingTemplateFragment(text: string): string {
+  let s = text;
+  const frags = [
+    "<|im_start|>",
+    "<|im_end|>",
+    "<|redacted_im_start|>",
+    "<|eot_id|>",
+    "<|endoftext|>",
+    "<|im",
+    "<|",
+    "<",
+  ];
+  for (;;) {
+    const before = s.length;
+    for (const frag of frags) {
+      if (s.endsWith(frag)) s = s.slice(0, -frag.length);
+    }
+    if (s.length === before) break;
+  }
+  return s.trimEnd();
+}
+
 export function sanitizeLlmOutput(text: string): string {
   let out = truncateAtTemplateLeak(text);
   for (const marker of TEMPLATE_MARKERS) {
@@ -101,7 +123,7 @@ export function sanitizeLlmOutput(text: string): string {
   while (out.includes("\n\n\n")) {
     out = out.replace(/\n\n\n/g, "\n\n");
   }
-  return out.trim();
+  return stripTrailingTemplateFragment(out).trim();
 }
 
 /** Apply delta to accumulated text; returns sanitized text (stops growth at template leak). */

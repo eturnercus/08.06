@@ -17,7 +17,8 @@ use crate::settings_engine::{
     self, check_user_input, cross_modal_user_note, default_reply_max_tokens, effective_max_tokens,
     default_chat_system_prompt, effective_temperature, enrich_system_prompt, filter_model_output,
     filter_stm,
-    maybe_dream_consolidate, recall_ltm, resolve_gguf_runtime_pref, tune_generate_params,
+    anti_repeat_hint, maybe_dream_consolidate, recall_ltm, resolve_gguf_runtime_pref,
+    should_boost_anti_repeat, tune_generate_params,
 };
 use crate::stream_sink::{AgentStreamSink, StreamSink, TokenSink};
 
@@ -846,6 +847,11 @@ impl InferenceEngine {
         if let Some(note) = cross_modal_user_note(settings, Self::attachment_note(request)) {
             user_turn = format!("{user_turn}\n[{note}]");
         }
+        if stm_enabled {
+            if let Some(hint) = anti_repeat_hint(settings, &stm_snapshot) {
+                user_turn = format!("{user_turn}\n\n[{hint}]");
+            }
+        }
 
         let mut messages: Vec<(String, String)> = Vec::new();
         if !system_prompt.is_empty() {
@@ -911,6 +917,10 @@ impl InferenceEngine {
                 prefer_cli: backend.prefer_cli,
             };
             gen = tune_generate_params(settings, gen);
+            if stm_enabled && should_boost_anti_repeat(settings, &stm_snapshot) {
+                gen.repeat_penalty = (gen.repeat_penalty * 1.2).min(2.0);
+                gen.temperature = (gen.temperature + 0.12).min(1.25);
+            }
             #[cfg(feature = "embedded-llama")]
             let inference_result = {
                 let gguf_guard = self.gguf.lock();

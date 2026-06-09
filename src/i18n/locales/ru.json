@@ -221,7 +221,8 @@
       }
     },
     "innovation": {
-      "badge": "NEW", "title": "Инновационные технологии Silenium",
+      "badgeHint": "Экспериментальная функция Silenium — наведите на ! для описания",
+      "title": "Инновационные технологии Silenium",
       "desc": "Передовые алгоритмы управления контекстом, памятью и когнитивной нагрузкой нейросетей.",
       "cognitive": "Когнитивный слой", "context": "Контекст", "streaming": "Потоковая обработка", "advanced": "Продвинутое",
       "cognitiveLoadBalancer": "Когнитивный балансировщик",
@@ -267,7 +268,29 @@
       "chronosync": "ChronoSync память",
       "swarm": "Роевой интеллект",
       "latentNav": "Навигация в латентном пространстве",
-      "whisperMode": "Режим шёпота"
+      "whisperMode": "Режим шёпота",
+      "whisperBudget": "Лимит токенов (шёпот)",
+      "prefetchHorizon": "Горизонт предзагрузки (токены)",
+      "personaFluidity": "Гибкая персона",
+      "personaFluidityDesc": "Плавно смешивает глобальный системный префикс с ролью ассистента",
+      "personaBlend": "Доля смешивания персоны",
+      "temporalAnchor": "Временная привязка",
+      "temporalAnchorDesc": "Учитывает только свежую память в заданном окне времени",
+      "temporalWindow": "Окно привязки (мин)",
+      "metaInterval": "Интервал мета-познания",
+      "echoBoost": "Буст разнообразия (анти-эхо)",
+      "chronosyncGranularity": "Гранулярность ChronoSync",
+      "chronosyncMessage": "По сообщениям",
+      "chronosyncSession": "По сессии",
+      "chronosyncDay": "По дню",
+      "swarmParticles": "Частицы роя",
+      "latentSteps": "Шаги латентной навигации",
+      "ambientHarvest": "Сбор фонового контекста",
+      "ambientHarvestDesc": "Периодически подмешивает контекст окружения в память",
+      "ambientInterval": "Интервал сбора (сек)",
+      "resonance": "Резонансная подстройка",
+      "resonanceDesc": "Экспериментальная настройка «ритма» генерации",
+      "resonanceHz": "Частота резонанса (Гц)"
     },
     "performance": {
       "turbo": "Турбо-режим", "turboDesc": "Максимальная производительность за счёт RAM",
@@ -277,7 +300,12 @@
       "kvOffload": "KV-cache offload", "kvDevice": "Устройство offload",
       "mixedPrecision": "Смешанная точность", "compileGraph": "Компиляция графа",
       "warmup": "Прогрев (токены)", "idlePower": "Энергосбережение",
-      "latencyTarget": "Целевая задержка (мс)", "queueDepth": "Глубина очереди"
+      "latencyTarget": "Целевая задержка (мс)", "queueDepth": "Глубина очереди",
+      "dynamicBatchMax": "Макс. динамический батч",
+      "prefixCacheTtl": "TTL кэша префиксов (мин)",
+      "idleThreshold": "Порог простоя (мин)",
+      "priorityQueue": "Приоритетная очередь инференса",
+      "tensorShards": "Шарды тензорного параллелизма"
     },
     "security": {
       "encryptSettings": "Шифровать настройки", "encryptMemory": "Шифровать память",
@@ -285,7 +313,16 @@
       "auditLog": "Журнал аудита", "sandbox": "Изоляция процессов",
       "promptShield": "Защита от injection", "shieldAggro": "Агрессивность",
       "exfilGuard": "Защита от утечек", "clipboard": "Санитизация буфера",
-      "modelIntegrity": "Проверка целостности модели", "autoLock": "Автоблокировка (мин)"
+      "modelIntegrity": "Проверка целостности модели", "autoLock": "Автоблокировка (мин)",
+      "auditRetention": "Хранение журнала (дней)",
+      "apiKeyVault": "Хранилище API-ключей",
+      "networkFingerprint": "Проверка сетевого отпечатка"
+    },
+    "advanced": {
+      "debugMode": "Режим отладки",
+      "watchdog": "Сторожевой таймер",
+      "sandbox": "Песочница",
+      "logLevel": "Уровень логов"
     },
     "memory": {
       "stmSection": "Краткосрочная (STM)", "ltmSection": "Долгосрочная (LTM)", "transferSection": "Перенос",
@@ -355,7 +392,13 @@
       "section": "Устройства ввода/вывода",
       "camera": "Камера", "microphone": "Микрофон", "screen": "Экран",
       "virtualDisplay": "Виртуальный дисплей", "resolution": "Разрешение",
-      "maxAttachment": "Макс. вложение (МБ)", "ocr": "OCR", "transcribe": "Транскрибация", "frameRate": "FPS"
+      "maxAttachment": "Макс. вложение (МБ)", "ocr": "OCR", "transcribe": "Транскрибация", "frameRate": "FPS",
+      "browserAutomation": "Автоматизация браузера",
+      "browserAutomationDesc": "Агенты открывают страницы во встроенном браузере (или во внешнем, если управление рабочим столом выкл.)",
+      "desktopControl": "Управление рабочим столом (двойная мышь)",
+      "desktopControlDesc": "Виртуальная ИИ-мышь и агент-браузер на вкладке «Устройства». Системный курсор не затрагивается.",
+      "statusOn": "Вкл",
+      "statusOff": "Выкл"
     },
     "agents": { "addGroup": "Добавить группу" },
     "models": { "formats": "GGUF, ONNX, Safetensors, PT, BIN, GGML", "localPath": "Путь к модели", "add": "Загрузить" }
@@ -517,7 +560,13 @@
       "liveHint": "Live WebView: реальная страница в отдельном окне, клики через elementFromPoint / querySelector.",
       "previewHint": "Preview: HTML через сеть в iframe; клики по ссылкам перехватываются postMessage.",
       "showWindow": "Показать окно",
-      "domAction": "Последнее DOM-действие"
+      "domAction": "Последнее DOM-действие",
+      "status": {
+        "idle": "ожидание",
+        "ready": "готово",
+        "loading": "загрузка",
+        "error": "ошибка"
+      }
     },
     "capture": {
       "ocr": "OCR экрана",
