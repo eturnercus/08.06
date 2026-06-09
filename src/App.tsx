@@ -79,7 +79,7 @@ export default function App() {
 
   if (phase === "language") return <LanguagePicker />;
   if (phase === "onboarding") return <Onboarding />;
-  if (!settings) return <div className="app-loading">Loading...</div>;
+  if (!settings) return <div className="app-loading">{i18n.t("app.loading")}</div>;
 
   return (
     <Layout>

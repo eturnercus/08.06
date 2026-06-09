@@ -153,6 +153,7 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
         />
       </div>
 
+      {!teamMode && (
       <div className="chat-settings-grid">
         <div>
           <label className="form-label">{t("chat.temperature")}</label>
@@ -192,6 +193,11 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
           />
         </div>
       </div>
+      )}
+
+      {teamMode && (
+        <p className="field-hint team-params-hint">{t("chat.teamParamsHint")}</p>
+      )}
 
       {teamMode && chat.agentGroupId && isTauri() && (
         <div className="form-row workspace-block">

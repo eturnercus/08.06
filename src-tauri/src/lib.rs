@@ -110,6 +110,8 @@ fn sync_chat_overrides(
     ltm_enabled: bool,
     agent_group_id: Option<String>,
     workspace_path: Option<String>,
+    ram_limit_mb: Option<u64>,
+    memory_access: Option<String>,
 ) -> Result<(), String> {
     let mut settings = state.settings.lock();
     let prev = settings.per_chat_overrides.get(&chat_id).cloned();
@@ -121,6 +123,8 @@ fn sync_chat_overrides(
             ltm_enabled: Some(ltm_enabled),
             agent_group_id,
             workspace_path: workspace_path.or_else(|| prev.and_then(|p| p.workspace_path)),
+            ram_limit_mb,
+            memory_access,
             ..Default::default()
         },
     );

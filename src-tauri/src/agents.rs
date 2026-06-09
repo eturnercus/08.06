@@ -435,17 +435,21 @@ async fn execute_member(
     let mut used_internet = false;
     let mut tool_notes = Vec::new();
 
-    if member.permissions.internet
-        && settings.network.allow_internet
-        && member.tools.iter().any(|t| t == "web_search")
-    {
+    let chat_allow = chat_id
+        .and_then(|id| settings.per_chat_overrides.get(id))
+        .and_then(|o| o.allow_internet)
+        .unwrap_or(settings.network.allow_internet);
+    let net_allowed =
+        settings.network.allow_internet && chat_allow && member.permissions.internet;
+
+    if net_allowed && member.tools.iter().any(|t| t == "web_search") {
         let q = prompt.chars().take(120).collect::<String>();
         match network
             .web_search(
                 &q,
                 Some(member.id.clone()),
-                Some(task_id.to_string()),
-                true,
+                chat_id.map(str::to_string),
+                net_allowed,
                 settings,
             )
             .await
@@ -538,7 +542,9 @@ async fn execute_member(
     }
 
     if member.tools.iter().any(|t| t == "memory_query") {
-        let recalled = settings_engine::recall_ltm(memory, settings, task_id, prompt);
+        let recall_chat = chat_id.unwrap_or(task_id);
+        let recalled =
+            settings_engine::recall_ltm(memory, settings, recall_chat, prompt, &member.model_id);
         if !recalled.is_empty() {
             tool_notes.push(format!("memory_query: {} записей LTM", recalled.len()));
         }

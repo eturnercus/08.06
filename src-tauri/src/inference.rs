@@ -560,6 +560,7 @@ impl InferenceEngine {
         ltm_enabled: bool,
         memory: &MemoryStore,
         chat_id: &str,
+        model_id: &str,
         user_message: &str,
         chat_system: Option<&str>,
     ) -> (String, bool) {
@@ -585,7 +586,7 @@ impl InferenceEngine {
                 parts.push(inj.hidden_context.clone());
             }
             if inj.inject_memory_summary && ltm_enabled {
-                let recalled = recall_ltm(memory, settings, chat_id, user_message);
+                let recalled = recall_ltm(memory, settings, chat_id, user_message, model_id);
                 if !recalled.is_empty() {
                     let summary: String = recalled
                         .iter()
@@ -705,9 +706,13 @@ impl InferenceEngine {
             ltm_enabled,
             memory,
             &request.chat_id,
+            &effective_model_id,
             &user_message,
             request.system_prompt.as_deref(),
         );
+        let ram_limit_mb = override_cfg
+            .and_then(|o| o.ram_limit_mb)
+            .unwrap_or(settings.system.ram_limit_mb);
 
         let stm_snapshot = if stm_enabled {
             filter_stm(settings, memory.get_stm(&request.chat_id))
@@ -770,7 +775,7 @@ impl InferenceEngine {
                 gpu_layers: settings.system.gpu_layers,
                 gpu_memory_mb: settings.system.gpu_memory_mb,
                 vram_reserve_mb: settings.system.vram_reserve_mb,
-                ram_limit_mb: settings.system.ram_limit_mb,
+                ram_limit_mb,
                 mmap_enabled: settings.system.mmap_enabled,
                 mlock_enabled: settings.system.mlock_enabled,
                 swap_usage: settings.system.swap_usage.clone(),
@@ -849,8 +854,29 @@ impl InferenceEngine {
 
         let latency_ms = start.elapsed().as_millis() as u64;
         let tokens_used = completion_tokens;
+        let memory_recalled_count = if ltm_enabled {
+            recall_ltm(memory, settings, &request.chat_id, &user_message, &effective_model_id).len()
+                as u32
+        } else {
+            0
+        };
         if let Some(sink) = stream.as_mut() {
-            sink.finish(tokens_used, latency_ms);
+            if response_content.contains("остановлена пользователем")
+                || cancel.is_some_and(|f| f.load(std::sync::atomic::Ordering::SeqCst))
+            {
+                sink.cancelled(latency_ms);
+            } else {
+                sink.finish(
+                    tokens_used,
+                    prompt_tokens,
+                    completion_tokens,
+                    latency_ms,
+                    &effective_model_id,
+                    memory_recalled_count,
+                    injection_applied,
+                    max_tok,
+                );
+            }
         }
         ChatResponse {
             content: response_content,
@@ -858,11 +884,7 @@ impl InferenceEngine {
             prompt_tokens,
             completion_tokens,
             latency_ms,
-            memory_recalled: if ltm_enabled {
-                recall_ltm(memory, settings, &request.chat_id, &user_message).len() as u32
-            } else {
-                0
-            },
+            memory_recalled: memory_recalled_count,
             injection_applied,
             model_id: effective_model_id,
             max_tokens_limit: max_tok,

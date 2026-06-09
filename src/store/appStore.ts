@@ -2,9 +2,17 @@ import { create } from "zustand";
 import type { AppSettings } from "../api/tauri";
 import { sanitizeLlmOutput } from "../utils/sanitizeLlm";
 
+export interface MessageAttachment {
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+}
+
 export interface ChatMessage {
+  id: string;
   role: "user" | "assistant";
   content: string;
+  attachments?: MessageAttachment[];
   tokens?: number;
   promptTokens?: number;
   completionTokens?: number;
@@ -83,7 +91,7 @@ interface AppStore {
   addChat: () => string;
   setActiveChat: (id: string) => void;
   updateChat: (id: string, patch: Partial<Chat>) => void;
-  addMessage: (chatId: string, msg: ChatMessage) => void;
+  addMessage: (chatId: string, msg: Omit<ChatMessage, "id"> & { id?: string }) => void;
   deleteChat: (chatId: string) => void;
   exportChat: (chatId: string) => string;
   setActiveGeneration: (chatId: string | null) => void;
@@ -173,6 +181,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
           ...c,
           modelId: c.modelId === "default" ? "silenium-starter" : c.modelId,
           maxTokens: c.maxTokens >= 4096 ? 512 : c.maxTokens,
+          messages: c.messages.map((m, i) => ({
+            ...m,
+            id: m.id ?? `legacy-${c.id}-${i}`,
+          })),
         }));
         set({ chats, activeChatId: active && chats.some((c) => c.id === active) ? active : chats[0]?.id ?? null });
       }
@@ -230,8 +242,12 @@ export const useAppStore = create<AppStore>((set, get) => ({
   setActiveGeneration: (chatId) => set({ activeGenerationChatId: chatId }),
   addMessage: (chatId, msg) =>
     set((s) => {
+      const full: ChatMessage = {
+        ...msg,
+        id: msg.id ?? `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      };
       const chats = s.chats.map((c) =>
-        c.id === chatId ? { ...c, messages: [...c.messages, msg] } : c
+        c.id === chatId ? { ...c, messages: [...c.messages, full] } : c
       );
       persist(chats, s.activeChatId);
       return { chats };

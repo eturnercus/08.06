@@ -140,6 +140,8 @@ export const api = {
     ltmEnabled: boolean;
     agentGroupId?: string;
     workspacePath?: string;
+    ramLimitMb?: number;
+    memoryAccess?: string;
   }) => invoke<void>("sync_chat_overrides", p),
   stopAgentTeam: (taskId?: string) => invoke<void>("stop_agent_team", { taskId }),
   stopAgentMember: (taskId: string, agentId: string) =>

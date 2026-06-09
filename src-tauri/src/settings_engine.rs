@@ -322,13 +322,24 @@ pub fn recall_ltm(
     settings: &AppSettings,
     chat_id: &str,
     query: &str,
+    model_id: &str,
 ) -> Vec<MemoryEntry> {
     let top_k = settings.memory.recall_top_k.max(1);
+    let access = settings
+        .per_chat_overrides
+        .get(chat_id)
+        .and_then(|o| o.memory_access.as_deref())
+        .unwrap_or("CHAT_ONLY");
     let mut entries = if settings.innovation.latent_space_navigation {
         latent_recall(memory, chat_id, query, top_k, settings.innovation.latent_navigation_steps)
     } else {
         memory.recall_ltm(chat_id, query, top_k)
     };
+    entries.retain(|e| match access {
+        "GLOBAL" => true,
+        "MODEL_SHARED" => e.chat_id == chat_id || e.model_id == model_id,
+        _ => e.chat_id == chat_id,
+    });
 
     if settings.innovation.temporal_anchoring {
         let cutoff = Utc::now() - Duration::minutes(settings.innovation.temporal_anchor_window_min as i64);

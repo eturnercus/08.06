@@ -38,7 +38,6 @@ export function ChatView() {
   useEffect(() => {
     setInput("");
     setAttachments([]);
-    setSettingsOpen(false);
   }, [activeChatId]);
 
   const { containerRef, onScroll, onFocus } = useChatScroll([
@@ -65,6 +64,8 @@ export function ChatView() {
       ltmEnabled: chat.permissions.ltm,
       agentGroupId: chat.agentGroupId,
       workspacePath: chat.workspacePath,
+      ramLimitMb: chat.ramLimitMb,
+      memoryAccess: chat.memoryAccess,
     });
   };
 
@@ -87,7 +88,15 @@ export function ChatView() {
     setAttachments([]);
     setLoading(true);
     setActiveGeneration(chat.id);
-    addMessage(chat.id, { role: "user", content: userText });
+    addMessage(chat.id, {
+      role: "user",
+      content: userText,
+      attachments: sentAttachments.map((a) => ({
+        name: a.name,
+        mimeType: a.mimeType,
+        sizeBytes: a.sizeBytes,
+      })),
+    });
     await syncOverrides();
 
     const useAgentTeam = Boolean(chat.agentGroupId && isTauri());
@@ -128,23 +137,7 @@ export function ChatView() {
             dataBase64: a.dataBase64,
           })),
         });
-        const msgMeta = {
-          modelId: resp.modelId,
-          promptTokens: resp.promptTokens,
-          completionTokens: resp.completionTokens ?? resp.tokensUsed,
-          maxTokensLimit: resp.maxTokensLimit,
-          memoryRecalled: resp.memoryRecalled,
-          injection: resp.injectionApplied,
-        };
-        if (streamOn) {
-          finalizeStreamMessage(chat.id, {
-            tokens: resp.completionTokens ?? resp.tokensUsed,
-            promptTokens: resp.promptTokens,
-            completionTokens: resp.completionTokens ?? resp.tokensUsed,
-            latencyMs: resp.latencyMs,
-            meta: msgMeta,
-          });
-        } else {
+        if (!streamOn) {
           addMessage(chat.id, {
             role: "assistant",
             content: resp.content,
@@ -152,13 +145,20 @@ export function ChatView() {
             promptTokens: resp.promptTokens,
             completionTokens: resp.completionTokens ?? resp.tokensUsed,
             latencyMs: resp.latencyMs,
-            meta: msgMeta,
+            meta: {
+              modelId: resp.modelId,
+              promptTokens: resp.promptTokens,
+              completionTokens: resp.completionTokens ?? resp.tokensUsed,
+              maxTokensLimit: resp.maxTokensLimit,
+              memoryRecalled: resp.memoryRecalled,
+              injection: resp.injectionApplied,
+            },
           });
         }
       }
     } catch (e) {
       const err = String(e);
-      const stopped = err.includes("остановлена");
+      const stopped = err.includes("остановлена") || err.includes("cancelled");
       if (streamOn || stopped) {
         finalizeStreamMessage(chat.id, {
           cancelled: stopped,
@@ -225,8 +225,8 @@ export function ChatView() {
             <p>{t("chat.welcomeHint")}</p>
           </div>
         )}
-        {chat.messages.map((m, i) => (
-          <MessageBubble key={i} message={m} />
+        {chat.messages.map((m) => (
+          <MessageBubble key={m.id} message={m} />
         ))}
         {loading && !chat.messages.some((m) => m.streaming) && (
           <div className="bubble-row assistant">

@@ -1,18 +1,26 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../store/appStore";
 import { useModels } from "../../hooks/useModels";
+
 export function ChatSidebar() {
   const { t } = useTranslation();
-  const { chats, activeChatId, setActiveChat, addChat, deleteChat, exportChat } = useAppStore();
+  const { chats, activeChatId, setActiveChat, addChat, deleteChat, exportChat, settings } =
+    useAppStore();
   const { models } = useModels();
+  const groups = (settings?.agentGroups ?? []) as { id: string; name: string }[];
 
-  const modelLabel = (id: string) => models.find((m) => m.id === id)?.name?.slice(0, 12) ?? id.slice(0, 8);
+  const modelLabel = (id: string) =>
+    models.find((m) => m.id === id)?.name?.slice(0, 18) ?? id.slice(0, 10);
+  const groupLabel = (id: string) =>
+    groups.find((g) => g.id === id)?.name ?? id.slice(0, 10);
 
   return (
     <aside className="m3-panel chat-sidebar">
       <div className="m3-panel-header">
         <h2>{t("nav.chats")}</h2>
-        <button type="button" className="m3-tonal-btn chat-add-btn" onClick={() => addChat()}>+</button>
+        <button type="button" className="m3-tonal-btn chat-add-btn" onClick={() => addChat()}>
+          +
+        </button>
       </div>
       <div className="scroll chat-list">
         {chats.map((c) => (
@@ -38,21 +46,27 @@ export function ChatSidebar() {
                     a.download = `${c.title.replace(/\s+/g, "_")}.json`;
                     a.click();
                   }}
-                >💾</button>
+                >
+                  💾
+                </button>
                 <button
                   type="button"
                   className="chat-icon-btn danger"
                   title={t("chat.delete")}
-                  onClick={() => { if (confirm(t("chat.deleteConfirm"))) deleteChat(c.id); }}
-                >✕</button>
+                  onClick={() => {
+                    if (confirm(t("chat.deleteConfirm"))) deleteChat(c.id);
+                  }}
+                >
+                  ✕
+                </button>
               </div>
             </div>
             <div className="chat-list-model mono">
-              {c.agentGroupId ? `🧩 ${c.agentGroupId.slice(0, 10)}` : modelLabel(c.modelId)}
+              {c.agentGroupId ? `🧩 ${groupLabel(c.agentGroupId)}` : `🧠 ${modelLabel(c.modelId)}`}
             </div>
             <div className="perms">
-              {c.permissions.stm && <span className="m3-chip sm">STM</span>}
-              {c.permissions.ltm && <span className="m3-chip sm">LTM</span>}
+              {c.permissions.stm && <span className="m3-chip sm">{t("chat.stm")}</span>}
+              {c.permissions.ltm && <span className="m3-chip sm">{t("chat.ltm")}</span>}
               {c.permissions.internet && <span className="m3-chip sm active">🌐</span>}
               {c.permissions.microphone && <span className="m3-chip sm">🎤</span>}
               {c.permissions.camera && <span className="m3-chip sm">📷</span>}

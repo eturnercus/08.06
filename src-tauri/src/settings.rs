@@ -338,6 +338,8 @@ pub struct ChatOverride {
     pub custom_injection: Option<String>,
     #[serde(default)]
     pub workspace_path: Option<String>,
+    #[serde(default)]
+    pub memory_access: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

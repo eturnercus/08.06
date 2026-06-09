@@ -255,6 +255,8 @@ body {
 .chat-mode-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .starter-download-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; padding: 10px; border-radius: 8px; background: color-mix(in srgb, var(--m3-primary) 6%, transparent); }
 .field-error { color: var(--m3-error, #c62828); font-size: 12px; margin: 0; }
+.team-params-hint { margin: 0 0 10px; font-size: 12px; color: var(--m3-on-surface-variant); }
+.bubble-meta-panel .attachment-list ul { margin: 4px 0 0; padding-left: 18px; font-size: 12px; }
 .perm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chat-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .agent-studio-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px 0; flex-wrap: wrap; }

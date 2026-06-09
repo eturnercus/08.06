@@ -20,18 +20,21 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const isAssistant = message.role === "assistant";
+  const isUser = message.role === "user";
 
   const completion =
-    message.completionTokens ?? message.tokens ?? (message.streaming ? undefined : undefined);
+    message.completionTokens ?? message.tokens ?? undefined;
   const prompt = message.promptTokens;
+  const hasAttachments = Boolean(message.attachments?.length);
 
   const hasProps =
-    isAssistant &&
-    (completion != null ||
-      prompt != null ||
-      message.latencyMs != null ||
-      message.cancelled ||
-      (message.meta && Object.keys(message.meta).length > 0));
+    (isAssistant &&
+      (completion != null ||
+        prompt != null ||
+        message.latencyMs != null ||
+        message.cancelled ||
+        (message.meta && Object.keys(message.meta).length > 0))) ||
+    (isUser && hasAttachments);
 
   const metaLabel = (key: string) => {
     const path = META_LABELS[key];
@@ -41,7 +44,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
   return (
     <div className={`bubble-row ${message.role}`}>
       <div className="bubble-avatar">
-        {message.role === "user" ? "👤" : message.agentName ? "🧩" : "🤖"}
+        {isUser ? "👤" : message.agentName ? "🧩" : "🤖"}
       </div>
       <div className="bubble">
         {hasProps && (
@@ -54,9 +57,13 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
             <span className="mono">
               {open ? "▼" : "▶"} {t("chat.messageProps")}
               {message.streaming && ` · ${t("chat.generatingShort")}`}
-              {!message.streaming && completion != null && ` · ${completion} ${t("chat.tokensOut")}`}
-              {message.latencyMs != null && !message.streaming && ` · ${message.latencyMs}ms`}
+              {!message.streaming && isAssistant && completion != null &&
+                ` · ${completion} ${t("chat.tokensOut")}`}
+              {message.latencyMs != null && !message.streaming && isAssistant &&
+                ` · ${message.latencyMs}ms`}
               {message.cancelled && ` · ${t("chat.stopped")}`}
+              {isUser && hasAttachments &&
+                ` · ${message.attachments!.length} ${t("chat.attachmentsCount")}`}
             </span>
             {message.agentName && (
               <span className="badge badge-purple" style={{ marginLeft: 8 }}>
@@ -67,17 +74,32 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
         )}
         {open && hasProps && (
           <div className="bubble-meta-panel">
-            {prompt != null && (
+            {isUser && hasAttachments && (
+              <div className="attachment-list">
+                <strong>{t("chat.attachments")}:</strong>
+                <ul>
+                  {message.attachments!.map((a, i) => (
+                    <li key={i}>
+                      {a.name}{" "}
+                      <span className="mono">
+                        ({a.mimeType}, {(a.sizeBytes / 1024).toFixed(1)} KB)
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {isAssistant && prompt != null && (
               <div>
                 <strong>{t("chat.meta.promptTokens")}:</strong> {prompt}
               </div>
             )}
-            {completion != null && (
+            {isAssistant && completion != null && (
               <div>
                 <strong>{t("chat.meta.completionTokens")}:</strong> {completion}
               </div>
             )}
-            {message.latencyMs != null && (
+            {isAssistant && message.latencyMs != null && (
               <div>
                 <strong>{t("chat.latency")}:</strong> {message.latencyMs} ms
               </div>
@@ -87,7 +109,8 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
                 <strong>{t("chat.meta.stopped")}:</strong> {t("chat.yes")}
               </div>
             )}
-            {message.meta &&
+            {isAssistant &&
+              message.meta &&
               Object.entries(message.meta).map(([k, v]) =>
                 v != null && v !== "" && k !== "promptTokens" && k !== "completionTokens" ? (
                   <div key={k}>
