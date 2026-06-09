@@ -70,14 +70,35 @@ export function roleDefaultPrompt(roleId: string, lang: "ru" | "en"): string {
   return ROLE_DEFAULT_PROMPTS[roleId]?.[lang] ?? ROLE_DEFAULT_PROMPTS.worker[lang];
 }
 
+const LEGACY_EN_PROMPTS: Record<string, string> = {
+  leader: "You coordinate the team and resolve conflicts.",
+  researcher: "You research topics using web search and files.",
+  programmer: "You write and review code.",
+};
+
+export function isAutoPromptMember(
+  member: AgentMember & { systemPromptCustomized?: boolean },
+  lang: "ru" | "en"
+): boolean {
+  if (member.systemPromptCustomized) return false;
+  const p = (member.systemPrompt || "").trim();
+  if (!p) return true;
+  const ru = roleDefaultPrompt(member.role, "ru");
+  const en = roleDefaultPrompt(member.role, "en");
+  if (p === ru || p === en) return true;
+  if (LEGACY_EN_PROMPTS[member.role] === p) return true;
+  return false;
+}
+
 export function applyRoleDefaults(
   member: AgentMember & { systemPromptCustomized?: boolean },
   roleId: string,
   lang: "ru" | "en"
 ): Partial<AgentMember & { systemPromptCustomized?: boolean }> {
   const patch: Partial<AgentMember & { systemPromptCustomized?: boolean }> = { role: roleId };
-  if (!member.systemPromptCustomized) {
+  if (isAutoPromptMember(member, lang)) {
     patch.systemPrompt = roleDefaultPrompt(roleId, lang);
+    patch.systemPromptCustomized = false;
   }
   const suggested = ROLE_DEFAULT_TOKENS[roleId];
   if (suggested && member.resources) {

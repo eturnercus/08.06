@@ -197,14 +197,23 @@ export function AgentStudio() {
 
   return (
     <div className="agent-studio" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div className="m3-tabs">
-        <button type="button" className={`m3-tab ${tab === "groups" ? "active" : ""}`} onClick={() => setTab("groups")}>{t("agents.tabs.groups")}</button>
-        <button type="button" className={`m3-tab ${tab === "editor" ? "active" : ""}`} onClick={() => setTab("editor")}>{t("agents.tabs.editor")}</button>
-        <button type="button" className={`m3-tab ${tab === "monitor" ? "active" : ""}`} onClick={() => setTab("monitor")}>{t("agents.tabs.monitor")}</button>
+      <div className="agent-studio-toolbar">
+        <div className="m3-tabs">
+          <button type="button" className={`m3-tab ${tab === "groups" ? "active" : ""}`} onClick={() => setTab("groups")}>{t("agents.tabs.groups")}</button>
+          <button type="button" className={`m3-tab ${tab === "editor" ? "active" : ""}`} onClick={() => setTab("editor")}>{t("agents.tabs.editor")}</button>
+          <button type="button" className={`m3-tab ${tab === "monitor" ? "active" : ""}`} onClick={() => setTab("monitor")}>{t("agents.tabs.monitor")}</button>
+        </div>
+        <button
+          type="button"
+          className={`m3-tonal-btn agent-help-btn${guideOpen ? " active" : ""}`}
+          onClick={() => setGuideOpen((v) => !v)}
+        >
+          ? {t("agents.guide.title")}
+        </button>
       </div>
 
       <div className="scroll" style={{ flex: 1, padding: 16 }}>
-        <div className="agent-studio-topbar">
+        {guideOpen && (
           <AgentSystemsGuide
             open={guideOpen}
             onOpenChange={setGuideOpen}
@@ -219,7 +228,7 @@ export function AgentStudio() {
               });
             }}
           />
-        </div>
+        )}
 
         {tab === "groups" && (
           <div>

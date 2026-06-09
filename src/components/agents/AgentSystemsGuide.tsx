@@ -24,17 +24,10 @@ export function AgentSystemsGuide({ open: controlledOpen, onOpenChange, selected
   const open = controlledOpen ?? internalOpen;
   const setOpen = onOpenChange ?? setInternalOpen;
 
+  if (!open) return null;
+
   return (
     <div className="agent-guide">
-      <button
-        type="button"
-        className={`m3-tonal-btn agent-guide-toggle${open ? " active" : ""}`}
-        onClick={() => setOpen(!open)}
-        aria-expanded={open}
-      >
-        ? {t("agents.guide.title")}
-      </button>
-      {open && (
         <div className="agent-guide-panel scroll-y">
           <p className="agent-guide-lead">{t("agents.guide.lead")}</p>
 
@@ -122,7 +115,6 @@ export function AgentSystemsGuide({ open: controlledOpen, onOpenChange, selected
             <p>{t("agents.guide.multiModelBody")}</p>
           </section>
         </div>
-      )}
     </div>
   );
 }

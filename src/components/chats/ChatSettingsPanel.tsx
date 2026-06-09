@@ -72,16 +72,8 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
         </div>
       )}
 
-      <div className="form-row">
-        <label className="form-label">{t("memory.accessLevel")}</label>
-        <select className="m3-input" value={chat.memoryAccess}
-          onChange={(e) => updateChat(chatId, { memoryAccess: e.target.value })}>
-          {MEMORY_ACCESS_LEVELS.map((l) => <option key={l.id} value={l.id}>{l[lang]}</option>)}
-        </select>
-      </div>
-
       {chat.agentGroupId && isTauri() && (
-        <div className="form-row">
+        <div className="form-row workspace-block">
           <label className="form-label">{t("chat.workspaceFolder")}</label>
           <p className="field-hint">{t("chat.workspaceHint")}</p>
           <div className="workspace-picker">
@@ -111,6 +103,14 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
           </div>
         </div>
       )}
+
+      <div className="form-row">
+        <label className="form-label">{t("memory.accessLevel")}</label>
+        <select className="m3-input" value={chat.memoryAccess}
+          onChange={(e) => updateChat(chatId, { memoryAccess: e.target.value })}>
+          {MEMORY_ACCESS_LEVELS.map((l) => <option key={l.id} value={l.id}>{l[lang]}</option>)}
+        </select>
+      </div>
 
       <div className="form-row">
         <label className="form-label">{t("chat.permsTitle")}</label>
