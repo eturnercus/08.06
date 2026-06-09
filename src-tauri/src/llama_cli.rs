@@ -8,6 +8,9 @@ pub struct LlamaCliConfig {
     pub prompt: String,
     pub temperature: f32,
     pub max_tokens: u32,
+    pub top_p: f32,
+    pub top_k: u32,
+    pub repeat_penalty: f32,
     pub n_ctx: u32,
     pub threads: u32,
     pub gpu_layers: u32,
@@ -71,6 +74,8 @@ impl LlamaCliRunner {
             .arg(cfg.threads.max(1).to_string())
             .arg("--temp")
             .arg(format!("{:.2}", cfg.temperature.clamp(0.0, 2.0)))
+            .arg("--repeat-penalty")
+            .arg(format!("{:.2}", cfg.repeat_penalty.clamp(1.0, 2.0)))
             .arg("-ngl")
             .arg(ngl)
             .arg("--no-display-prompt")

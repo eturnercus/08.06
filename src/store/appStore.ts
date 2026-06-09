@@ -6,6 +6,8 @@ export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   tokens?: number;
+  promptTokens?: number;
+  completionTokens?: number;
   latencyMs?: number;
   streaming?: boolean;
   streamTokens?: number;
@@ -91,6 +93,8 @@ interface AppStore {
     patch: {
       content?: string;
       tokens?: number;
+      promptTokens?: number;
+      completionTokens?: number;
       latencyMs?: number;
       error?: string;
       cancelled?: boolean;
@@ -165,9 +169,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const raw = localStorage.getItem(CHATS_KEY);
       const active = localStorage.getItem(ACTIVE_KEY);
       if (raw) {
-        const chats = (JSON.parse(raw) as Chat[]).map((c) =>
-          c.modelId === "default" ? { ...c, modelId: "silenium-starter" } : c
-        );
+        const chats = (JSON.parse(raw) as Chat[]).map((c) => ({
+          ...c,
+          modelId: c.modelId === "default" ? "silenium-starter" : c.modelId,
+          maxTokens: c.maxTokens >= 4096 ? 512 : c.maxTokens,
+        }));
         set({ chats, activeChatId: active && chats.some((c) => c.id === active) ? active : chats[0]?.id ?? null });
       }
     } catch { /* ignore */ }
@@ -188,7 +194,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       memoryAccess: "CHAT_ONLY",
       systemPrompt: "",
       ramLimitMb: 4096,
-      maxTokens: 4096,
+      maxTokens: 512,
       temperature: 0.7,
     };
     set((s) => {
@@ -238,13 +244,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
         for (let i = messages.length - 1; i >= 0; i--) {
           if (messages[i].role === "assistant" && messages[i].streaming) {
             const combined = messages[i].content + delta;
-            const streamTokens = Math.max(1, Math.floor(combined.length / 4));
             const split = splitThinkingStream(combined);
             messages[i] = {
               ...messages[i],
               content: sanitizeLlmOutput(split.content),
               thinking: split.thinking ?? messages[i].thinking,
-              streamTokens,
             };
             break;
           }
@@ -272,7 +276,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
               streamTokens: undefined,
               content,
               thinking: prev.thinking,
-              tokens: patch.tokens ?? prev.streamTokens ?? prev.tokens,
+              tokens: patch.completionTokens ?? patch.tokens ?? prev.tokens,
+              promptTokens: patch.promptTokens ?? prev.promptTokens,
+              completionTokens: patch.completionTokens ?? patch.tokens ?? prev.completionTokens,
               latencyMs: patch.latencyMs ?? prev.latencyMs,
               cancelled: patch.cancelled ?? prev.cancelled,
               meta: {

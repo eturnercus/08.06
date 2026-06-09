@@ -45,7 +45,7 @@ export function ChatView() {
     chat?.id,
     chat?.messages.length,
     chat?.messages[chat.messages.length - 1]?.content,
-    chat?.messages[chat.messages.length - 1]?.streamTokens,
+    chat?.messages[chat.messages.length - 1]?.content?.length,
   ]);
 
   const streamOn =
@@ -92,7 +92,7 @@ export function ChatView() {
 
     const useAgentTeam = Boolean(chat.agentGroupId && isTauri());
     if (streamOn && !useAgentTeam) {
-      addMessage(chat.id, { role: "assistant", content: "", streaming: true, streamTokens: 0 });
+      addMessage(chat.id, { role: "assistant", content: "", streaming: true });
     }
 
     try {
@@ -128,17 +128,31 @@ export function ChatView() {
             dataBase64: a.dataBase64,
           })),
         });
-        if (!streamOn) {
+        const msgMeta = {
+          modelId: resp.modelId,
+          promptTokens: resp.promptTokens,
+          completionTokens: resp.completionTokens ?? resp.tokensUsed,
+          maxTokensLimit: resp.maxTokensLimit,
+          memoryRecalled: resp.memoryRecalled,
+          injection: resp.injectionApplied,
+        };
+        if (streamOn) {
+          finalizeStreamMessage(chat.id, {
+            tokens: resp.completionTokens ?? resp.tokensUsed,
+            promptTokens: resp.promptTokens,
+            completionTokens: resp.completionTokens ?? resp.tokensUsed,
+            latencyMs: resp.latencyMs,
+            meta: msgMeta,
+          });
+        } else {
           addMessage(chat.id, {
             role: "assistant",
             content: resp.content,
-            tokens: resp.tokensUsed,
+            tokens: resp.completionTokens ?? resp.tokensUsed,
+            promptTokens: resp.promptTokens,
+            completionTokens: resp.completionTokens ?? resp.tokensUsed,
             latencyMs: resp.latencyMs,
-            meta: {
-              modelId: resp.modelId,
-              memoryRecalled: resp.memoryRecalled,
-              injection: resp.injectionApplied,
-            },
+            meta: msgMeta,
           });
         }
       }

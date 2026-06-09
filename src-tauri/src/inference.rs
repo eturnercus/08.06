@@ -13,9 +13,9 @@ use crate::gguf_runner::GgufRuntime;
 use crate::memory::MemoryStore;
 use crate::settings::AppSettings;
 use crate::settings_engine::{
-    self, check_user_input, cross_modal_user_note, effective_max_tokens, effective_temperature,
-    enrich_system_prompt, filter_model_output, filter_stm, maybe_dream_consolidate, recall_ltm,
-    synaptic_backend_pref, tune_generate_params,
+    self, check_user_input, cross_modal_user_note, default_reply_max_tokens, effective_max_tokens,
+    effective_temperature, enrich_system_prompt, filter_model_output, filter_stm,
+    maybe_dream_consolidate, recall_ltm, synaptic_backend_pref, tune_generate_params,
 };
 use crate::stream_sink::{AgentStreamSink, StreamSink, TokenSink};
 
@@ -74,11 +74,15 @@ pub struct AttachmentRef {
 #[serde(rename_all = "camelCase")]
 pub struct ChatResponse {
     pub content: String,
+    /// Completion (output) tokens — same as `completion_tokens`.
     pub tokens_used: u32,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
     pub latency_ms: u64,
     pub memory_recalled: u32,
     pub injection_applied: bool,
     pub model_id: String,
+    pub max_tokens_limit: u32,
 }
 
 pub struct InferenceEngine {
@@ -477,6 +481,9 @@ impl InferenceEngine {
             messages,
             temperature: effective_temperature(settings, temperature),
             max_tokens: effective_max_tokens(settings, max_tokens.max(64)),
+            top_p: settings.inference.top_p,
+            top_k: settings.inference.top_k,
+            repeat_penalty: settings.inference.repeat_penalty,
             n_ctx: settings.inference.context_length.max(2048),
             threads: settings.system.thread_count.max(1),
             gpu_layers: settings.system.gpu_layers,
@@ -497,7 +504,7 @@ impl InferenceEngine {
         #[cfg(feature = "embedded-llama")]
         {
             let gguf_guard = self.gguf.lock();
-            return match agent_stream.as_mut() {
+            let result = match agent_stream.as_mut() {
                 Some(sink) => generate_with_best_backend(
                     gguf_guard.as_ref(),
                     gen,
@@ -506,11 +513,15 @@ impl InferenceEngine {
                 ),
                 None => generate_with_best_backend(gguf_guard.as_ref(), gen, None, cancel),
             };
+            return result.map(|r| r.text);
         }
         #[cfg(not(feature = "embedded-llama"))]
-        match agent_stream.as_mut() {
-            Some(sink) => generate_with_best_backend(gen, Some(sink as &mut dyn TokenSink), cancel),
-            None => generate_with_best_backend(gen, None, cancel),
+        {
+            let result = match agent_stream.as_mut() {
+                Some(sink) => generate_with_best_backend(gen, Some(sink as &mut dyn TokenSink), cancel),
+                None => generate_with_best_backend(gen, None, cancel),
+            };
+            result.map(|r| r.text)
         }
     }
 
@@ -656,6 +667,10 @@ impl InferenceEngine {
             .map(|m| m.format.clone())
             .unwrap_or_else(|| "gguf".into());
         let model_size_bytes = model_info.as_ref().map(|m| m.size_bytes).unwrap_or(0);
+        let max_tok = effective_max_tokens(
+            settings,
+            request.max_tokens.unwrap_or_else(default_reply_max_tokens),
+        );
 
         let user_message = match check_user_input(settings, &request.message) {
             Ok(m) => m,
@@ -666,10 +681,13 @@ impl InferenceEngine {
                 return ChatResponse {
                     content: e,
                     tokens_used: 0,
+                    prompt_tokens: 0,
+                    completion_tokens: 0,
                     latency_ms: start.elapsed().as_millis() as u64,
                     memory_recalled: 0,
                     injection_applied: false,
                     model_id: effective_model_id.clone(),
+                    max_tokens_limit: max_tok,
                 };
             }
         };
@@ -678,12 +696,8 @@ impl InferenceEngine {
             settings,
             request.temperature.unwrap_or(settings.inference.temperature),
         );
-        let max_tok = effective_max_tokens(
-            settings,
-            request
-                .max_tokens
-                .unwrap_or(settings.inference.context_length),
-        );
+        let mut prompt_tokens = 0u32;
+        let mut completion_tokens = 0u32;
 
         let (base_system, injection_applied) = Self::build_system_prompt(
             settings,
@@ -748,6 +762,9 @@ impl InferenceEngine {
                 messages,
                 temperature: temp,
                 max_tokens: max_tok,
+                top_p: settings.inference.top_p,
+                top_k: settings.inference.top_k,
+                repeat_penalty: settings.inference.repeat_penalty,
                 n_ctx: settings.inference.context_length.max(2048),
                 threads: settings.system.thread_count.max(1),
                 gpu_layers: settings.system.gpu_layers,
@@ -783,7 +800,11 @@ impl InferenceEngine {
                 None => generate_with_best_backend(gen, None),
             };
             match inference_result {
-                Ok(text) => filter_model_output(settings, &text),
+                Ok(result) => {
+                    prompt_tokens = result.prompt_tokens;
+                    completion_tokens = result.completion_tokens;
+                    filter_model_output(settings, &result.text)
+                }
                 Err(err) => format!("Ошибка инференса ({model_name}): {err}"),
             }
         };
@@ -827,13 +848,15 @@ impl InferenceEngine {
         );
 
         let latency_ms = start.elapsed().as_millis() as u64;
-        let tokens_used = (user_message.len() + response_content.len()) as u32 / 4;
+        let tokens_used = completion_tokens;
         if let Some(sink) = stream.as_mut() {
             sink.finish(tokens_used, latency_ms);
         }
         ChatResponse {
             content: response_content,
             tokens_used,
+            prompt_tokens,
+            completion_tokens,
             latency_ms,
             memory_recalled: if ltm_enabled {
                 recall_ltm(memory, settings, &request.chat_id, &user_message).len() as u32
@@ -842,6 +865,7 @@ impl InferenceEngine {
             },
             injection_applied,
             model_id: effective_model_id,
+            max_tokens_limit: max_tok,
         }
     }
 }

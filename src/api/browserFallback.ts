@@ -48,10 +48,22 @@ export function browserListModels(): ModelInfo[] {
   }];
 }
 
-export function browserSendChat(message: string): { content: string; tokensUsed: number; latencyMs: number } {
+export function browserSendChat(message: string): {
+  content: string;
+  tokensUsed: number;
+  promptTokens: number;
+  completionTokens: number;
+  latencyMs: number;
+  maxTokensLimit: number;
+} {
+  const promptTokens = Math.max(1, Math.round(message.length / 4));
+  const completionTokens = 24;
   return {
     content: `Превью без Tauri: для реального ответа модели запустите собранное приложение. Вы написали: «${message.slice(0, 200)}»`,
-    tokensUsed: Math.max(1, Math.round(message.length / 4)),
+    tokensUsed: completionTokens,
+    promptTokens,
+    completionTokens,
     latencyMs: 12,
+    maxTokensLimit: 512,
   };
 }

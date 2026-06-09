@@ -110,8 +110,23 @@ export const api = {
     attachments: { name: string; mimeType: string; sizeBytes: number; dataBase64?: string }[];
   }) =>
     isTauri()
-      ? invoke<{ content: string; tokensUsed: number; latencyMs: number; memoryRecalled: number; injectionApplied: boolean; modelId: string }>("send_chat", { request })
-      : Promise.resolve({ ...browserSendChat(request.message), memoryRecalled: 0, injectionApplied: false, modelId: request.modelId }),
+      ? invoke<{
+          content: string;
+          tokensUsed: number;
+          promptTokens: number;
+          completionTokens: number;
+          latencyMs: number;
+          memoryRecalled: number;
+          injectionApplied: boolean;
+          modelId: string;
+          maxTokensLimit: number;
+        }>("send_chat", { request })
+      : Promise.resolve({
+          ...browserSendChat(request.message),
+          memoryRecalled: 0,
+          injectionApplied: false,
+          modelId: request.modelId,
+        }),
   agentFetch: (url: string, chatId?: string, agentId?: string) =>
     invoke<NetworkLog>("agent_fetch", { url, chatId, agentId }),
   getNetworkLogs: () => invoke<NetworkLog[]>("get_network_logs"),

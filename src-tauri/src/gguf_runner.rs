@@ -30,11 +30,21 @@ use crate::stream_sink::TokenSink;
 #[cfg(feature = "embedded-llama")]
 const BATCH_SIZE: usize = 512;
 
+#[derive(Debug, Clone)]
+pub struct GenerateResult {
+    pub text: String,
+    pub prompt_tokens: u32,
+    pub completion_tokens: u32,
+}
+
 pub struct GenerateParams {
     pub model_path: String,
     pub messages: Vec<(String, String)>,
     pub temperature: f32,
     pub max_tokens: u32,
+    pub top_p: f32,
+    pub top_k: u32,
+    pub repeat_penalty: f32,
     pub n_ctx: u32,
     pub threads: u32,
     pub gpu_layers: u32,
@@ -93,7 +103,7 @@ impl GgufRuntime {
         p: GenerateParams,
         mut stream: Option<&mut dyn TokenSink>,
         cancel: Option<&std::sync::atomic::AtomicBool>,
-    ) -> Result<String, String> {
+    ) -> Result<GenerateResult, String> {
         if p.model_path.to_lowercase().contains("mmproj") {
             return Err(
                 "Файл mmproj — проектор для изображений, а не языковая модель. \
@@ -155,14 +165,16 @@ impl GgufRuntime {
             .str_to_token(&prompt, AddBos::Always)
             .map_err(|e| format!("Токенизация: {e}"))?;
 
-        let max_tokens = p.max_tokens.clamp(16, 4096) as i32;
         let n_ctx_i = ctx.n_ctx() as i32;
+        let prompt_tokens = tokens.len() as u32;
         if tokens.len() as i32 >= n_ctx_i {
             return Err(
                 "Промпт слишком длинный для контекста. Уменьшите историю или max tokens в настройках чата."
                     .into(),
             );
         }
+        let room = (n_ctx_i - tokens.len() as i32 - 4).max(16);
+        let max_tokens = p.max_tokens.clamp(16, 2048).min(room as u32) as i32;
 
         let mut batch = LlamaBatch::new(BATCH_SIZE, 1);
         let last = (tokens.len() - 1) as i32;
@@ -176,16 +188,28 @@ impl GgufRuntime {
             .map_err(|e| format!("decode prompt: {e}"))?;
 
         let temp = p.temperature.clamp(0.0, 2.0);
-        let sampler = if temp < 0.05 {
-            LlamaSampler::chain_simple([LlamaSampler::greedy()])
+        let repeat = p.repeat_penalty.clamp(1.0, 2.0);
+        let mut sampler_chain: Vec<LlamaSampler> =
+            vec![LlamaSampler::penalties_simple(64, repeat)];
+        if p.top_k > 0 {
+            sampler_chain.push(LlamaSampler::top_k(p.top_k.min(200) as i32));
+        }
+        if p.top_p > 0.0 && p.top_p < 1.0 {
+            sampler_chain.push(LlamaSampler::top_p(p.top_p.clamp(0.05, 1.0), 1));
+        }
+        if temp < 0.05 {
+            sampler_chain.push(LlamaSampler::greedy());
         } else {
-            LlamaSampler::chain_simple([LlamaSampler::temp(temp), LlamaSampler::dist(0xDEADBEEF)])
-        };
+            sampler_chain.push(LlamaSampler::temp(temp));
+            sampler_chain.push(LlamaSampler::dist(0xDEADBEEF));
+        }
+        let sampler = LlamaSampler::chain_simple(sampler_chain);
 
         let mut decoder = encoding_rs::UTF_8.new_decoder();
         let mut output = String::new();
         let mut n_cur = batch.n_tokens();
         let n_len = n_cur + max_tokens;
+        let mut completion_tokens = 0u32;
 
         while n_cur < n_len {
             if cancel.is_some_and(|f| f.load(std::sync::atomic::Ordering::SeqCst)) {
@@ -207,6 +231,7 @@ impl GgufRuntime {
                 break;
             }
             output.push_str(&piece);
+            completion_tokens += 1;
             if let Some(s) = stream.as_mut() {
                 s.push(&piece);
             }
@@ -228,7 +253,11 @@ impl GgufRuntime {
                     .into(),
             );
         }
-        Ok(trimmed)
+        Ok(GenerateResult {
+            text: trimmed,
+            prompt_tokens,
+            completion_tokens,
+        })
     }
 }
 
@@ -238,7 +267,7 @@ pub fn generate_with_best_backend(
     p: GenerateParams,
     stream: Option<&mut dyn TokenSink>,
     cancel: Option<&std::sync::atomic::AtomicBool>,
-) -> Result<String, String> {
+) -> Result<GenerateResult, String> {
     match stream {
         Some(sink) => generate_with_best_backend_streaming(embedded, p, sink, cancel),
         None => generate_with_best_backend_blocking(embedded, p, cancel),
@@ -250,7 +279,7 @@ pub fn generate_with_best_backend(
     p: GenerateParams,
     stream: Option<&mut dyn TokenSink>,
     cancel: Option<&std::sync::atomic::AtomicBool>,
-) -> Result<String, String> {
+) -> Result<GenerateResult, String> {
     match stream {
         Some(sink) => generate_with_best_backend_streaming(None, p, sink, cancel),
         None => generate_with_best_backend_blocking(None, p, cancel),
@@ -274,29 +303,29 @@ fn generate_with_best_backend_streaming(
     p: GenerateParams,
     sink: &mut dyn TokenSink,
     cancel: Option<&std::sync::atomic::AtomicBool>,
-) -> Result<String, String> {
+) -> Result<GenerateResult, String> {
     mmproj_guard(&p.model_path)?;
     let try_cli_first = p.prefer_cli && !p.prefer_embedded;
 
     if try_cli_first {
-        if let Ok(text) = run_cli_backend(&p, Some(sink), cancel) {
-            return Ok(text);
+        if let Ok(result) = run_cli_backend(&p, Some(sink), cancel) {
+            return Ok(result);
         }
         #[cfg(feature = "embedded-llama")]
         if let Some(rt) = embedded {
-            if let Ok(text) = rt.generate(p.clone_for_embedded(), Some(sink), cancel) {
-                return Ok(text);
+            if let Ok(result) = rt.generate(p.clone_for_embedded(), Some(sink), cancel) {
+                return Ok(result);
             }
         }
     } else {
         #[cfg(feature = "embedded-llama")]
         if let Some(rt) = embedded {
-            if let Ok(text) = rt.generate(p.clone_for_embedded(), Some(sink), cancel) {
-                return Ok(text);
+            if let Ok(result) = rt.generate(p.clone_for_embedded(), Some(sink), cancel) {
+                return Ok(result);
             }
         }
-        if let Ok(text) = run_cli_backend(&p, Some(sink), cancel) {
-            return Ok(text);
+        if let Ok(result) = run_cli_backend(&p, Some(sink), cancel) {
+            return Ok(result);
         }
     }
 
@@ -308,29 +337,29 @@ fn generate_with_best_backend_blocking(
     #[cfg(not(feature = "embedded-llama"))] _embedded: Option<()>,
     p: GenerateParams,
     cancel: Option<&std::sync::atomic::AtomicBool>,
-) -> Result<String, String> {
+) -> Result<GenerateResult, String> {
     mmproj_guard(&p.model_path)?;
     let try_cli_first = p.prefer_cli && !p.prefer_embedded;
 
     if try_cli_first {
-        if let Ok(text) = run_cli_backend(&p, None, cancel) {
-            return Ok(text);
+        if let Ok(result) = run_cli_backend(&p, None, cancel) {
+            return Ok(result);
         }
         #[cfg(feature = "embedded-llama")]
         if let Some(rt) = embedded {
-            if let Ok(text) = rt.generate(p.clone_for_embedded(), None, cancel) {
-                return Ok(text);
+            if let Ok(result) = rt.generate(p.clone_for_embedded(), None, cancel) {
+                return Ok(result);
             }
         }
     } else {
         #[cfg(feature = "embedded-llama")]
         if let Some(rt) = embedded {
-            if let Ok(text) = rt.generate(p.clone_for_embedded(), None, cancel) {
-                return Ok(text);
+            if let Ok(result) = rt.generate(p.clone_for_embedded(), None, cancel) {
+                return Ok(result);
             }
         }
-        if let Ok(text) = run_cli_backend(&p, None, cancel) {
-            return Ok(text);
+        if let Ok(result) = run_cli_backend(&p, None, cancel) {
+            return Ok(result);
         }
     }
 
@@ -341,7 +370,7 @@ fn run_cli_backend(
     p: &GenerateParams,
     stream: Option<&mut dyn TokenSink>,
     cancel: Option<&std::sync::atomic::AtomicBool>,
-) -> Result<String, String> {
+) -> Result<GenerateResult, String> {
     let gpu_layers =
         resolve_gpu_layers(p.gpu_layers, p.gpu_memory_mb, p.vram_reserve_mb, p.model_size_bytes);
     let mlock = resolve_mlock(p.mlock_enabled, &p.swap_usage, &p.oom_policy);
@@ -358,9 +387,12 @@ fn run_cli_backend(
 
     let cfg = LlamaCliConfig {
         model_path: p.model_path.clone(),
-        prompt,
+        prompt: prompt.clone(),
         temperature: p.temperature,
         max_tokens: p.max_tokens,
+        top_p: p.top_p,
+        top_k: p.top_k,
+        repeat_penalty: p.repeat_penalty,
         n_ctx,
         threads: p.threads,
         gpu_layers,
@@ -368,12 +400,20 @@ fn run_cli_backend(
         mmap,
     };
 
-    if let Some(s) = stream {
+    let text = if let Some(s) = stream {
         let mut cb = |delta: &str| s.push(delta);
-        LlamaCliRunner::generate_with_callback(&cfg, Some(&mut cb), cancel)
+        LlamaCliRunner::generate_with_callback(&cfg, Some(&mut cb), cancel)?
     } else {
-        LlamaCliRunner::generate_with_callback(&cfg, None, cancel)
-    }
+        LlamaCliRunner::generate_with_callback(&cfg, None, cancel)?
+    };
+    let trimmed = crate::llm_sanitize::sanitize_llm_output(&text);
+    let prompt_tokens = ((prompt.len() as u32) + 3) / 4;
+    let completion_tokens = ((trimmed.len() as u32) + 3) / 4;
+    Ok(GenerateResult {
+        text: trimmed,
+        prompt_tokens,
+        completion_tokens,
+    })
 }
 
 impl GenerateParams {
@@ -384,6 +424,9 @@ impl GenerateParams {
             messages: self.messages.clone(),
             temperature: self.temperature,
             max_tokens: self.max_tokens,
+            top_p: self.top_p,
+            top_k: self.top_k,
+            repeat_penalty: self.repeat_penalty,
             n_ctx: self.n_ctx,
             threads: self.threads,
             gpu_layers: self.gpu_layers,
@@ -409,6 +452,9 @@ impl Clone for GenerateParams {
             messages: self.messages.clone(),
             temperature: self.temperature,
             max_tokens: self.max_tokens,
+            top_p: self.top_p,
+            top_k: self.top_k,
+            repeat_penalty: self.repeat_penalty,
             n_ctx: self.n_ctx,
             threads: self.threads,
             gpu_layers: self.gpu_layers,

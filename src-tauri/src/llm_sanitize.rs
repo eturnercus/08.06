@@ -44,12 +44,37 @@ pub fn truncate_at_template_leak(text: &str) -> String {
     text[..cut].trim().to_string()
 }
 
+/// Detect runaway loops where the model repeats the same phrase many times.
+pub fn detect_repetition_loop(text: &str) -> bool {
+    let chars: Vec<char> = text.chars().collect();
+    if chars.len() < 40 {
+        return false;
+    }
+    let start = chars.len().saturating_sub(250);
+    let tail: String = chars[start..].iter().collect();
+    for len in (8usize..=36).rev() {
+        if tail.chars().count() < len * 3 {
+            continue;
+        }
+        let sample: String = tail.chars().rev().take(len).collect::<Vec<_>>().into_iter().rev().collect();
+        let sample = sample.trim();
+        if sample.chars().count() < 6 {
+            continue;
+        }
+        if tail.matches(sample).count() >= 3 {
+            return true;
+        }
+    }
+    false
+}
+
 pub fn generation_should_stop(text: &str) -> bool {
     TEMPLATE_MARKERS
         .iter()
         .filter(|m| !m.is_empty())
         .any(|m| text.contains(m))
         || ROLE_LEAK_MARKERS.iter().any(|m| text.contains(m))
+        || detect_repetition_loop(text)
 }
 
 pub fn sanitize_llm_output(text: &str) -> String {
@@ -91,5 +116,12 @@ mod tests {
         let raw = format!("Нормальный ответ.{IM_END}user\nПродолжение");
         let s = sanitize_llm_output(&raw);
         assert_eq!(s, "Нормальный ответ.");
+    }
+
+    #[test]
+    fn detects_repetition_loop() {
+        let phrase = "Вариант 1: 1 яблоко = 1000 грамм. ";
+        let raw = phrase.repeat(5);
+        assert!(detect_repetition_loop(&raw));
     }
 }

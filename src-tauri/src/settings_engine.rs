@@ -397,6 +397,11 @@ fn cosine(a: &[f32], b: &[f32]) -> f32 {
 
 pub fn filter_stm(settings: &AppSettings, entries: Vec<StmEntry>) -> Vec<StmEntry> {
     let mut out = entries;
+    let max_msgs = settings.memory.stm_max_messages.max(4) as usize;
+    if out.len() > max_msgs {
+        let skip = out.len() - max_msgs;
+        out = out.into_iter().skip(skip).collect();
+    }
     if settings.innovation.chronosync_memory {
         out = chronosync_bucket(out, &settings.innovation.chronosync_granularity);
     }
@@ -537,11 +542,7 @@ pub fn tune_generate_params(settings: &AppSettings, mut p: GenerateParams) -> Ge
 }
 
 pub fn effective_max_tokens(settings: &AppSettings, requested: u32) -> u32 {
-    let mut max = requested.min(4096);
-    if settings.innovation.thought_streaming {
-        let reasoning = settings.innovation.thought_max_tokens.max(64);
-        max = max.saturating_add(reasoning).min(8192);
-    }
+    let mut max = requested.clamp(32, 2048);
     if settings.innovation.neural_whisper_mode {
         max = max.min(settings.innovation.whisper_token_budget.max(16));
     }
@@ -549,6 +550,11 @@ pub fn effective_max_tokens(settings: &AppSettings, requested: u32) -> u32 {
         max = max.min(512);
     }
     max
+}
+
+/// Default cap for a single assistant reply in chat (not context window size).
+pub fn default_reply_max_tokens() -> u32 {
+    512
 }
 
 pub fn effective_temperature(settings: &AppSettings, base: f32) -> f32 {

@@ -167,12 +167,19 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
           />
         </div>
         <div>
-          <label className="form-label">{t("chat.maxTokens")}</label>
+          <label className="form-label" title={t("chat.maxTokensReplyHint")}>
+            {t("chat.maxTokensReply")} ⓘ
+          </label>
           <input
             type="number"
+            min={64}
+            max={2048}
+            step={64}
             className="m3-input"
             value={chat.maxTokens}
-            onChange={(e) => updateChat(chatId, { maxTokens: Number(e.target.value) })}
+            onChange={(e) =>
+              updateChat(chatId, { maxTokens: Math.min(2048, Math.max(64, Number(e.target.value))) })
+            }
           />
         </div>
         <div>

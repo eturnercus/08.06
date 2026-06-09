@@ -25,6 +25,7 @@ export function useChatStream() {
       if (p.done) {
         const cancelled = Boolean(p.error?.includes("остановлена"));
         finalizeStreamMessage(p.chatId, {
+          completionTokens: p.tokensUsed,
           tokens: p.tokensUsed,
           latencyMs: p.latencyMs,
           cancelled,
