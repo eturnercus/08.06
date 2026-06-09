@@ -99,6 +99,52 @@ fn sanitize_repo(repo: &str) -> String {
     repo.replace('/', "--")
 }
 
+/// Pick the best GGUF file from a Hugging Face repo listing.
+fn pick_best_gguf(paths: &[String]) -> Option<String> {
+    let candidates: Vec<&String> = paths
+        .iter()
+        .filter(|p| {
+            let lower = p.to_lowercase();
+            !lower.contains("mmproj")
+                && !lower.contains("imatrix")
+                && !lower.contains("vision")
+        })
+        .collect();
+    if candidates.is_empty() {
+        return None;
+    }
+    let score = |p: &str| -> i32 {
+        let l = p.to_lowercase();
+        if l.contains("q4_k_m") {
+            100
+        } else if l.contains("q5_k_m") {
+            90
+        } else if l.contains("q4_0") {
+            80
+        } else if l.contains("q4_k_s") {
+            75
+        } else if l.contains("q8_0") {
+            70
+        } else if l.contains("q6_k") {
+            65
+        } else if l.contains("q5_0") {
+            60
+        } else if l.contains("q3_k") {
+            40
+        } else if l.contains("q2_k") {
+            20
+        } else if l.contains("f16") || l.contains("f32") {
+            10
+        } else {
+            50
+        }
+    };
+    candidates
+        .into_iter()
+        .max_by_key(|p| score(p))
+        .cloned()
+}
+
 impl InferenceEngine {
     pub fn new() -> Self {
         let engine = Self {
@@ -190,6 +236,16 @@ impl InferenceEngine {
     }
 
     pub fn load_model(&self, path: &str, name: &str, require_integrity: bool) -> Result<ModelInfo, String> {
+        self.load_model_with_id(path, name, require_integrity, None)
+    }
+
+    pub fn load_model_with_id(
+        &self,
+        path: &str,
+        name: &str,
+        require_integrity: bool,
+        custom_id: Option<&str>,
+    ) -> Result<ModelInfo, String> {
         if !Path::new(path).exists() {
             return Err(format!("Файл модели не найден: {path}"));
         }
@@ -198,7 +254,9 @@ impl InferenceEngine {
         if size < 1024 {
             return Err("Файл модели слишком мал или повреждён".into());
         }
-        let id = format!("model-{}", path.replace(['/', '\\', '.'], "-"));
+        let id = custom_id
+            .map(str::to_string)
+            .unwrap_or_else(|| format!("model-{}", path.replace(['/', '\\', '.'], "-")));
         if require_integrity && !Self::verify_file(Path::new(path)) {
             return Err("Проверка целостности модели не пройдена".into());
         }
@@ -239,19 +297,21 @@ impl InferenceEngine {
             .await
             .map_err(|e| format!("Некорректный ответ API: {e}"))?;
 
-        let gguf_path = files
+        let paths: Vec<String> = files
             .iter()
             .filter_map(|f| f.get("path").and_then(|p| p.as_str()))
-            .find(|p| p.ends_with(".gguf") || p.ends_with(".GGUF"))
-            .ok_or_else(|| {
-                "В репозитории нет GGUF файла. Скачайте GGUF-версию модели вручную.".to_string()
-            })?;
+            .filter(|p| p.ends_with(".gguf") || p.ends_with(".GGUF"))
+            .map(str::to_string)
+            .collect();
+        let gguf_path = pick_best_gguf(&paths).ok_or_else(|| {
+            "В репозитории нет GGUF файла. Скачайте GGUF-версию модели вручную.".to_string()
+        })?;
 
         let download_url = format!("https://huggingface.co/{repo}/resolve/main/{gguf_path}");
         let dest_dir = models_directory().join(sanitize_repo(repo));
         fs::create_dir_all(&dest_dir).map_err(|e| e.to_string())?;
         let dest_path = dest_dir.join(
-            Path::new(gguf_path)
+            Path::new(&gguf_path)
                 .file_name()
                 .and_then(|s| s.to_str())
                 .unwrap_or("model.gguf"),
@@ -293,7 +353,22 @@ impl InferenceEngine {
             });
         }
 
-        let model = self.load_model(dest_path.to_str().unwrap(), repo, true)?;
+        let custom_id = if repo == Self::STARTER_MODEL_REPO {
+            Some(Self::STARTER_MODEL_ID)
+        } else {
+            None
+        };
+        let display_name = if repo == Self::STARTER_MODEL_REPO {
+            "Silenium Starter (SmolLM2-360M)"
+        } else {
+            repo
+        };
+        let model = self.load_model_with_id(
+            dest_path.to_str().unwrap(),
+            display_name,
+            true,
+            custom_id,
+        )?;
         Ok(DownloadResult {
             success: true,
             model: Some(model),
@@ -309,32 +384,59 @@ impl InferenceEngine {
     pub fn list_models(&self) -> Vec<ModelInfo> {
         self.scan_directory();
         let mut models: Vec<_> = self.loaded_models.read().values().cloned().collect();
-        if !models.iter().any(|m| m.id == "default") {
+        let has_starter = models.iter().any(|m| m.id == Self::STARTER_MODEL_ID && !m.path.is_empty());
+        if !has_starter && !models.iter().any(|m| m.id == Self::STARTER_MODEL_ID) {
             models.insert(
                 0,
                 ModelInfo {
-                    id: "default".into(),
-                    name: "Default (встроенная)".into(),
+                    id: Self::STARTER_MODEL_ID.into(),
+                    name: "Silenium Starter (SmolLM2-360M) — скачать".into(),
                     path: String::new(),
                     format: "gguf".into(),
                     backend: "builtin".into(),
                     size_bytes: 0,
-                    loaded: true,
+                    loaded: false,
                     source: "builtin".into(),
-                    verified: true,
-                    download_progress: 100,
+                    verified: false,
+                    download_progress: 0,
                 },
             );
         }
-        models.sort_by(|a, b| a.name.cmp(&b.name));
+        models.sort_by(|a, b| {
+            if a.id == Self::STARTER_MODEL_ID {
+                std::cmp::Ordering::Less
+            } else if b.id == Self::STARTER_MODEL_ID {
+                std::cmp::Ordering::Greater
+            } else {
+                a.name.cmp(&b.name)
+            }
+        });
         models
+    }
+
+    pub fn resolve_effective_model_id(&self, model_id: &str) -> String {
+        if model_id != "default" && model_id != Self::STARTER_MODEL_ID {
+            return model_id.to_string();
+        }
+        let map = self.loaded_models.read();
+        if let Some(m) = map.get(Self::STARTER_MODEL_ID) {
+            if !m.path.is_empty() {
+                return Self::STARTER_MODEL_ID.to_string();
+            }
+        }
+        for m in map.values() {
+            if !m.path.is_empty() && m.loaded {
+                return m.id.clone();
+            }
+        }
+        model_id.to_string()
     }
 
     pub fn verify_model(&self, model_id: &str, require_integrity: bool) -> Result<bool, String> {
         let map = self.loaded_models.read();
         let m = map.get(model_id).ok_or("Модель не найдена")?;
         if m.path.is_empty() {
-            return Ok(m.id == "default");
+            return Ok(false);
         }
         let ok = Self::verify_file(Path::new(&m.path));
         if require_integrity && !ok {
@@ -413,6 +515,7 @@ impl InferenceEngine {
     }
 
     pub const STARTER_MODEL_REPO: &str = "bartowski/SmolLM2-360M-Instruct-GGUF";
+    pub const STARTER_MODEL_ID: &str = "silenium-starter";
 
     pub fn has_usable_local_model(&self) -> bool {
         self.loaded_models
@@ -425,8 +528,7 @@ impl InferenceEngine {
         if self.has_usable_local_model() {
             return Ok(None);
         }
-        let starter_id = "starter-smollm2";
-        if let Some(m) = self.loaded_models.read().get(starter_id).cloned() {
+        if let Some(m) = self.loaded_models.read().get(Self::STARTER_MODEL_ID).cloned() {
             if !m.path.is_empty() {
                 return Ok(Some(m));
             }
@@ -535,11 +637,16 @@ impl InferenceEngine {
             .and_then(|o| o.ltm_enabled)
             .unwrap_or(settings.memory.ltm_enabled);
 
-        let model_info = self.loaded_models.read().get(&request.model_id).cloned();
+        let effective_model_id = self.resolve_effective_model_id(&request.model_id);
+        let model_info = self
+            .loaded_models
+            .read()
+            .get(&effective_model_id)
+            .cloned();
         let model_name = model_info
             .as_ref()
             .map(|m| m.name.clone())
-            .unwrap_or_else(|| request.model_id.clone());
+            .unwrap_or_else(|| effective_model_id.clone());
         let model_path = model_info
             .as_ref()
             .map(|m| m.path.clone())
@@ -562,7 +669,7 @@ impl InferenceEngine {
                     latency_ms: start.elapsed().as_millis() as u64,
                     memory_recalled: 0,
                     injection_applied: false,
-                    model_id: request.model_id.clone(),
+                    model_id: effective_model_id.clone(),
                 };
             }
         };
@@ -628,8 +735,8 @@ impl InferenceEngine {
 
         messages.push(("user".into(), user_turn.clone()));
 
-        let response_content = if model_path.is_empty() || request.model_id == "default" {
-            "Выберите локальную GGUF-модель в свойствах чата (панель слева) или загрузите её в разделе «Модели».".into()
+        let response_content = if model_path.is_empty() || effective_model_id == "default" {
+            "Скачайте встроенную модель Silenium Starter в свойствах чата или выберите локальную GGUF в разделе «Модели».".into()
         } else if model_format != "gguf" && model_format != "ggml" {
             format!(
                 "Формат «{model_format}» пока не поддерживается для вывода. Используйте файл .gguf."
@@ -681,7 +788,7 @@ impl InferenceEngine {
             }
         };
 
-        maybe_dream_consolidate(memory, settings, &request.chat_id, &request.model_id);
+        maybe_dream_consolidate(memory, settings, &request.chat_id, &effective_model_id);
 
         if stm_enabled {
             memory.add_stm(
@@ -701,7 +808,7 @@ impl InferenceEngine {
             let importance = settings_engine::neuroplastic_importance(settings, 0.5, turn_index);
             memory.add_ltm(
                 &request.chat_id,
-                &request.model_id,
+                &effective_model_id,
                 &user_message,
                 importance,
                 vec!["conversation".into()],
@@ -734,7 +841,7 @@ impl InferenceEngine {
                 0
             },
             injection_applied,
-            model_id: request.model_id.clone(),
+            model_id: effective_model_id,
         }
     }
 }

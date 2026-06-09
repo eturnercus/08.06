@@ -13,6 +13,7 @@ mod settings;
 mod settings_engine;
 mod storage_crypto;
 mod inference_cancel;
+mod llm_sanitize;
 mod stream_sink;
 
 use agents::AgentOrchestrator;

@@ -15,6 +15,7 @@ import { ModelsView } from "./components/ModelsView";
 import i18n from "./i18n";
 import { createDefaultAgentGroup } from "./constants/defaultAgentGroup";
 import { useTheme } from "./hooks/useTheme";
+import { isTauri } from "./api/browserFallback";
 
 function MainRouter() {
   const view = useAppStore((s) => s.activeView);
@@ -59,6 +60,14 @@ export default function App() {
             const withGroup = { ...s, agentGroups: [createDefaultAgentGroup()] };
             await api.updateSettings(withGroup as never);
             setSettings(withGroup);
+          }
+        }
+
+        if (isTauri()) {
+          try {
+            await api.ensureStarterModel();
+          } catch {
+            /* offline — user can download from chat properties */
           }
         }
       } catch {

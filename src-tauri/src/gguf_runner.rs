@@ -201,6 +201,11 @@ impl GgufRuntime {
                 .map_err(|e| format!("token decode: {e}"))?;
             let mut piece = String::with_capacity(32);
             let _ = decoder.decode_to_string(&bytes, &mut piece, false);
+            let tentative = format!("{output}{piece}");
+            if crate::llm_sanitize::generation_should_stop(&tentative) {
+                output = crate::llm_sanitize::truncate_at_template_leak(&tentative);
+                break;
+            }
             output.push_str(&piece);
             if let Some(s) = stream.as_mut() {
                 s.push(&piece);
@@ -215,7 +220,7 @@ impl GgufRuntime {
                 .map_err(|e| format!("decode step: {e}"))?;
         }
 
-        let trimmed = output.trim().to_string();
+        let trimmed = crate::llm_sanitize::sanitize_llm_output(&output);
         if trimmed.is_empty() {
             return Err(
                 "Модель не сгенерировала текст. Попробуйте Q4-квантизацию, включите подкачку (swap) \

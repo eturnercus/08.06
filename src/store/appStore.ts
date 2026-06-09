@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { AppSettings } from "../api/tauri";
+import { sanitizeLlmOutput } from "../utils/sanitizeLlm";
 
 export interface ChatMessage {
   role: "user" | "assistant";
@@ -164,7 +165,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const raw = localStorage.getItem(CHATS_KEY);
       const active = localStorage.getItem(ACTIVE_KEY);
       if (raw) {
-        const chats = JSON.parse(raw) as Chat[];
+        const chats = (JSON.parse(raw) as Chat[]).map((c) =>
+          c.modelId === "default" ? { ...c, modelId: "silenium-starter" } : c
+        );
         set({ chats, activeChatId: active && chats.some((c) => c.id === active) ? active : chats[0]?.id ?? null });
       }
     } catch { /* ignore */ }
@@ -179,7 +182,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const chat: Chat = {
       id,
       title: `Chat ${n}`,
-      modelId: "default",
+      modelId: "silenium-starter",
       messages: [],
       permissions: defaultPerms(),
       memoryAccess: "CHAT_ONLY",
@@ -239,7 +242,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
             const split = splitThinkingStream(combined);
             messages[i] = {
               ...messages[i],
-              content: split.content,
+              content: sanitizeLlmOutput(split.content),
               thinking: split.thinking ?? messages[i].thinking,
               streamTokens,
             };
@@ -260,8 +263,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
           if (messages[i].role === "assistant" && messages[i].streaming) {
             const prev = messages[i];
             const hasBody = Boolean(prev.content?.trim() || prev.thinking?.trim());
-            const content =
+            const rawContent =
               patch.content ?? (hasBody ? prev.content : (patch.error ?? prev.content));
+            const content = sanitizeLlmOutput(rawContent);
             messages[i] = {
               ...prev,
               streaming: false,
@@ -296,7 +300,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         const events = [...s.monitorEvents];
         events[idx] = {
           ...events[idx],
-          message: events[idx].message + delta,
+          message: sanitizeLlmOutput(events[idx].message + delta),
         };
         return { monitorEvents: events };
       }

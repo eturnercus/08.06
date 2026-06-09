@@ -119,7 +119,7 @@ pub fn check_user_input(settings: &AppSettings, text: &str) -> Result<String, St
 }
 
 pub fn filter_model_output(settings: &AppSettings, text: &str) -> String {
-    let mut out = text.to_string();
+    let mut out = crate::llm_sanitize::sanitize_llm_output(text);
     if settings.security.data_exfiltration_guard {
         for pat in EXFIL_PATTERNS {
             if out.to_lowercase().contains(pat) {
@@ -131,7 +131,7 @@ pub fn filter_model_output(settings: &AppSettings, text: &str) -> String {
     if settings.security.clipboard_sanitization {
         out = out.replace('\u{200b}', "");
     }
-    out
+    crate::llm_sanitize::sanitize_llm_output(&out)
 }
 
 // ─── Innovation: context enrichment ─────────────────────────────────────────

@@ -5,6 +5,7 @@ export function useModels(autoLoad = true) {
   const [models, setModels] = useState<ModelInfo[]>([]);
   const [modelsDir, setModelsDir] = useState("");
   const [loading, setLoading] = useState(false);
+  const [starterError, setStarterError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -14,6 +15,7 @@ export function useModels(autoLoad = true) {
         api.getModelsDirectory(),
       ]);
       const hasReal = list.some((m) => m.path && m.loaded);
+      setStarterError(null);
       if (!hasReal) {
         try {
           const starter = await api.ensureStarterModel();
@@ -24,8 +26,8 @@ export function useModels(autoLoad = true) {
             setLoading(false);
             return;
           }
-        } catch {
-          /* offline — keep list */
+        } catch (e) {
+          setStarterError(String(e));
         }
       }
       setModels(list);
@@ -40,5 +42,5 @@ export function useModels(autoLoad = true) {
     if (autoLoad) refresh();
   }, [autoLoad, refresh]);
 
-  return { models, modelsDir, loading, refresh };
+  return { models, modelsDir, loading, starterError, refresh };
 }

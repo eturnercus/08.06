@@ -246,6 +246,15 @@ body {
 .chat-settings-toggle.active { border-color: var(--m3-primary); color: var(--m3-primary); }
 .chat-settings-header { font-size: 12px; font-weight: 700; margin-bottom: 10px; color: var(--m3-primary); text-transform: uppercase; letter-spacing: 0.04em; }
 .chat-settings-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+.chat-mode-toggle { display: flex; gap: 6px; margin-bottom: 4px; }
+.chat-mode-btn {
+  flex: 1; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--m3-outline);
+  background: var(--m3-surface); color: var(--m3-on-surface); font-size: 13px; cursor: pointer;
+}
+.chat-mode-btn.active { border-color: var(--m3-primary); background: color-mix(in srgb, var(--m3-primary) 12%, transparent); color: var(--m3-primary); font-weight: 600; }
+.chat-mode-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.starter-download-row { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; padding: 10px; border-radius: 8px; background: color-mix(in srgb, var(--m3-primary) 6%, transparent); }
+.field-error { color: var(--m3-error, #c62828); font-size: 12px; margin: 0; }
 .perm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chat-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .agent-studio-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px 0; flex-wrap: wrap; }
