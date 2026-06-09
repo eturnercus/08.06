@@ -46,7 +46,15 @@ CI does not publish releases on every push. To ship: bump `src-tauri/tauri.conf.
 - **Where to find key features:**
   - **Agent Studio** (10 orchestration strategies, 12 roles, 14 tools, permissions, resources): nav rail → **Агенты / Agents** → tabs Группы / Редактор / Монитор.
   - **150+ settings**: nav → **Настройки / Settings** (RAM, CPU, inference, innovations, security, performance, injections, AI memory, internet, permissions, appearance, advanced).
-  - **Agent browser + dual AI mouse**: nav → **Устройства / Devices** (requires Browser automation + Desktop control in Settings → Permissions).
+  - **Linux dev run**: release `.deb` bundles `libllama.so.0` into `/usr/lib/Silenium` with `RUNPATH=$ORIGIN/../lib/Silenium`. For `tauri dev`, if needed: `export LD_LIBRARY_PATH=src-tauri/target/llama-cmake-cache/*/build/bin`.
+  - **GGUF engine** (**Настройки → Вывод**): `Silenium Core` (default, embedded — no separate llama-cli), `Synaptic Auto` (innovation routing), `llama-cli` (external). llama-cli auto-download only when that mode is selected.
+  - **Windows/Linux native libs**: bundled via `llama-libs/` at build time (`.dll` / `.so`) — no missing-DLL for Silenium Core mode.
+  - **Compute device**: **Настройки → Память и ОЗУ → Устройство вычислений** — CPU / GPU / Авто (controls `gpu_layers`).
+- **Agent help / orchestration**: nav → **Агенты** → **? Справка**, Monitor swimlanes, per-agent stop; chat team returns one `finalResponse`.
+- **Chat workspace**: ⚙ properties → workspace folder when an agent team is assigned (file tools sandbox).
+- **Agent browser + dual AI mouse**: nav → **Устройства / Devices** (requires Browser automation + Desktop control in Settings → Permissions).
+  - **Live WebView DOM mode**: Devices → Agent browser → **DOM WebView** toggle opens a separate Tauri webview window; agent clicks use `elementFromPoint` / CSS `querySelector` via injected JS bridge. Preview iframe uses postMessage for link clicks.
+  - **Screen capture / OCR / STT**: Devices → capture buttons. Linux capture: `scrot`, `grim`, `gnome-screenshot`, `import`, or `ffmpeg x11grab`. OCR needs `tesseract` (+ `tesseract-ocr-rus`). STT needs `whisper` or `whisper-cli` with a model. Enable screen/mic in Settings → Permissions → Devices first.
   - **Per-chat permissions & memory level (CHAT_ONLY / MODEL_SHARED / GLOBAL)**: nav → **Чаты** → bottom panel in chat sidebar.
   - **DuckDuckGo search + activity log**: nav → **Сеть / Network**.
   - **Hugging Face browser**: nav → **Модели / Models** → Hugging Face tab.

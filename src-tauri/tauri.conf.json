@@ -40,7 +40,8 @@
     "longDescription": "Silenium © 2026 eturnercus. Изолированный локальный AI-рантайм: Agent Studio, двухуровневая память, агент-браузер с ИИ-мышью, 150+ настроек, изоляция сети, GGUF/Hugging Face, RU/EN. См. COPYRIGHT.md и LICENSE.",
     "category": "DeveloperTool",
     "resources": {
-      "bin/llama/": "llama/"
+      "bin/llama/": "llama/",
+      "llama-libs/": "./"
     },
     "linux": {
       "deb": {

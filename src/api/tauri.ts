@@ -69,6 +69,7 @@ export interface AgentMember {
   trigger?: string;
   triggerKeyword?: string;
   systemPrompt?: string;
+  systemPromptCustomized?: boolean;
 }
 
 export interface ModelInfo {
@@ -109,8 +110,23 @@ export const api = {
     attachments: { name: string; mimeType: string; sizeBytes: number; dataBase64?: string }[];
   }) =>
     isTauri()
-      ? invoke<{ content: string; tokensUsed: number; latencyMs: number; memoryRecalled: number; injectionApplied: boolean; modelId: string }>("send_chat", { request })
-      : Promise.resolve({ ...browserSendChat(request.message), memoryRecalled: 0, injectionApplied: false, modelId: request.modelId }),
+      ? invoke<{
+          content: string;
+          tokensUsed: number;
+          promptTokens: number;
+          completionTokens: number;
+          latencyMs: number;
+          memoryRecalled: number;
+          injectionApplied: boolean;
+          modelId: string;
+          maxTokensLimit: number;
+        }>("send_chat", { request })
+      : Promise.resolve({
+          ...browserSendChat(request.message),
+          memoryRecalled: 0,
+          injectionApplied: false,
+          modelId: request.modelId,
+        }),
   agentFetch: (url: string, chatId?: string, agentId?: string) =>
     invoke<NetworkLog>("agent_fetch", { url, chatId, agentId }),
   getNetworkLogs: () => invoke<NetworkLog[]>("get_network_logs"),
@@ -123,7 +139,41 @@ export const api = {
     stmEnabled: boolean;
     ltmEnabled: boolean;
     agentGroupId?: string;
+    workspacePath?: string;
+    ramLimitMb?: number;
+    memoryAccess?: string;
   }) => invoke<void>("sync_chat_overrides", p),
+  stopAgentTeam: (taskId?: string) => invoke<void>("stop_agent_team", { taskId }),
+  stopAgentMember: (taskId: string, agentId: string) =>
+    invoke<void>("stop_agent_member", { taskId, agentId }),
+  ensureStarterModel: () => invoke<ModelInfo | null>("ensure_starter_model"),
+  downloadStarterModel: (force?: boolean) =>
+    invoke<DownloadResult>("download_starter_model", { force: force ?? false }),
+  searchHuggingfaceModels: (query: string, limit?: number) =>
+    invoke<{ id: string; downloads?: number; tags: string[] }[]>("search_huggingface_models", {
+      query,
+      limit,
+    }),
+  getLlamaRuntimeStatus: () =>
+    invoke<{
+      embeddedAvailable: boolean;
+      cliPath?: string;
+      cliReady: boolean;
+      version?: string;
+      ggufRuntime: string;
+      activeEngine: string;
+      message: string;
+    }>("get_llama_runtime_status"),
+  ensureLlamaRuntime: (force?: boolean) =>
+    invoke<{
+      embeddedAvailable: boolean;
+      cliPath?: string;
+      cliReady: boolean;
+      version?: string;
+      ggufRuntime: string;
+      activeEngine: string;
+      message: string;
+    }>("ensure_llama_runtime", { force: force ?? false }),
   getAuditLogs: (maxLines?: number) => invoke<string[]>("get_audit_logs", { maxLines }),
   openBrowserUrl: (url: string, chatId?: string, agentId?: string) =>
     invoke<NetworkLog>("open_browser_url", { url, chatId, agentId }),
@@ -135,8 +185,18 @@ export const api = {
     invoke<string>("browser_navigate_in_app", { url, chatId, agentId }),
   browserSearchInApp: (query: string, chatId?: string, agentId?: string) =>
     invoke<string>("browser_search_in_app", { query, chatId, agentId }),
-  browserClickInApp: (p: { linkIndex?: number; x?: number; y?: number; chatId?: string; agentId?: string }) =>
-    invoke<string>("browser_click_in_app", p),
+  browserClickInApp: (p: {
+    linkIndex?: number;
+    x?: number;
+    y?: number;
+    selector?: string;
+    chatId?: string;
+    agentId?: string;
+  }) => invoke<string>("browser_click_in_app", p),
+  setAgentWebviewLive: (enabled: boolean) =>
+    invoke<AgentWebViewState>("set_agent_webview_live", { enabled }),
+  showAgentWebview: () => invoke<void>("show_agent_webview"),
+  hideAgentWebview: () => invoke<void>("hide_agent_webview"),
   getMemoryStm: (chatId: string) => invoke<StmEntry[]>("get_memory_stm", { chatId }),
   getMemoryLtm: (chatId?: string) => invoke<LtmEntry[]>("get_memory_ltm", { chatId }),
   transferMemory: (p: {
@@ -163,9 +223,11 @@ export const api = {
       ? invoke<string>("get_models_directory")
       : Promise.resolve("~/.local/share/silenium/models"),
   getDeviceStatus: () => invoke<DeviceStatus>("get_device_status"),
-  captureScreen: () => invoke("capture_screen"),
-  captureAudio: () => invoke("capture_audio"),
-  captureCamera: () => invoke("capture_camera"),
+  captureScreen: () => invoke<CaptureResult>("capture_screen"),
+  captureAudio: () => invoke<CaptureResult>("capture_audio"),
+  captureCamera: () => invoke<CaptureResult>("capture_camera"),
+  ocrScreen: () => invoke<CaptureResult>("ocr_screen"),
+  transcribeAudio: () => invoke<CaptureResult>("transcribe_audio"),
   getSystemInfo: () => invoke<Record<string, unknown>>("get_system_info"),
 };
 
@@ -204,7 +266,8 @@ export interface AgentTask {
   status: string;
   prompt: string;
   orchestrationMode?: string;
-  rounds: { roundNumber: number; messages: { agentName: string; role: string; content: string; usedInternet: boolean; toolsUsed?: string[] }[] }[];
+  finalResponse?: string;
+  rounds: { roundNumber: number; messages: { agentId?: string; agentName: string; role: string; content: string; usedInternet: boolean; toolsUsed?: string[] }[] }[];
 }
 
 export interface DeviceStatus {
@@ -212,6 +275,26 @@ export interface DeviceStatus {
   microphoneAvailable: boolean;
   screenCaptureAvailable: boolean;
   virtualDisplayActive: boolean;
+  virtualDisplayResolution?: string;
+  ocrAvailable?: boolean;
+  sttAvailable?: boolean;
+}
+
+export interface CaptureResult {
+  success: boolean;
+  message: string;
+  dataBase64?: string;
+  mimeType?: string;
+  text?: string;
+}
+
+export interface AgentWebViewState {
+  liveEnabled: boolean;
+  windowVisible: boolean;
+  url: string;
+  title: string;
+  lastAction: string;
+  domMode: boolean;
 }
 
 export interface VirtualMouseState {
@@ -241,4 +324,5 @@ export interface DesktopAgentSnapshot {
   dualMouseEnabled: boolean;
   virtualMouse: VirtualMouseState;
   browser: AgentBrowserState;
+  webview?: AgentWebViewState;
 }

@@ -139,6 +139,8 @@ pub struct SystemSettings {
     pub cpu_cores: Vec<u32>,
     pub cpu_affinity_mode: String,
     pub gpu_layers: u32,
+    #[serde(default = "default_compute_device")]
+    pub compute_device: String,
     pub gpu_memory_mb: u64,
     pub thread_count: u32,
     pub batch_size: u32,
@@ -229,10 +231,17 @@ pub struct MemorySettings {
     pub forgetting_curve: String,
 }
 
+fn default_gguf_runtime() -> String {
+    "silenium_core".into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InferenceSettings {
     pub default_backend: String,
+    /// GGUF execution path: silenium_core | synaptic_auto | llama_cli
+    #[serde(default = "default_gguf_runtime")]
+    pub gguf_runtime: String,
     pub model_path: String,
     pub huggingface_repo: String,
     pub context_length: u32,
@@ -336,6 +345,10 @@ pub struct ChatOverride {
     pub ram_limit_mb: Option<u64>,
     pub agent_group_id: Option<String>,
     pub custom_injection: Option<String>,
+    #[serde(default)]
+    pub workspace_path: Option<String>,
+    #[serde(default)]
+    pub memory_access: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -388,6 +401,8 @@ pub struct AgentMember {
     pub trigger_keyword: String,
     #[serde(default)]
     pub system_prompt: String,
+    #[serde(default)]
+    pub system_prompt_customized: bool,
 }
 
 fn default_trigger() -> String {
@@ -456,7 +471,7 @@ impl Default for InnovationSettings {
             neuroplastic_adaptation_rate: 0.05,
             synaptic_routing: true,
             synaptic_path_priority: "adaptive".into(),
-            context_dna: true,
+            context_dna: false,
             context_dna_mutation_rate: 0.02,
             thought_streaming: true,
             thought_stream_buffer_ms: 120,
@@ -484,7 +499,7 @@ impl Default for InnovationSettings {
             ambient_harvest_interval_sec: 300,
             temporal_anchoring: true,
             temporal_anchor_window_min: 60,
-            holographic_context: true,
+            holographic_context: false,
             holographic_projection_dims: 512,
             swarm_intelligence: false,
             swarm_particle_count: 8,
@@ -554,6 +569,10 @@ impl Default for PerformanceSettings {
     }
 }
 
+fn default_compute_device() -> String {
+    "auto".into()
+}
+
 impl Default for AppSettings {
     fn default() -> Self {
         Self {
@@ -566,6 +585,7 @@ impl Default for AppSettings {
                 cpu_cores: vec![0, 1, 2, 3],
                 cpu_affinity_mode: "auto".into(),
                 gpu_layers: 0,
+                compute_device: default_compute_device(),
                 gpu_memory_mb: 4096,
                 thread_count: 4,
                 batch_size: 512,
@@ -636,6 +656,7 @@ impl Default for AppSettings {
             },
             inference: InferenceSettings {
                 default_backend: "gguf".into(),
+                gguf_runtime: default_gguf_runtime(),
                 model_path: String::new(),
                 huggingface_repo: String::new(),
                 context_length: 8192,
