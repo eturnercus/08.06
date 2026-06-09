@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/tauri";
 import { Tooltip } from "../ui/Tooltip";
+import { isTauri } from "../../api/browserFallback";
 
 interface HfModel {
   id: string;
@@ -16,27 +17,32 @@ export function HuggingFaceBrowser({ onDownloaded }: { onDownloaded?: () => void
   const [query, setQuery] = useState("gguf");
   const [models, setModels] = useState<HfModel[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [status, setStatus] = useState<Record<string, DlState>>({});
   const [messages, setMessages] = useState<Record<string, string>>({});
 
   const search = async () => {
     setLoading(true);
+    setSearchError(null);
     try {
-      const log = await api.agentFetch(
-        `https://huggingface.co/api/models?search=${encodeURIComponent(query)}&limit=20&sort=downloads`,
-        undefined,
-        "hf-browser"
-      );
-      const data = JSON.parse(log.responsePreview || "[]") as HfModel[];
-      setModels(Array.isArray(data) ? data : []);
-    } catch {
-      setModels([
-        { id: "TheBloke/Llama-2-7B-Chat-GGUF", downloads: 500000, tags: ["gguf"] },
-        { id: "bartowski/Mistral-7B-Instruct-v0.3-GGUF", downloads: 80000, tags: ["gguf"] },
-      ]);
+      if (isTauri()) {
+        const data = await api.searchHuggingfaceModels(query, 20);
+        setModels(data);
+      } else {
+        setModels([]);
+        setSearchError(t("models.hfTauriOnly"));
+      }
+    } catch (e) {
+      setSearchError(String(e));
+      setModels([]);
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (isTauri()) search();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const download = async (repo: string) => {
     setStatus((s) => ({ ...s, [repo]: "downloading" }));
@@ -61,18 +67,30 @@ export function HuggingFaceBrowser({ onDownloaded }: { onDownloaded?: () => void
   };
 
   return (
-    <div className="hf-browser scroll">
+    <div className="hf-browser scroll-y">
       <div className="m3-card">
         <h3>{t("models.hfTitle")}</h3>
         <p className="form-hint">{t("models.hfDesc")}</p>
         <p className="form-hint">{t("models.hfDownloadNote")}</p>
         <div className="hf-search-row">
           <Tooltip text={t("models.hfSearchTip")}>
-            <input className="m3-input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("models.hfSearch")} onKeyDown={(e) => e.key === "Enter" && search()} />
+            <input
+              className="m3-input"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t("models.hfSearch")}
+              onKeyDown={(e) => e.key === "Enter" && search()}
+            />
           </Tooltip>
-          <button type="button" className="m3-filled-btn" onClick={search} disabled={loading}>{loading ? "..." : t("models.hfSearchBtn")}</button>
+          <button type="button" className="m3-filled-btn" onClick={search} disabled={loading}>
+            {loading ? "..." : t("models.hfSearchBtn")}
+          </button>
         </div>
+        {searchError && <p className="field-error">{searchError}</p>}
       </div>
+      {models.length === 0 && !loading && !searchError && (
+        <p className="form-hint">{t("models.hfEmpty")}</p>
+      )}
       {models.map((m) => {
         const st = status[m.id] ?? "idle";
         return (
@@ -82,9 +100,7 @@ export function HuggingFaceBrowser({ onDownloaded }: { onDownloaded?: () => void
               <div className="form-hint">
                 {m.downloads?.toLocaleString()} {t("models.downloads")} · {(m.tags || []).slice(0, 4).join(", ")}
               </div>
-              {messages[m.id] && (
-                <div className={`hf-status hf-status-${st}`}>{messages[m.id]}</div>
-              )}
+              {messages[m.id] && <div className={`hf-status hf-status-${st}`}>{messages[m.id]}</div>}
             </div>
             <button
               type="button"

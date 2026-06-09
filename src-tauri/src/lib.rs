@@ -157,6 +157,26 @@ async fn ensure_starter_model(state: State<'_, AppState>) -> Result<Option<infer
 }
 
 #[tauri::command]
+async fn download_starter_model(
+    state: State<'_, AppState>,
+    force: Option<bool>,
+) -> Result<inference::DownloadResult, String> {
+    state.inference.download_starter_model(force.unwrap_or(false)).await
+}
+
+#[tauri::command]
+async fn search_huggingface_models(
+    state: State<'_, AppState>,
+    query: String,
+    limit: Option<u32>,
+) -> Result<Vec<inference::HfModelHit>, String> {
+    state
+        .inference
+        .search_huggingface(&query, limit.unwrap_or(20))
+        .await
+}
+
+#[tauri::command]
 fn get_audit_logs(max_lines: Option<usize>) -> Vec<String> {
     settings_engine::read_audit_log_tail(max_lines.unwrap_or(200))
 }
@@ -707,6 +727,8 @@ pub fn run() {
             stop_agent_member,
             list_agent_tasks,
             ensure_starter_model,
+            download_starter_model,
+            search_huggingface_models,
             load_model,
             download_huggingface_model,
             get_models_directory,

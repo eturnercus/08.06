@@ -307,6 +307,10 @@
     "download": "Скачать", "downloading": "Загрузка...",
     "hfTitle": "Браузер Hugging Face", "hfDesc": "Поиск GGUF-моделей на Hub",
     "hfDownloadNote": "Скачивание реальное: файл сохраняется в папку моделей и проверяется по размеру.",
+    "hfEmpty": "Ничего не найдено. Попробуйте запрос «gguf» или имя модели.",
+    "hfTauriOnly": "Поиск Hugging Face доступен в собранном приложении Silenium.",
+    "starterTitle": "Встроенная модель Silenium Starter",
+    "starterRedownload": "Перекачать Starter",
     "hfSearch": "Поиск моделей...", "hfSearchBtn": "Найти", "hfSearchTip": "Ищите модели с тегом gguf",
     "hfLoad": "Загрузить", "load": "Загрузить", "hfPopular": "Популярные", "downloads": "загрузок",
     "mmprojWarn": "mmproj — не языковая модель"

@@ -307,6 +307,10 @@
     "download": "Download", "downloading": "Downloading...",
     "hfTitle": "Hugging Face browser", "hfDesc": "Search GGUF models on Hub",
     "hfDownloadNote": "Real download: file is saved to models folder and verified by size.",
+    "hfEmpty": "No results. Try query «gguf» or a model name.",
+    "hfTauriOnly": "Hugging Face search is available in the built Silenium app.",
+    "starterTitle": "Built-in Silenium Starter model",
+    "starterRedownload": "Re-download Starter",
     "hfSearch": "Search models...", "hfSearchBtn": "Search", "hfSearchTip": "Search for gguf-tagged models",
     "hfLoad": "Load", "load": "Load", "hfPopular": "Popular", "downloads": "downloads",
     "mmprojWarn": "mmproj — not a text model"

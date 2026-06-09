@@ -4,11 +4,17 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { api, ModelInfo } from "../../api/tauri";
 import { useModels } from "../../hooks/useModels";
 import { Tooltip } from "../ui/Tooltip";
+import { isTauri } from "../../api/browserFallback";
+
+const STARTER_ID = "silenium-starter";
 
 export function LocalModelsPanel() {
   const { t } = useTranslation();
   const { models, modelsDir, refresh, loading } = useModels();
   const [msg, setMsg] = useState("");
+  const [starterDl, setStarterDl] = useState(false);
+  const starter = models.find((m) => m.id === STARTER_ID);
+  const starterReady = Boolean(starter?.path && starter.loaded);
   const local = models.filter((m) => m.source === "local" || m.source === "huggingface");
 
   const browseFile = async () => {
@@ -59,8 +65,46 @@ export function LocalModelsPanel() {
 
   const fmtSize = (b?: number) => (b ? `${(b / 1048576).toFixed(1)} MB` : "—");
 
+  const downloadStarter = async () => {
+    setStarterDl(true);
+    setMsg(t("models.downloading"));
+    try {
+      const result = await api.downloadStarterModel(!starterReady);
+      setMsg(result.message);
+      if (result.success) await refresh();
+    } catch (e) {
+      setMsg(String(e));
+    }
+    setStarterDl(false);
+  };
+
   return (
-    <div className="models-local scroll">
+    <div className="models-local scroll-y">
+      {isTauri() && (
+        <div className="m3-card starter-model-card">
+          <h3>{t("models.starterTitle")}</h3>
+          <p className="form-hint">{t("chat.starterDownloadHint")}</p>
+          <div className="model-card-main">
+            <span className="m3-chip">{starterReady ? "✓" : "⬇"}</span>
+            <strong>{starter?.name ?? "Silenium Starter"}</strong>
+            {starter?.sizeBytes ? (
+              <span className="form-hint">{(starter.sizeBytes / 1048576).toFixed(0)} MB</span>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="m3-filled-btn"
+            disabled={starterDl}
+            onClick={downloadStarter}
+          >
+            {starterDl
+              ? t("models.downloading")
+              : starterReady
+                ? t("models.starterRedownload")
+                : t("chat.starterDownloadBtn")}
+          </button>
+        </div>
+      )}
       <div className="m3-card models-dir-card">
         <h3>{t("models.localTitle")}</h3>
         <p className="form-hint">{t("models.localDesc")}</p>

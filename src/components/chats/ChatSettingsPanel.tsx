@@ -53,9 +53,9 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
     setDownloading(true);
     setDownloadError(null);
     try {
-      const result = await api.ensureStarterModel();
-      if (!result) {
-        await refresh();
+      const result = await api.downloadStarterModel(true);
+      if (!result.success) {
+        setDownloadError(result.message);
         return;
       }
       await refresh();

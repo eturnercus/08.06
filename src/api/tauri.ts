@@ -147,6 +147,13 @@ export const api = {
   stopAgentMember: (taskId: string, agentId: string) =>
     invoke<void>("stop_agent_member", { taskId, agentId }),
   ensureStarterModel: () => invoke<ModelInfo | null>("ensure_starter_model"),
+  downloadStarterModel: (force?: boolean) =>
+    invoke<DownloadResult>("download_starter_model", { force: force ?? false }),
+  searchHuggingfaceModels: (query: string, limit?: number) =>
+    invoke<{ id: string; downloads?: number; tags: string[] }[]>("search_huggingface_models", {
+      query,
+      limit,
+    }),
   getAuditLogs: (maxLines?: number) => invoke<string[]>("get_audit_logs", { maxLines }),
   openBrowserUrl: (url: string, chatId?: string, agentId?: string) =>
     invoke<NetworkLog>("open_browser_url", { url, chatId, agentId }),

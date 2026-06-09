@@ -1,6 +1,7 @@
 use parking_lot::RwLock;
 #[cfg(feature = "embedded-llama")]
 use parking_lot::Mutex;
+use reqwest::redirect::Policy;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -34,6 +35,14 @@ pub struct ModelInfo {
     pub verified: bool,
     #[serde(default)]
     pub download_progress: u8,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HfModelHit {
+    pub id: String,
+    pub downloads: Option<u64>,
+    pub tags: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,6 +113,10 @@ fn sanitize_repo(repo: &str) -> String {
 }
 
 /// Pick the best GGUF file from a Hugging Face repo listing.
+fn is_lfs_pointer(bytes: &[u8]) -> bool {
+    bytes.len() < 2048 && bytes.starts_with(b"version https://git-lfs.github.com")
+}
+
 fn pick_best_gguf(paths: &[String]) -> Option<String> {
     let candidates: Vec<&String> = paths
         .iter()
@@ -154,7 +167,8 @@ impl InferenceEngine {
         let engine = Self {
             loaded_models: RwLock::new(HashMap::new()),
             client: Client::builder()
-                .user_agent("Silenium/1.0")
+                .user_agent("Silenium/1.0 (+https://github.com/eturnercus/Silenium)")
+                .redirect(Policy::limited(10))
                 .timeout(std::time::Duration::from_secs(600))
                 .build()
                 .unwrap_or_default(),
@@ -311,7 +325,14 @@ impl InferenceEngine {
             "В репозитории нет GGUF файла. Скачайте GGUF-версию модели вручную.".to_string()
         })?;
 
-        let download_url = format!("https://huggingface.co/{repo}/resolve/main/{gguf_path}");
+        let encoded_path = gguf_path
+            .split('/')
+            .map(urlencoding::encode)
+            .map(|s| s.into_owned())
+            .collect::<Vec<_>>()
+            .join("/");
+        let download_url =
+            format!("https://huggingface.co/{repo}/resolve/main/{encoded_path}?download=true");
         let dest_dir = models_directory().join(sanitize_repo(repo));
         fs::create_dir_all(&dest_dir).map_err(|e| e.to_string())?;
         let dest_path = dest_dir.join(
@@ -321,17 +342,39 @@ impl InferenceEngine {
                 .unwrap_or("model.gguf"),
         );
 
-        let bytes = self
+        let resp = self
             .client
             .get(&download_url)
             .send()
             .await
-            .map_err(|e| format!("Ошибка загрузки: {e}"))?
+            .map_err(|e| format!("Ошибка загрузки: {e}"))?;
+        if !resp.status().is_success() {
+            return Ok(DownloadResult {
+                success: false,
+                model: None,
+                message: format!(
+                    "Hugging Face вернул HTTP {}. Проверьте интернет и имя репозитория.",
+                    resp.status()
+                ),
+                bytes_downloaded: 0,
+                verified: false,
+            });
+        }
+        let bytes = resp
             .bytes()
             .await
             .map_err(|e| format!("Ошибка чтения данных: {e}"))?;
 
         let nbytes = bytes.len() as u64;
+        if is_lfs_pointer(&bytes) {
+            return Ok(DownloadResult {
+                success: false,
+                model: None,
+                message: "Получен LFS-указатель вместо файла модели. Повторите загрузку.".into(),
+                bytes_downloaded: nbytes,
+                verified: false,
+            });
+        }
         if nbytes < 4096 {
             return Ok(DownloadResult {
                 success: false,
@@ -535,23 +578,92 @@ impl InferenceEngine {
             .any(|m| !m.path.is_empty() && m.loaded)
     }
 
+    pub fn starter_installed(&self) -> bool {
+        self.loaded_models
+            .read()
+            .get(Self::STARTER_MODEL_ID)
+            .map(|m| !m.path.is_empty() && Path::new(&m.path).exists())
+            .unwrap_or(false)
+    }
+
+    pub async fn download_starter_model(&self, force: bool) -> Result<DownloadResult, String> {
+        if !force && self.starter_installed() {
+            let model = self
+                .loaded_models
+                .read()
+                .get(Self::STARTER_MODEL_ID)
+                .cloned();
+            return Ok(DownloadResult {
+                success: true,
+                model,
+                message: "Silenium Starter уже установлен.".into(),
+                bytes_downloaded: 0,
+                verified: true,
+            });
+        }
+        self.download_huggingface(Self::STARTER_MODEL_REPO).await
+    }
+
     pub async fn ensure_starter_model(&self) -> Result<Option<ModelInfo>, String> {
+        if self.starter_installed() {
+            return Ok(
+                self.loaded_models
+                    .read()
+                    .get(Self::STARTER_MODEL_ID)
+                    .cloned(),
+            );
+        }
         if self.has_usable_local_model() {
             return Ok(None);
         }
-        if let Some(m) = self.loaded_models.read().get(Self::STARTER_MODEL_ID).cloned() {
-            if !m.path.is_empty() {
-                return Ok(Some(m));
-            }
-        }
-        let result = self
-            .download_huggingface(Self::STARTER_MODEL_REPO)
-            .await?;
+        let result = self.download_starter_model(false).await?;
         if result.success {
             Ok(result.model)
         } else {
             Err(result.message)
         }
+    }
+
+    pub async fn search_huggingface(&self, query: &str, limit: u32) -> Result<Vec<HfModelHit>, String> {
+        let url = format!(
+            "https://huggingface.co/api/models?search={}&limit={}&sort=downloads",
+            urlencoding::encode(query),
+            limit.max(1).min(50)
+        );
+        let resp = self
+            .client
+            .get(&url)
+            .send()
+            .await
+            .map_err(|e| format!("Ошибка поиска Hugging Face: {e}"))?;
+        if !resp.status().is_success() {
+            return Err(format!("Поиск недоступен: HTTP {}", resp.status()));
+        }
+        let raw: Vec<serde_json::Value> = resp
+            .json()
+            .await
+            .map_err(|e| format!("Некорректный ответ поиска: {e}"))?;
+        Ok(raw
+            .into_iter()
+            .filter_map(|v| {
+                let id = v.get("id")?.as_str()?.to_string();
+                let downloads = v.get("downloads").and_then(|d| d.as_u64());
+                let tags: Vec<String> = v
+                    .get("tags")
+                    .and_then(|t| t.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|x| x.as_str().map(str::to_string))
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                Some(HfModelHit {
+                    id,
+                    downloads,
+                    tags,
+                })
+            })
+            .collect())
     }
 
     fn build_system_prompt(
@@ -889,5 +1001,34 @@ impl InferenceEngine {
             model_id: effective_model_id,
             max_tokens_limit: max_tok,
         }
+    }
+}
+
+#[cfg(test)]
+mod hf_download_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn search_huggingface_returns_gguf_repos() {
+        let engine = InferenceEngine::new();
+        let hits = engine
+            .search_huggingface("gguf", 5)
+            .await
+            .expect("HF search");
+        assert!(!hits.is_empty(), "expected at least one model");
+        assert!(hits.iter().any(|h| !h.id.is_empty()));
+    }
+
+    #[tokio::test]
+    async fn download_starter_model_succeeds() {
+        let engine = InferenceEngine::new();
+        let result = engine
+            .download_starter_model(true)
+            .await
+            .expect("starter download");
+        assert!(result.success, "{}", result.message);
+        assert!(result.verified);
+        assert!(result.bytes_downloaded > 1_000_000);
+        assert!(engine.starter_installed());
     }
 }

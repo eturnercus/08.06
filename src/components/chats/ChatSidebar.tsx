@@ -22,7 +22,7 @@ export function ChatSidebar() {
           +
         </button>
       </div>
-      <div className="scroll chat-list">
+      <div className="scroll-y chat-list">
         {chats.map((c) => (
           <div
             key={c.id}

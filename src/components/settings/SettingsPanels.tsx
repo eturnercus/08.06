@@ -16,7 +16,7 @@ export function SystemPanel({ d, u }: { d: Draft; u: Updater }) {
       <SettingSlider title={t("settings.system.ramLimit")} desc={t("settings.system.ramLimitDesc")} value={s.ramLimitMb as number} onChange={(v) => u("system", "ramLimitMb", v)} min={512} max={131072} step={512} />
       <SettingSlider title={t("settings.system.ramSoft")} value={s.ramSoftLimitPercent as number} onChange={(v) => u("system", "ramSoftLimitPercent", v)} min={50} max={100} />
       <SettingNumber title={t("settings.system.vramReserve")} desc={t("settings.system.vramReserveDesc")} value={(s.vramReserveMb as number) ?? 512} onChange={(v) => u("system", "vramReserveMb", v)} />
-      <SettingText title={t("settings.system.cpuCores")} desc={t("settings.system.cpuCoresDesc")} value={(s.cpuCores as number[]).join(",")} onChange={(v) => u("system", "cpuCores", v.split(",").map(Number).filter((n) => !isNaN(n)))} />
+      <SettingText title={t("settings.system.cpuCores")} desc={t("settings.system.cpuCoresDesc")} value={((s.cpuCores as number[] | undefined) ?? []).join(",")} onChange={(v) => u("system", "cpuCores", v.split(",").map(Number).filter((n) => !isNaN(n)))} />
       <SettingSelect title={t("settings.system.cpuAffinity")} value={s.cpuAffinityMode as string} options={["auto", "manual", "performance", "efficiency", "hybrid"]} onChange={(v) => u("system", "cpuAffinityMode", v)} />
       <SettingNumber title={t("settings.system.gpuLayers")} value={s.gpuLayers as number} onChange={(v) => u("system", "gpuLayers", v)} />
       <SettingSlider title={t("settings.system.gpuMemory")} value={s.gpuMemoryMb as number} onChange={(v) => u("system", "gpuMemoryMb", v)} min={0} max={24576} step={256} />
@@ -199,7 +199,7 @@ export function NetworkPanel({ d, u }: { d: Draft; u: Updater }) {
       ]} onChange={(v) => u("network", "isolationMode", v)} />
       <SettingToggle title={t("settings.network.allowInternet")} value={n.allowInternet as boolean} onChange={(v) => u("network", "allowInternet", v)} />
       <SettingToggle title={t("settings.network.offlineFallback")} value={(n.offlineFallback as boolean) ?? true} onChange={(v) => u("network", "offlineFallback", v)} />
-      <SettingText title={t("settings.network.apiEndpoints")} value={(n.apiOnlyEndpoints as string[]).join("\n")} onChange={(v) => u("network", "apiOnlyEndpoints", v.split("\n").filter(Boolean))} multiline />
+      <SettingText title={t("settings.network.apiEndpoints")} value={((n.apiOnlyEndpoints as string[] | undefined) ?? []).join("\n")} onChange={(v) => u("network", "apiOnlyEndpoints", v.split("\n").filter(Boolean))} multiline />
       <SettingText title={t("settings.network.proxy")} value={n.proxyUrl as string} onChange={(v) => u("network", "proxyUrl", v)} />
       <SettingToggle title={t("settings.network.tor")} value={(n.torEnabled as boolean) ?? false} onChange={(v) => u("network", "torEnabled", v)} />
       <SettingSelect title={t("settings.network.egressFilter")} value={(n.egressFilterMode as string) ?? "strict"} options={["permissive", "standard", "strict", "paranoid"]} onChange={(v) => u("network", "egressFilterMode", v)} />

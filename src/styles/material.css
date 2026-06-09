@@ -360,3 +360,50 @@ body {
 .typing span:nth-child(2) { animation-delay: 0.15s; }
 .typing span:nth-child(3) { animation-delay: 0.3s; }
 @keyframes bounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.4; } 40% { transform: translateY(-6px); opacity: 1; } }
+
+/* Theme variants — M3 tokens */
+[data-theme="light"] {
+  --m3-primary: #0b57d0;
+  --m3-on-primary: #ffffff;
+  --m3-primary-container: #d6e3ff;
+  --m3-on-primary-container: #001b3f;
+  --m3-secondary: #565e71;
+  --m3-surface: #f4f6fb;
+  --m3-surface-container: #ffffff;
+  --m3-surface-container-high: #eef1f8;
+  --m3-surface-container-highest: #e4e9f4;
+  --m3-on-surface: #0f172a;
+  --m3-on-surface-variant: #475569;
+  --m3-outline: #94a3b8;
+  --m3-outline-variant: #cbd5e1;
+  --m3-error: #ba1a1a;
+  --m3-tertiary: #6b5778;
+}
+
+[data-theme="oled"] {
+  --m3-surface: #000000;
+  --m3-surface-container: #050505;
+  --m3-surface-container-high: #0a0a0a;
+  --m3-surface-container-highest: #111111;
+  --m3-on-surface: #e8e8e8;
+  --m3-outline-variant: #2a2a2a;
+}
+
+[data-theme="midnight"] {
+  --m3-primary: #60a5fa;
+  --m3-primary-container: #1e3a5f;
+  --m3-surface: #030712;
+  --m3-surface-container: #0a1220;
+  --m3-surface-container-high: #111827;
+}
+
+[data-theme="aurora"] {
+  --m3-primary: #67e8f9;
+  --m3-primary-container: #164e63;
+  --m3-surface: #061018;
+  --m3-surface-container: #0c1a24;
+  --m3-surface-container-high: #122430;
+}
+
+.starter-model-card { margin-bottom: 16px; }
+.starter-model-card .m3-filled-btn { margin-top: 10px; }

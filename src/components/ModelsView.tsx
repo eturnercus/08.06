@@ -19,7 +19,7 @@ export function ModelsView() {
       {tab === "local" && <LocalModelsPanel />}
       {tab === "hf" && <HuggingFaceBrowser onDownloaded={refresh} />}
       {tab === "all" && (
-        <div className="scroll models-all">
+        <div className="scroll-y models-all">
           {models.map((m) => (
             <div key={m.id} className="m3-card model-card">
               <strong>{m.name}</strong>
