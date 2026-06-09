@@ -193,13 +193,23 @@ html {
   --bg-elevated: #ffffff;
   --bg-surface: #eef1f8;
   --bg-hover: #e4e9f4;
+  --glass: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(15, 23, 42, 0.08);
   --text: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
+  --accent: #0b57d0;
+  --accent-bright: #1a73e8;
+  --accent-glow: rgba(11, 87, 208, 0.2);
   --border: rgba(15, 23, 42, 0.1);
   --border-strong: rgba(15, 23, 42, 0.18);
+  --shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
   --scrollbar-thumb: rgba(15, 23, 42, 0.2);
   --scrollbar-thumb-hover: rgba(15, 23, 42, 0.35);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 [data-theme="oled"] {

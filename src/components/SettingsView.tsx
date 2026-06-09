@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store/appStore";
 import { api, AgentGroup, AppSettings } from "../api/tauri";
 import i18n from "../i18n";
+import { applyUiTheme, THEME_OPTIONS } from "../utils/theme";
 import {
   SectionTitle, SettingNumber, SettingSelect, SettingSlider,
   SettingText, SettingToggle,
@@ -33,6 +34,15 @@ export function SettingsView() {
   const [draft, setDraft] = useState(settings);
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState("");
+  const uiDraft = draft?.ui ?? {};
+
+  useEffect(() => {
+    if (!draft) return;
+    applyUiTheme(uiDraft);
+    return () => {
+      applyUiTheme(useAppStore.getState().settings?.ui ?? {});
+    };
+  }, [draft, uiDraft.theme, uiDraft.fontSize, uiDraft.compactMode]);
 
   if (!draft) return null;
 
@@ -46,6 +56,17 @@ export function SettingsView() {
       return { ...prev, [section]: { ...sec, [key]: value } } as typeof prev;
     });
     setSaved(false);
+  };
+
+  const updateUiLive = async (key: string, value: unknown) => {
+    if (!draft) return;
+    const nextUi = { ...(draft.ui ?? {}), [key]: value };
+    const next = { ...draft, ui: nextUi } as AppSettings;
+    setDraft(next);
+    applyUiTheme(nextUi);
+    await api.updateSettings(next);
+    setSettings(next);
+    setSaved(true);
   };
 
   const save = async () => {
@@ -149,11 +170,17 @@ export function SettingsView() {
           {tab === "appearance" && (
             <>
               <SettingSelect title={t("settings.language")} value={draft.language} options={[{ v: "ru", l: "Русский" }, { v: "en", l: "English" }]} onChange={(v) => setDraft({ ...draft, language: v })} />
-              <SettingSelect title="Theme" value={ui.theme as string} options={["dark", "light", "oled", "midnight", "aurora"]} onChange={(v) => update("ui", "theme", v)} />
-              <SettingSlider title="Font size" value={ui.fontSize as number} onChange={(v) => update("ui", "fontSize", v)} min={12} max={24} />
-              <SettingToggle title="Compact UI" value={ui.compactMode as boolean} onChange={(v) => update("ui", "compactMode", v)} />
-              <SettingToggle title="Show token counter" value={ui.showTokenCounter as boolean} onChange={(v) => update("ui", "showTokenCounter", v)} />
-              <SettingToggle title="Animations" value={ui.animationsEnabled as boolean} onChange={(v) => update("ui", "animationsEnabled", v)} />
+              <SettingSelect
+                title={t("settings.appearance.theme")}
+                desc={t("settings.appearance.themeDesc")}
+                value={(ui.theme as string) || "dark"}
+                options={THEME_OPTIONS.map((id) => ({ v: id, l: t(`settings.appearance.themes.${id}`) }))}
+                onChange={(v) => void updateUiLive("theme", v)}
+              />
+              <SettingSlider title={t("settings.appearance.fontSize")} value={(ui.fontSize as number) ?? 14} onChange={(v) => void updateUiLive("fontSize", v)} min={12} max={24} />
+              <SettingToggle title={t("settings.appearance.compact")} value={Boolean(ui.compactMode)} onChange={(v) => void updateUiLive("compactMode", v)} />
+              <SettingToggle title={t("settings.appearance.tokenCounter")} value={Boolean(ui.showTokenCounter)} onChange={(v) => void updateUiLive("showTokenCounter", v)} />
+              <SettingToggle title={t("settings.appearance.animations")} value={ui.animationsEnabled !== false} onChange={(v) => void updateUiLive("animationsEnabled", v)} />
             </>
           )}
           {tab === "advanced" && (

@@ -172,6 +172,21 @@
       "vramReserve": "VRAM reserve (MB)", "vramReserveDesc": "Reserved video memory",
       "thermal": "Thermal throttle (°C)"
     },
+    "appearance": {
+      "theme": "Theme",
+      "themeDesc": "Applies immediately when selected",
+      "fontSize": "Font size",
+      "compact": "Compact UI",
+      "tokenCounter": "Token counter in chat",
+      "animations": "Interface animations",
+      "themes": {
+        "dark": "Dark",
+        "light": "Light",
+        "oled": "OLED (true black)",
+        "midnight": "Midnight",
+        "aurora": "Aurora"
+      }
+    },
     "innovation": {
       "badge": "NEW", "title": "Silenium innovative technologies",
       "desc": "Cutting-edge algorithms for context, memory, and cognitive load management.",

@@ -26,8 +26,14 @@ export function HuggingFaceBrowser({ onDownloaded }: { onDownloaded?: () => void
     setSearchError(null);
     try {
       if (isTauri()) {
-        const data = await api.searchHuggingfaceModels(query, 20);
-        setModels(data);
+        const data = await api.searchHuggingfaceModels(query, 24);
+        const sorted = [...data].sort((a, b) => {
+          const aGguf = (a.tags || []).some((t) => t.toLowerCase().includes("gguf"));
+          const bGguf = (b.tags || []).some((t) => t.toLowerCase().includes("gguf"));
+          if (aGguf !== bGguf) return aGguf ? -1 : 1;
+          return (b.downloads ?? 0) - (a.downloads ?? 0);
+        });
+        setModels(sorted);
       } else {
         setModels([]);
         setSearchError(t("models.hfTauriOnly"));
@@ -97,8 +103,12 @@ export function HuggingFaceBrowser({ onDownloaded }: { onDownloaded?: () => void
           <div key={m.id} className="m3-card hf-model-card">
             <div className="hf-model-main">
               <div className="hf-model-id">{m.id}</div>
-              <div className="form-hint">
-                {m.downloads?.toLocaleString()} {t("models.downloads")} · {(m.tags || []).slice(0, 4).join(", ")}
+              <div className="form-hint hf-model-tags">
+                {m.downloads?.toLocaleString()} {t("models.downloads")}
+                {(m.tags || []).some((tag) => tag.toLowerCase().includes("gguf")) && (
+                  <span className="m3-chip hf-gguf-chip">GGUF</span>
+                )}
+                · {(m.tags || []).slice(0, 4).join(", ")}
               </div>
               {messages[m.id] && <div className={`hf-status hf-status-${st}`}>{messages[m.id]}</div>}
             </div>

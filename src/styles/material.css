@@ -362,6 +362,22 @@ body {
 @keyframes bounce { 0%, 80%, 100% { transform: translateY(0); opacity: 0.4; } 40% { transform: translateY(-6px); opacity: 1; } }
 
 /* Theme variants — M3 tokens */
+[data-theme="dark"] {
+  --m3-primary: #a8c7fa;
+  --m3-on-primary: #062e6f;
+  --m3-primary-container: #004a9f;
+  --m3-on-primary-container: #d6e3ff;
+  --m3-secondary: #bec6dc;
+  --m3-surface: #111318;
+  --m3-surface-container: #1e2128;
+  --m3-surface-container-high: #282b32;
+  --m3-surface-container-highest: #33363e;
+  --m3-on-surface: #e2e2e6;
+  --m3-on-surface-variant: #c4c6d0;
+  --m3-outline: #8e9099;
+  --m3-outline-variant: #44474f;
+}
+
 [data-theme="light"] {
   --m3-primary: #0b57d0;
   --m3-on-primary: #ffffff;
@@ -407,3 +423,8 @@ body {
 
 .starter-model-card { margin-bottom: 16px; }
 .starter-model-card .m3-filled-btn { margin-top: 10px; }
+.hf-model-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.hf-gguf-chip {
+  font-size: 10px; padding: 2px 8px; vertical-align: middle;
+  background: var(--m3-primary-container); color: var(--m3-on-primary-container);
+}
