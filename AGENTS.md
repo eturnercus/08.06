@@ -48,3 +48,5 @@ Built artifacts: `src-tauri/target/release/bundle/`
   - **Feature checklist**: nav → **Справка / Help**.
 - For automated UI screenshots, target window name `NeuroForge` (not the small `neuroforge` child window): `WID=$(xdotool search --name NeuroForge | head -1)`.
 - **Token streaming:** enable **Настройки → Вывод → Streaming** or **Инновации → Thought streaming**. Chat emits Tauri event `chat-stream`; agents emit `agent-stream` (live text in **Агенты → Монитор**). Embedded llama streams per decoded token; `llama-cli` streams from process stdout (may batch if the binary buffers).
+- **Stop generation:** Stop button in chat → `stop_chat`; cancels embedded token loop and kills `llama-cli`.
+- **Agent in chat:** assign **Команда агентов** in chat sidebar — composer uses `run_agent_team` instead of single-model `send_chat`.
