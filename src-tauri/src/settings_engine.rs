@@ -481,7 +481,37 @@ pub struct BackendPreference {
     pub prefer_cli: bool,
 }
 
-pub fn synaptic_backend_pref(settings: &AppSettings) -> BackendPreference {
+pub fn runtime_needs_external_cli(settings: &AppSettings) -> bool {
+    matches!(
+        settings.inference.gguf_runtime.as_str(),
+        "llama_cli" | "external_cli"
+    ) || (settings.inference.gguf_runtime.as_str() == "synaptic_auto"
+        && settings.innovation.synaptic_routing
+        && matches!(
+            settings.innovation.synaptic_path_priority.as_str(),
+            "latency" | "shortest"
+        ))
+}
+
+pub fn resolve_gguf_runtime_pref(settings: &AppSettings) -> BackendPreference {
+    match settings.inference.gguf_runtime.as_str() {
+        "llama_cli" | "external_cli" => BackendPreference {
+            prefer_embedded: false,
+            prefer_cli: true,
+        },
+        "silenium_core" | "embedded" => BackendPreference {
+            prefer_embedded: true,
+            prefer_cli: false,
+        },
+        "synaptic_auto" | "auto" => synaptic_backend_pref(settings),
+        _ => BackendPreference {
+            prefer_embedded: true,
+            prefer_cli: false,
+        },
+    }
+}
+
+fn synaptic_backend_pref(settings: &AppSettings) -> BackendPreference {
     if !settings.innovation.synaptic_routing {
         return BackendPreference {
             prefer_embedded: true,

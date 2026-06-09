@@ -12,6 +12,8 @@ pub struct LlamaRuntimeStatus {
     pub cli_path: Option<String>,
     pub cli_ready: bool,
     pub version: Option<String>,
+    pub gguf_runtime: String,
+    pub active_engine: String,
     pub message: String,
 }
 
@@ -65,27 +67,66 @@ pub fn embedded_available() -> bool {
     cfg!(feature = "embedded-llama")
 }
 
-pub fn runtime_status() -> LlamaRuntimeStatus {
+pub fn runtime_status_for(settings: &crate::settings::AppSettings) -> LlamaRuntimeStatus {
     let cli_path = resolve_cli_binary().map(|p| p.to_string_lossy().to_string());
     let cli_ready = cli_path.is_some();
     let embedded = embedded_available();
     let version = read_sidecar_version();
-    let message = if embedded && cli_ready {
-        "Встроенный llama.cpp и llama-cli готовы.".into()
-    } else if embedded {
-        "Встроенный движок активен; llama-cli можно докачать для резервного режима.".into()
-    } else if cli_ready {
-        "llama-cli готов (резервный бэкенд).".into()
+    let gguf_runtime = settings.inference.gguf_runtime.clone();
+    let pref = crate::settings_engine::resolve_gguf_runtime_pref(settings);
+    let active_engine = if pref.prefer_embedded && !pref.prefer_cli {
+        "silenium_core"
+    } else if pref.prefer_cli && !pref.prefer_embedded {
+        "llama_cli"
     } else {
-        "Движок не готов — нажмите «Установить llama.cpp» в настройках вывода.".into()
+        "hybrid"
+    }
+    .to_string();
+
+    let needs_cli = crate::settings_engine::runtime_needs_external_cli(settings);
+    let message = match gguf_runtime.as_str() {
+        "silenium_core" | "embedded" => {
+            if embedded {
+                "Silenium Core активен — отдельный llama-cli не требуется.".into()
+            } else {
+                "Silenium Core недоступен в этой сборке.".into()
+            }
+        }
+        "llama_cli" | "external_cli" => {
+            if cli_ready {
+                "Режим llama-cli: внешний процесс готов.".into()
+            } else {
+                "Режим llama-cli: установите бинарник кнопкой ниже.".into()
+            }
+        }
+        _ => {
+            if embedded && cli_ready {
+                "Synaptic Auto: встроенный движок и llama-cli доступны.".into()
+            } else if embedded {
+                "Synaptic Auto: Silenium Core активен; llama-cli опционален для режима latency.".into()
+            } else if cli_ready {
+                "llama-cli готов.".into()
+            } else if needs_cli {
+                "Для выбранного режима нужен llama-cli — установите ниже.".into()
+            } else {
+                "Движок готов.".into()
+            }
+        }
     };
+
     LlamaRuntimeStatus {
         embedded_available: embedded,
         cli_path,
         cli_ready,
         version,
+        gguf_runtime,
+        active_engine,
         message,
     }
+}
+
+pub fn runtime_status() -> LlamaRuntimeStatus {
+    runtime_status_for(&crate::settings::AppSettings::default())
 }
 
 fn read_sidecar_version() -> Option<String> {

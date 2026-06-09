@@ -300,15 +300,28 @@
     },
     "inference": {
       "section": "Параметры инференса",
-      "runtimeTitle": "Движок llama.cpp",
-      "runtimeDesc": "Встроенный движок и резервный llama-cli. Устанавливается автоматически при первом запуске.",
+      "ggufRuntime": "Движок GGUF",
+      "ggufRuntimeDesc": "Silenium Core — встроенный (рекомендуется, без DLL/скачиваний). Synaptic Auto — маршрутизация из «Инноваций». llama-cli — внешний процесс.",
+      "ggufSileniumCore": "Silenium Core (встроенный)",
+      "ggufSynapticAuto": "Synaptic Auto (инновации)",
+      "ggufLlamaCli": "llama-cli (внешний)",
+      "modelFormat": "Формат модели",
+      "runtimeTitle": "Статус движка",
+      "runtimeDesc": "Silenium Core встроен в приложение. llama-cli нужен только в режимах Synaptic (latency) или llama-cli.",
       "runtimeBrowser": "Доступно только в собранном приложении Tauri.",
-      "embeddedEngine": "Встроенный GGUF",
-      "cliFallback": "llama-cli (резерв)",
-      "cliVersion": "Версия",
+      "activeEngine": "Активный путь",
+      "embeddedEngine": "Silenium Core",
+      "cliFallback": "llama-cli",
+      "cliVersion": "Версия CLI",
       "notInstalled": "не установлен",
-      "installLlama": "Установить llama.cpp",
-      "reinstallLlama": "Переустановить"
+      "installLlama": "Установить llama-cli",
+      "reinstallLlama": "Переустановить llama-cli",
+      "coreNoCliHint": "В режиме Silenium Core отдельный llama-cli не требуется — библиотеки уже в составе приложения.",
+      "engines": {
+        "silenium_core": "Silenium Core",
+        "llama_cli": "llama-cli",
+        "hybrid": "Гибридный"
+      }
     },
     "devices": {
       "section": "Устройства ввода/вывода",

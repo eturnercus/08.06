@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/tauri";
 import { isTauri } from "../../api/browserFallback";
 
-export function InferenceRuntimePanel() {
+export function InferenceRuntimePanel({ ggufRuntime }: { ggufRuntime?: string }) {
   const { t } = useTranslation();
   const [status, setStatus] = useState<Awaited<ReturnType<typeof api.getLlamaRuntimeStatus>> | null>(null);
   const [loading, setLoading] = useState(false);
@@ -20,7 +20,7 @@ export function InferenceRuntimePanel() {
 
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+  }, [refresh, ggufRuntime]);
 
   const install = async (force = false) => {
     setLoading(true);
@@ -34,6 +34,9 @@ export function InferenceRuntimePanel() {
     setLoading(false);
   };
 
+  const mode = ggufRuntime || "silenium_core";
+  const showCliInstall = mode === "llama_cli" || mode === "synaptic_auto";
+
   if (!isTauri()) {
     return <p className="form-hint">{t("settings.inference.runtimeBrowser")}</p>;
   }
@@ -42,6 +45,11 @@ export function InferenceRuntimePanel() {
     <div className="m3-card inference-runtime-card">
       <h3>{t("settings.inference.runtimeTitle")}</h3>
       <p className="form-hint">{t("settings.inference.runtimeDesc")}</p>
+      {status?.activeEngine && (
+        <p className="form-hint">
+          {t("settings.inference.activeEngine")}: <strong>{t(`settings.inference.engines.${status.activeEngine}`, status.activeEngine)}</strong>
+        </p>
+      )}
       <ul className="runtime-status-list">
         <li>
           <span>{t("settings.inference.embeddedEngine")}</span>
@@ -68,16 +76,21 @@ export function InferenceRuntimePanel() {
           {status.cliPath}
         </p>
       )}
-      <div className="runtime-actions">
-        <button type="button" className="m3-filled-btn" disabled={loading} onClick={() => install(false)}>
-          {loading ? t("models.downloading") : t("settings.inference.installLlama")}
-        </button>
-        {status?.cliReady && (
-          <button type="button" className="m3-tonal-btn" disabled={loading} onClick={() => install(true)}>
-            {t("settings.inference.reinstallLlama")}
+      {showCliInstall && (
+        <div className="runtime-actions">
+          <button type="button" className="m3-filled-btn" disabled={loading} onClick={() => install(false)}>
+            {loading ? t("models.downloading") : t("settings.inference.installLlama")}
           </button>
-        )}
-      </div>
+          {status?.cliReady && (
+            <button type="button" className="m3-tonal-btn" disabled={loading} onClick={() => install(true)}>
+              {t("settings.inference.reinstallLlama")}
+            </button>
+          )}
+        </div>
+      )}
+      {mode === "silenium_core" && (
+        <p className="form-hint">{t("settings.inference.coreNoCliHint")}</p>
+      )}
       {error && <p className="field-error">{error}</p>}
     </div>
   );

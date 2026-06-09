@@ -16,7 +16,7 @@ use crate::settings::AppSettings;
 use crate::settings_engine::{
     self, check_user_input, cross_modal_user_note, default_reply_max_tokens, effective_max_tokens,
     effective_temperature, enrich_system_prompt, filter_model_output, filter_stm,
-    maybe_dream_consolidate, recall_ltm, synaptic_backend_pref, tune_generate_params,
+    maybe_dream_consolidate, recall_ltm, resolve_gguf_runtime_pref, tune_generate_params,
 };
 use crate::stream_sink::{AgentStreamSink, StreamSink, TokenSink};
 
@@ -513,7 +513,7 @@ impl InferenceEngine {
             return Err("Модель не выбрана для агента".into());
         }
         let model_size_bytes = model_info.as_ref().map(|m| m.size_bytes).unwrap_or(0);
-        let backend = synaptic_backend_pref(settings);
+        let backend = resolve_gguf_runtime_pref(settings);
         let mut messages = Vec::new();
         if !system.is_empty() {
             messages.push(("system".into(), system.to_string()));
@@ -874,7 +874,7 @@ impl InferenceEngine {
                 "Формат «{model_format}» пока не поддерживается для вывода. Используйте файл .gguf."
             )
         } else {
-            let backend = synaptic_backend_pref(settings);
+            let backend = resolve_gguf_runtime_pref(settings);
             let mut gen = GenerateParams {
                 model_path: model_path.clone(),
                 messages,

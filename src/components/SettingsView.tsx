@@ -158,9 +158,20 @@ export function SettingsView() {
           {tab === "injection" && <InjectionPanel d={d} u={update} />}
           {tab === "inference" && (
             <>
-              <InferenceRuntimePanel />
+              <SettingSelect
+                title={t("settings.inference.ggufRuntime")}
+                desc={t("settings.inference.ggufRuntimeDesc")}
+                value={(inf.ggufRuntime as string) || "silenium_core"}
+                options={[
+                  { v: "silenium_core", l: t("settings.inference.ggufSileniumCore") },
+                  { v: "synaptic_auto", l: t("settings.inference.ggufSynapticAuto") },
+                  { v: "llama_cli", l: t("settings.inference.ggufLlamaCli") },
+                ]}
+                onChange={(v) => update("inference", "ggufRuntime", v)}
+              />
+              <InferenceRuntimePanel ggufRuntime={(inf.ggufRuntime as string) || "silenium_core"} />
               <SectionTitle>{t("settings.inference.section")}</SectionTitle>
-              <SettingSelect title="Backend" value={inf.defaultBackend as string} options={["gguf", "onnx", "safetensors", "pytorch", "tensorrt"]} onChange={(v) => update("inference", "defaultBackend", v)} />
+              <SettingSelect title={t("settings.inference.modelFormat")} value={inf.defaultBackend as string} options={["gguf", "onnx", "safetensors", "pytorch", "tensorrt"]} onChange={(v) => update("inference", "defaultBackend", v)} />
               <SettingSlider title="Context" value={inf.contextLength as number} onChange={(v) => update("inference", "contextLength", v)} min={2048} max={131072} step={1024} />
               <SettingSlider title="Temperature" value={inf.temperature as number} onChange={(v) => update("inference", "temperature", v)} min={0} max={2} step={0.05} />
               <SettingNumber title="Top-K" value={inf.topK as number} onChange={(v) => update("inference", "topK", v)} />

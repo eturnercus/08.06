@@ -54,7 +54,7 @@ jobs:
           toolchain: stable
       - run: npm ci
       - run: npm run lint
-      - run: npm run tauri build
+      - run: npm run tauri build -- --bundles msi
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:

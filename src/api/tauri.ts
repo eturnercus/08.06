@@ -160,6 +160,8 @@ export const api = {
       cliPath?: string;
       cliReady: boolean;
       version?: string;
+      ggufRuntime: string;
+      activeEngine: string;
       message: string;
     }>("get_llama_runtime_status"),
   ensureLlamaRuntime: (force?: boolean) =>
@@ -168,6 +170,8 @@ export const api = {
       cliPath?: string;
       cliReady: boolean;
       version?: string;
+      ggufRuntime: string;
+      activeEngine: string;
       message: string;
     }>("ensure_llama_runtime", { force: force ?? false }),
   getAuditLogs: (maxLines?: number) => invoke<string[]>("get_audit_logs", { maxLines }),

@@ -300,15 +300,28 @@
     },
     "inference": {
       "section": "Inference parameters",
-      "runtimeTitle": "llama.cpp runtime",
-      "runtimeDesc": "Embedded engine and llama-cli fallback. Auto-installed on first launch.",
+      "ggufRuntime": "GGUF engine",
+      "ggufRuntimeDesc": "Silenium Core — built-in (recommended, no extra DLLs). Synaptic Auto — innovation routing. llama-cli — external process.",
+      "ggufSileniumCore": "Silenium Core (embedded)",
+      "ggufSynapticAuto": "Synaptic Auto (innovations)",
+      "ggufLlamaCli": "llama-cli (external)",
+      "modelFormat": "Model format",
+      "runtimeTitle": "Engine status",
+      "runtimeDesc": "Silenium Core is bundled in the app. llama-cli is only needed for Synaptic (latency) or llama-cli mode.",
       "runtimeBrowser": "Available only in the Tauri desktop app.",
-      "embeddedEngine": "Embedded GGUF",
-      "cliFallback": "llama-cli (fallback)",
-      "cliVersion": "Version",
+      "activeEngine": "Active path",
+      "embeddedEngine": "Silenium Core",
+      "cliFallback": "llama-cli",
+      "cliVersion": "CLI version",
       "notInstalled": "not installed",
-      "installLlama": "Install llama.cpp",
-      "reinstallLlama": "Reinstall"
+      "installLlama": "Install llama-cli",
+      "reinstallLlama": "Reinstall llama-cli",
+      "coreNoCliHint": "Silenium Core mode does not require a separate llama-cli — native libs are bundled.",
+      "engines": {
+        "silenium_core": "Silenium Core",
+        "llama_cli": "llama-cli",
+        "hybrid": "Hybrid"
+      }
     },
     "devices": {
       "section": "Input/output devices",

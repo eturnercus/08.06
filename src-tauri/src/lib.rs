@@ -678,8 +678,9 @@ fn get_system_info(state: State<'_, AppState>) -> serde_json::Value {
 }
 
 #[tauri::command]
-fn get_llama_runtime_status() -> llama_runtime::LlamaRuntimeStatus {
-    llama_runtime::runtime_status()
+fn get_llama_runtime_status(state: State<'_, AppState>) -> llama_runtime::LlamaRuntimeStatus {
+    let settings = state.settings.lock();
+    llama_runtime::runtime_status_for(&settings)
 }
 
 #[tauri::command]
@@ -691,7 +692,8 @@ async fn ensure_llama_runtime(
         let s = state.settings.lock();
         matches!(s.system.compute_device.as_str(), "gpu" | "auto")
     };
-    llama_runtime::ensure_llama_cli(force.unwrap_or(false), prefer_gpu).await
+    llama_runtime::ensure_llama_cli(force.unwrap_or(false), prefer_gpu).await?;
+    Ok(llama_runtime::runtime_status_for(&state.settings.lock()))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -701,6 +703,7 @@ pub fn run() {
     let memory = Arc::new(MemoryStore::new());
     memory.set_encrypt_at_rest(settings.security.encrypt_memory_at_rest);
     let prefer_gpu = matches!(settings.system.compute_device.as_str(), "gpu" | "auto");
+    let need_cli = settings_engine::runtime_needs_external_cli(&settings);
     let app_state = AppState {
         settings: Mutex::new(settings),
         memory,
@@ -712,11 +715,13 @@ pub fn run() {
         webview: Arc::new(AgentWebView::new()),
     };
 
-    tauri::async_runtime::spawn(async move {
-        if !llama_runtime::resolve_cli_binary().is_some() {
-            let _ = llama_runtime::ensure_llama_cli(false, prefer_gpu).await;
-        }
-    });
+    if need_cli {
+        tauri::async_runtime::spawn(async move {
+            if !llama_runtime::resolve_cli_binary().is_some() {
+                let _ = llama_runtime::ensure_llama_cli(false, prefer_gpu).await;
+            }
+        });
+    }
 
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())

@@ -231,10 +231,17 @@ pub struct MemorySettings {
     pub forgetting_curve: String,
 }
 
+fn default_gguf_runtime() -> String {
+    "silenium_core".into()
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InferenceSettings {
     pub default_backend: String,
+    /// GGUF execution path: silenium_core | synaptic_auto | llama_cli
+    #[serde(default = "default_gguf_runtime")]
+    pub gguf_runtime: String,
     pub model_path: String,
     pub huggingface_repo: String,
     pub context_length: u32,
@@ -649,6 +656,7 @@ impl Default for AppSettings {
             },
             inference: InferenceSettings {
                 default_backend: "gguf".into(),
+                gguf_runtime: default_gguf_runtime(),
                 model_path: String::new(),
                 huggingface_repo: String::new(),
                 context_length: 8192,
