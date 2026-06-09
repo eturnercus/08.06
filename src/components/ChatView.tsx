@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../store/appStore";
 import { useModels } from "../hooks/useModels";
 import { useChatStream } from "../hooks/useChatStream";
 import { useChatScroll } from "../hooks/useChatScroll";
 import { MessageBubble } from "./chat/MessageBubble";
+import { ChatSettingsPanel } from "./chats/ChatSettingsPanel";
 import { api } from "../api/tauri";
 import { isTauri } from "../api/browserFallback";
 import { MediaCapture, MediaAttachment } from "./chat/MediaCapture";
@@ -24,6 +25,7 @@ export function ChatView() {
   const { models } = useModels();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const [attachments, setAttachments] = useState<MediaAttachment[]>([]);
 
@@ -32,6 +34,12 @@ export function ChatView() {
   const agentGroup = (settings?.agentGroups as { id: string; name: string }[] | undefined)?.find(
     (g) => g.id === chat?.agentGroupId
   );
+
+  useEffect(() => {
+    setInput("");
+    setAttachments([]);
+    setSettingsOpen(false);
+  }, [activeChatId]);
 
   const { containerRef, onScroll, onFocus } = useChatScroll([
     chat?.id,
@@ -62,26 +70,30 @@ export function ChatView() {
   const handleStop = async () => {
     if (!chat || !isTauri()) return;
     await api.stopChat(chat.id);
-    finalizeStreamMessage(chat.id, { cancelled: true, error: t("chat.stopped") });
+    finalizeStreamMessage(chat.id, { cancelled: true });
     setLoading(false);
     setActiveGeneration(null);
   };
 
   const handleSend = async () => {
     if ((!input.trim() && attachments.length === 0) || !chat) return;
+    const userText = input.trim() || t("chat.mediaOnly");
+    const sentAttachments = [...attachments];
+    setInput("");
+    setAttachments([]);
     setLoading(true);
     setActiveGeneration(chat.id);
-    const userText = input.trim() || t("chat.mediaOnly");
     addMessage(chat.id, { role: "user", content: userText });
     await syncOverrides();
 
-    if (streamOn) {
+    const useAgentTeam = Boolean(chat.agentGroupId && isTauri());
+    if (streamOn && !useAgentTeam) {
       addMessage(chat.id, { role: "assistant", content: "", streaming: true, streamTokens: 0 });
     }
 
     try {
-      if (chat.agentGroupId && isTauri()) {
-        const task = await api.runAgentTeam(chat.agentGroupId, userText, chat.id);
+      if (useAgentTeam) {
+        const task = await api.runAgentTeam(chat.agentGroupId!, userText, chat.id);
         task.rounds.forEach((round) => {
           round.messages.forEach((m) => {
             addMessage(chat.id, {
@@ -104,7 +116,7 @@ export function ChatView() {
           systemPrompt: chat.systemPrompt || undefined,
           temperature: chat.temperature,
           maxTokens: chat.maxTokens,
-          attachments: attachments.map((a) => ({
+          attachments: sentAttachments.map((a) => ({
             name: a.name,
             mimeType: a.mimeType,
             sizeBytes: a.sizeBytes,
@@ -125,14 +137,13 @@ export function ChatView() {
           });
         }
       }
-      setInput("");
-      setAttachments([]);
     } catch (e) {
       const err = String(e);
-      if (streamOn || err.includes("остановлена")) {
+      const stopped = err.includes("остановлена");
+      if (streamOn || stopped) {
         finalizeStreamMessage(chat.id, {
-          cancelled: err.includes("остановлена"),
-          error: err.includes("остановлена") ? t("chat.stopped") : `Error: ${e}`,
+          cancelled: stopped,
+          error: stopped ? undefined : `Error: ${e}`,
         });
       } else {
         addMessage(chat.id, { role: "assistant", content: `Error: ${e}` });
@@ -170,7 +181,17 @@ export function ChatView() {
               : <span className="badge badge-red">{t("chat.offline")}</span>}
           </div>
         </div>
-        <button type="button" className="m3-outlined-btn" onClick={() => addChat()}>+ {t("chat.newChat")}</button>
+        <div className="chat-toolbar-actions">
+          <button
+            type="button"
+            className={`m3-outlined-btn chat-settings-toggle${settingsOpen ? " active" : ""}`}
+            onClick={() => setSettingsOpen((v) => !v)}
+            aria-expanded={settingsOpen}
+          >
+            ⚙ {t("chat.settingsTitle")}
+          </button>
+          <button type="button" className="m3-outlined-btn" onClick={() => addChat()}>+ {t("chat.newChat")}</button>
+        </div>
       </div>
 
       <div
@@ -197,6 +218,10 @@ export function ChatView() {
             </div>
           </div>
         )}
+      </div>
+
+      <div className={`chat-settings-drawer${settingsOpen ? "" : " collapsed"}`}>
+        <ChatSettingsPanel chatId={chat.id} />
       </div>
 
       {attachments.length > 0 && (

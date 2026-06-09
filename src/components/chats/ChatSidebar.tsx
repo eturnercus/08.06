@@ -1,8 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useAppStore } from "../../store/appStore";
 import { useModels } from "../../hooks/useModels";
-import { ChatSettingsPanel } from "./ChatSettingsPanel";
-
 export function ChatSidebar() {
   const { t } = useTranslation();
   const { chats, activeChatId, setActiveChat, addChat, deleteChat, exportChat } = useAppStore();
@@ -62,7 +60,6 @@ export function ChatSidebar() {
           </div>
         ))}
       </div>
-      {activeChatId && <ChatSettingsPanel chatId={activeChatId} />}
     </aside>
   );
 }

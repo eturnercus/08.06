@@ -224,19 +224,48 @@ body {
 /* Chat sidebar & settings */
 .chat-sidebar { width: var(--chat-panel-w); min-width: var(--chat-panel-w); }
 .chat-add-btn { padding: 6px 14px !important; font-size: 12px; }
-.chat-list { flex: 0 0 auto; max-height: 32%; min-height: 72px; overflow-y: auto; border-bottom: 1px solid var(--m3-outline-variant); }
+.chat-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .chat-list-model { font-size: 10px; color: var(--m3-outline); margin-top: 2px; }
 .m3-chip.sm { padding: 2px 8px; font-size: 10px; }
+.chat-settings-drawer {
+  border-top: 1px solid var(--m3-outline-variant);
+  background: var(--m3-surface-container);
+  max-height: 42vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.chat-settings-drawer.collapsed { display: none; }
 .chat-settings-panel {
   flex: 1 1 auto;
   min-height: 0;
-  padding: 12px;
-  background: var(--m3-surface-container);
+  padding: 12px 16px 16px;
+  overflow-y: auto;
   scrollbar-color: var(--scrollbar-thumb, rgba(124, 108, 255, 0.35)) transparent;
 }
+.chat-settings-toggle.active { border-color: var(--m3-primary); color: var(--m3-primary); }
 .chat-settings-header { font-size: 12px; font-weight: 700; margin-bottom: 10px; color: var(--m3-primary); text-transform: uppercase; letter-spacing: 0.04em; }
 .chat-settings-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
 .perm-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chat-toolbar-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.agent-guide { margin-bottom: 16px; }
+.agent-guide-toggle { width: 100%; justify-content: flex-start; text-align: left; }
+.agent-guide-toggle.active { border-color: var(--m3-primary); }
+.agent-guide-panel {
+  margin-top: 8px; padding: 12px 14px; border-radius: var(--m3-radius-md);
+  background: var(--m3-surface-container-highest); border: 1px solid var(--m3-outline-variant);
+  max-height: 280px; font-size: 13px; line-height: 1.45;
+}
+.agent-guide-panel section { margin-top: 12px; }
+.agent-guide-panel h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; color: var(--m3-primary); }
+.agent-guide-lead { color: var(--text-secondary); }
+.agent-guide-list { margin: 8px 0 0 16px; }
+.agent-group-card { display: flex; flex-direction: column; gap: 8px; }
+.agent-group-card-body { cursor: pointer; flex: 1; }
+.agent-group-card-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.agent-editor-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.m3-tonal-btn.sm { padding: 4px 8px; font-size: 12px; min-width: 32px; }
+.m3-tonal-btn.sm.danger, .m3-outlined-btn.danger { color: var(--danger); border-color: rgba(248, 113, 113, 0.35); }
 
 /* Composer media */
 .composer-tools { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }

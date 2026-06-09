@@ -8,8 +8,31 @@ import {
   CONFLICT_MODES, TRIGGER_CONDITIONS,
 } from "../../constants/agents";
 import { OrchestrationMonitor } from "./OrchestrationMonitor";
+import { AgentSystemsGuide } from "./AgentSystemsGuide";
 import { ModelSelect } from "../models/ModelSelect";
 import { useModels } from "../../hooks/useModels";
+
+function cloneMember(member: AgentMember, nameSuffix?: string): AgentMember {
+  return {
+    ...member,
+    id: `agent-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    name: nameSuffix ? `${member.name} ${nameSuffix}` : member.name,
+    permissions: { ...member.permissions },
+    resources: member.resources
+      ? { ...member.resources, cpuCores: [...member.resources.cpuCores] }
+      : member.resources,
+    tools: [...(member.tools || [])],
+  };
+}
+
+function cloneGroup(group: AgentGroup, t: (k: string) => string): AgentGroup {
+  return {
+    ...group,
+    id: `group-${Date.now()}`,
+    name: `${group.name} (${t("agents.copySuffix")})`,
+    members: group.members.map((m) => cloneMember(m)),
+  };
+}
 
 function newMember(): AgentMember {
   return {
@@ -92,6 +115,47 @@ export function AgentStudio() {
     });
   };
 
+  const deleteGroup = (groupId: string) => {
+    if (!confirm(t("agents.deleteGroupConfirm"))) return;
+    const next = groups.filter((g) => g.id !== groupId);
+    saveGroups(next);
+    if (selectedGroupId === groupId) {
+      setSelectedGroupId(next[0]?.id ?? null);
+    }
+  };
+
+  const duplicateGroup = (group: AgentGroup) => {
+    const copy = cloneGroup(group, t);
+    saveGroups([...groups, copy]);
+    setSelectedGroupId(copy.id);
+    setTab("editor");
+  };
+
+  const copyGroupJson = async (group: AgentGroup) => {
+    await navigator.clipboard.writeText(JSON.stringify(group, null, 2));
+    pushMonitorEvent({
+      id: `copy-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: "info",
+      message: t("agents.copiedGroup"),
+      status: "ok",
+    });
+  };
+
+  const pasteGroupJson = async () => {
+    try {
+      const raw = await navigator.clipboard.readText();
+      const parsed = JSON.parse(raw) as AgentGroup;
+      if (!parsed.members || !Array.isArray(parsed.members)) throw new Error("invalid");
+      const imported = cloneGroup({ ...parsed, name: parsed.name || t("agents.newGroup") }, t);
+      saveGroups([...groups, imported]);
+      setSelectedGroupId(imported.id);
+      setTab("editor");
+    } catch {
+      alert(t("agents.pasteGroupError"));
+    }
+  };
+
   const runTeam = async () => {
     if (!selected || !runPrompt) return;
     setRunning(true);
@@ -135,18 +199,30 @@ export function AgentStudio() {
       </div>
 
       <div className="scroll" style={{ flex: 1, padding: 16 }}>
+        <AgentSystemsGuide />
+
         {tab === "groups" && (
           <div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
               <div>
                 <h3 style={{ fontSize: 16, marginBottom: 4 }}>{t("agents.title")}</h3>
                 <p style={{ fontSize: 13, color: "var(--m3-on-surface-variant)" }}>{t("agents.subtitle")}</p>
               </div>
-              <button type="button" className="m3-filled-btn" onClick={addGroup}>+ {t("agents.addGroup")}</button>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="button" className="m3-outlined-btn" onClick={pasteGroupJson}>{t("agents.pasteGroup")}</button>
+                <button type="button" className="m3-filled-btn" onClick={addGroup}>+ {t("agents.addGroup")}</button>
+              </div>
             </div>
             <div className="agent-grid">
               {groups.map((g) => (
-                <div key={g.id} className="m3-card agent-member-card" style={{ cursor: "pointer" }} onClick={() => { setSelectedGroupId(g.id); setTab("editor"); }}>
+                <div key={g.id} className="m3-card agent-member-card agent-group-card">
+                  <div
+                    className="agent-group-card-body"
+                    onClick={() => { setSelectedGroupId(g.id); setTab("editor"); }}
+                    onKeyDown={(e) => e.key === "Enter" && (setSelectedGroupId(g.id), setTab("editor"))}
+                    role="button"
+                    tabIndex={0}
+                  >
                   <h4>{g.name}</h4>
                   <p style={{ fontSize: 12, color: "var(--m3-outline)", marginBottom: 8 }}>
                     {ORCHESTRATION_STRATEGIES.find((s) => s.id === g.orchestrationMode)?.[lang]} · {g.members.length} {t("agents.members")}
@@ -158,6 +234,18 @@ export function AgentStudio() {
                       </span>
                     ))}
                   </div>
+                  </div>
+                  <div className="agent-group-card-actions" onClick={(e) => e.stopPropagation()}>
+                    <Tooltip text={t("agents.copyGroupTip")}>
+                      <button type="button" className="m3-tonal-btn sm" onClick={() => copyGroupJson(g)}>📋</button>
+                    </Tooltip>
+                    <Tooltip text={t("agents.duplicateGroupTip")}>
+                      <button type="button" className="m3-tonal-btn sm" onClick={() => duplicateGroup(g)}>⧉</button>
+                    </Tooltip>
+                    <Tooltip text={t("agents.deleteGroupTip")}>
+                      <button type="button" className="m3-tonal-btn sm danger" onClick={() => deleteGroup(g.id)}>✕</button>
+                    </Tooltip>
+                  </div>
                 </div>
               ))}
             </div>
@@ -166,6 +254,11 @@ export function AgentStudio() {
 
         {tab === "editor" && selected && (
           <div style={{ maxWidth: 900 }}>
+            <div className="agent-editor-toolbar">
+              <button type="button" className="m3-outlined-btn" onClick={() => copyGroupJson(selected)}>{t("agents.copyGroup")}</button>
+              <button type="button" className="m3-outlined-btn" onClick={() => duplicateGroup(selected)}>{t("agents.duplicateGroup")}</button>
+              <button type="button" className="m3-outlined-btn danger" onClick={() => deleteGroup(selected.id)}>{t("agents.deleteGroup")}</button>
+            </div>
             <div className="form-row">
               <label className="form-label">{t("agents.groupName")}</label>
               <input className="m3-input" value={selected.name} onChange={(e) => updateGroup({ name: e.target.value })} />
@@ -220,6 +313,10 @@ export function AgentStudio() {
               <MemberEditor key={m.id} member={m} lang={lang} t={t}
                 onChange={(p) => updateMember(m.id, p)}
                 onRemove={() => updateGroup({ members: selected.members.filter((x) => x.id !== m.id) })}
+                onDuplicate={() => updateGroup({
+                  members: [...selected.members, cloneMember(m, t("agents.copySuffix"))],
+                })}
+                onCopyJson={() => navigator.clipboard.writeText(JSON.stringify(m, null, 2))}
               />
             ))}
             <button type="button" className="m3-outlined-btn" style={{ marginTop: 8 }} onClick={() => updateGroup({ members: [...selected.members, newMember()] })}>
@@ -243,13 +340,15 @@ export function AgentStudio() {
 }
 
 function MemberEditor({
-  member, lang, t, onChange, onRemove,
+  member, lang, t, onChange, onRemove, onDuplicate, onCopyJson,
 }: {
   member: AgentMember & { tools?: string[]; trigger?: string; triggerKeyword?: string; systemPrompt?: string; resources?: Record<string, unknown> };
   lang: "ru" | "en";
   t: (k: string) => string;
   onChange: (p: Partial<AgentMember>) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
+  onCopyJson: () => void;
 }) {
   const [open, setOpen] = useState(true);
   const res = member.resources || { ramLimitMb: 2048, cpuCores: [0, 1], maxTokens: 2048, temperature: 0.7, executionOrder: 0 };
@@ -260,6 +359,12 @@ function MemberEditor({
         <span>{open ? "▼" : "▶"}</span>
         <input className="m3-input" style={{ flex: 1, padding: "6px 10px" }} value={member.name}
           onChange={(e) => onChange({ name: e.target.value })} onClick={(e) => e.stopPropagation()} />
+        <Tooltip text={t("agents.copyMemberTip")}>
+          <button type="button" className="m3-tonal-btn sm" onClick={(e) => { e.stopPropagation(); onCopyJson(); }}>📋</button>
+        </Tooltip>
+        <Tooltip text={t("agents.duplicateMemberTip")}>
+          <button type="button" className="m3-tonal-btn sm" onClick={(e) => { e.stopPropagation(); onDuplicate(); }}>⧉</button>
+        </Tooltip>
         <button type="button" className="m3-outlined-btn" style={{ padding: "4px 10px", fontSize: 11 }} onClick={(e) => { e.stopPropagation(); onRemove(); }}>✕</button>
       </div>
       {open && (

@@ -245,15 +245,24 @@ export const useAppStore = create<AppStore>((set, get) => ({
         const messages = [...c.messages];
         for (let i = messages.length - 1; i >= 0; i--) {
           if (messages[i].role === "assistant" && messages[i].streaming) {
+            const prev = messages[i];
+            const hasBody = Boolean(prev.content?.trim() || prev.thinking?.trim());
+            const content =
+              patch.content ?? (hasBody ? prev.content : (patch.error ?? prev.content));
             messages[i] = {
-              ...messages[i],
+              ...prev,
               streaming: false,
               streamTokens: undefined,
-              content: patch.content ?? (patch.error ? patch.error : messages[i].content),
-              tokens: patch.tokens ?? messages[i].streamTokens,
-              latencyMs: patch.latencyMs,
-              cancelled: patch.cancelled,
-              meta: patch.meta ?? messages[i].meta,
+              content,
+              thinking: prev.thinking,
+              tokens: patch.tokens ?? prev.streamTokens ?? prev.tokens,
+              latencyMs: patch.latencyMs ?? prev.latencyMs,
+              cancelled: patch.cancelled ?? prev.cancelled,
+              meta: {
+                ...prev.meta,
+                ...patch.meta,
+                ...(patch.cancelled ? { stopped: true } : {}),
+              },
             };
             break;
           }

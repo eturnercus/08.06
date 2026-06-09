@@ -23,10 +23,12 @@ export function useChatStream() {
     listen<ChatStreamPayload>("chat-stream", (event) => {
       const p = event.payload;
       if (p.done) {
+        const cancelled = Boolean(p.error?.includes("остановлена"));
         finalizeStreamMessage(p.chatId, {
           tokens: p.tokensUsed,
           latencyMs: p.latencyMs,
-          error: p.error,
+          cancelled,
+          error: cancelled ? undefined : p.error,
         });
       } else if (p.delta) {
         appendStreamDelta(p.chatId, p.delta);
