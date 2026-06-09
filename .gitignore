@@ -10,3 +10,4 @@ src-tauri/llama-libs/
 .env
 .env.*
 !.env.example
+*.mp4
