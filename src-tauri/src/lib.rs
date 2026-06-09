@@ -75,42 +75,12 @@ async fn send_chat(
     if network::message_wants_web_search(&request.message) {
         let allow = desktop_agent::internet_allowed(&settings, Some(&chat_id));
         if allow {
-            let query = network::extract_search_query(&request.message);
-            match state
+            let lookup = state
                 .network
-                .web_search(&query, None, Some(chat_id.clone()), true, &settings)
-                .await
-            {
-                Ok(log) if !log.blocked => {
-                    let summary = network::format_ddg_preview(&log.response_preview);
-                    if summary.is_empty() {
-                        request.message = format!(
-                            "{}\n\n[Веб-поиск DuckDuckGo выполнен, но краткого ответа нет. Сформулируйте ответ по общим знаниям и укажите, что точных данных из поиска нет.]",
-                            request.message
-                        );
-                    } else {
-                        request.message = format!(
-                            "{}\n\n[Данные из интернета (DuckDuckGo)]:\n{}\n\nСформируй ответ пользователю на основе этих данных.",
-                            request.message, summary
-                        );
-                    }
-                }
-                Ok(log) => {
-                    let reason = log
-                        .block_reason
-                        .unwrap_or_else(|| "запрос заблокирован политикой сети".into());
-                    request.message = format!(
-                        "{}\n\n[Веб-поиск не выполнен: {reason}. Проверьте Настройки → Сеть: режим API и белый список DuckDuckGo.]",
-                        request.message
-                    );
-                }
-                Err(e) => {
-                    request.message = format!(
-                        "{}\n\n[Ошибка веб-поиска: {e}]",
-                        request.message
-                    );
-                }
-            }
+                .lookup_for_chat_message(&request.message, &chat_id, true, &settings)
+                .await;
+            request.message =
+                network::inject_web_lookup_into_message(&request.message, &lookup);
         } else {
             request.message = format!(
                 "{}\n\n[Интернет выключен для этого чата. Включите 🌐 в правах чата (⚙) и при необходимости Настройки → Сеть.]",

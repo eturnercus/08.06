@@ -98,7 +98,7 @@
     "delete": "Удалить чат", "deleteConfirm": "Удалить этот чат безвозвратно?", "export": "Сохранить чат",
     "thinking": "Размышление", "generating": "Модель генерирует ответ (первый запуск может занять минуты)...",
     "attach": "Прикрепить", "stm": "STM", "ltm": "LTM", "internet": "Интернет",
-    "internetSearchHint": "При 🌐 Silenium ищет в DuckDuckGo и подставляет результат в промпт (фразы «посмотри в интернете», «погода» и т.п.).",
+    "internetSearchHint": "При 🌐 Silenium ищет в интернете (погода — wttr.in, остальное — DuckDuckGo) и подставляет результат в промпт («посмотри в интернете», «погода» и т.п.).",
     "tokens": "Токены", "tokensOut": "ток. ответа", "latency": "Задержка", "offline": "Без интернета",
     "messageProps": "Свойства сообщения", "generatingShort": "генерация…", "yes": "да",
     "attachments": "Вложения", "attachmentsCount": "файл(ов)",

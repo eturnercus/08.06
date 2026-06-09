@@ -43,6 +43,17 @@ pub struct AgentStreamPayload {
 pub trait TokenSink {
     fn push(&mut self, delta: &str);
     fn flush(&mut self);
+    /// Characters already sent to the UI (streaming).
+    fn emitted_chars(&self) -> usize {
+        0
+    }
+    /// If the model produced no stream deltas, push the final text once.
+    fn ensure_content(&mut self, text: &str) {
+        if self.emitted_chars() == 0 && !text.trim().is_empty() {
+            self.push(text);
+            self.flush();
+        }
+    }
 }
 
 pub struct StreamSink {
@@ -147,6 +158,10 @@ impl StreamSink {
 }
 
 impl TokenSink for StreamSink {
+    fn emitted_chars(&self) -> usize {
+        self.total_emitted
+    }
+
     fn push(&mut self, delta: &str) {
         if delta.is_empty() {
             return;

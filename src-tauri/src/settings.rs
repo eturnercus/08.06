@@ -613,6 +613,7 @@ impl Default for AppSettings {
                     "https://*.huggingface.co".into(),
                     "https://api.duckduckgo.com".into(),
                     "https://html.duckduckgo.com".into(),
+                    "https://wttr.in".into(),
                 ],
                 proxy_url: String::new(),
                 dns_over_https: true,

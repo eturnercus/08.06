@@ -989,6 +989,7 @@ impl InferenceEngine {
             {
                 sink.cancelled(latency_ms);
             } else {
+                sink.ensure_content(&response_content);
                 sink.finish(
                     tokens_used,
                     prompt_tokens,
