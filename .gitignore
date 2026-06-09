@@ -4,8 +4,10 @@ src-tauri/target/
 src-tauri/llama-libs/*.so*
 src-tauri/llama-libs/*.dll
 src-tauri/gen/
+src-tauri/llama-libs/
 *.log
 .DS_Store
 .env
 .env.*
 !.env.example
+*.mp4

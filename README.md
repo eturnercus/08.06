@@ -135,7 +135,20 @@ npm run lint
 | **Linux** | Node.js 22+, Rust stable, `libwebkit2gtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `patchelf`, `libssl-dev` |
 | **Windows** | Node.js 22+, Rust stable, MSVC Build Tools, WebView2 |
 
-CI: `.github/workflows/build.yml` — артефакты Linux/Windows; релизы по тегу `v*`.
+### Релизы (GitHub)
+
+Сборка CI по умолчанию **не** публикует релиз — только проверяет, что проект собирается.
+
+| Способ | Когда использовать |
+|--------|-------------------|
+| **Тег `v*`** | `git tag v1.0.1 && git push origin v1.0.1` — после мержа в `main`, версия в `src-tauri/tauri.conf.json` должна совпадать (`1.0.1` → тег `v1.0.1`) |
+| **Actions → Build Silenium → Run workflow** | Поле `release_tag`: `v1.0.1` на ветке `main` — соберёт `.deb` + `.msi` и создаст GitHub Release |
+
+Артефакты: `Silenium_*_amd64.deb` (Linux), `Silenium_*_x64_en-US.msi` (Windows).
+
+> Старый релиз **NeuroForge v1.0.0** — до переименования. Первый релиз **Silenium** — с **v1.0.1**.
+
+CI: `.github/workflows/build.yml` — Linux `.deb` + Windows `.msi` (без AppImage, чтобы сборка не падала на `linuxdeploy`).
 
 ---
 

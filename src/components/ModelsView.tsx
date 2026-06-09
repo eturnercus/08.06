@@ -3,8 +3,6 @@ import { useTranslation } from "react-i18next";
 import { HuggingFaceBrowser } from "./models/HuggingFaceBrowser";
 import { LocalModelsPanel } from "./models/LocalModelsPanel";
 import { useModels } from "../hooks/useModels";
-import { PageIntro } from "./ui/PageIntro";
-import { EmptyState } from "./ui/EmptyState";
 
 export function ModelsView() {
   const { t } = useTranslation();
@@ -13,7 +11,6 @@ export function ModelsView() {
 
   return (
     <div className="models-view">
-      <PageIntro description={t("models.pageIntro")} />
       <div className="m3-tabs">
         <button type="button" className={`m3-tab ${tab === "local" ? "active" : ""}`} onClick={() => setTab("local")}>{t("models.localTab")}</button>
         <button type="button" className={`m3-tab ${tab === "hf" ? "active" : ""}`} onClick={() => setTab("hf")}>{t("models.hfTab")}</button>
@@ -23,9 +20,6 @@ export function ModelsView() {
       {tab === "hf" && <HuggingFaceBrowser onDownloaded={refresh} />}
       {tab === "all" && (
         <div className="scroll-y models-all">
-          {models.length === 0 && (
-            <EmptyState icon="🧠" title={t("models.emptyTitle")} description={t("models.emptyDesc")} />
-          )}
           {models.map((m) => (
             <div key={m.id} className="m3-card model-card">
               <strong>{m.name}</strong>

@@ -172,12 +172,12 @@ export function SettingsView() {
               <InferenceRuntimePanel ggufRuntime={(inf.ggufRuntime as string) || "silenium_core"} />
               <SectionTitle>{t("settings.inference.section")}</SectionTitle>
               <SettingSelect title={t("settings.inference.modelFormat")} value={inf.defaultBackend as string} options={["gguf", "onnx", "safetensors", "pytorch", "tensorrt"]} onChange={(v) => update("inference", "defaultBackend", v)} />
-              <SettingSlider title={t("settings.inference.context")} desc={t("settings.inference.contextDesc")} value={inf.contextLength as number} onChange={(v) => update("inference", "contextLength", v)} min={2048} max={131072} step={1024} />
-              <SettingSlider title={t("settings.inference.temperature")} desc={t("settings.inference.temperatureDesc")} value={inf.temperature as number} onChange={(v) => update("inference", "temperature", v)} min={0} max={2} step={0.05} />
-              <SettingNumber title={t("settings.inference.topK")} desc={t("settings.inference.topKDesc")} value={inf.topK as number} onChange={(v) => update("inference", "topK", v)} />
-              <SettingToggle title={t("settings.inference.streaming")} desc={t("settings.inference.streamingDesc")} value={inf.streaming as boolean} onChange={(v) => update("inference", "streaming", v)} />
-              <SettingToggle title={t("settings.inference.flashAttention")} value={inf.flashAttention as boolean} onChange={(v) => update("inference", "flashAttention", v)} />
-              <SettingToggle title={t("settings.inference.speculative")} value={inf.speculativeDecoding as boolean} onChange={(v) => update("inference", "speculativeDecoding", v)} />
+              <SettingSlider title="Context" value={inf.contextLength as number} onChange={(v) => update("inference", "contextLength", v)} min={2048} max={131072} step={1024} />
+              <SettingSlider title="Temperature" value={inf.temperature as number} onChange={(v) => update("inference", "temperature", v)} min={0} max={2} step={0.05} />
+              <SettingNumber title="Top-K" value={inf.topK as number} onChange={(v) => update("inference", "topK", v)} />
+              <SettingToggle title="Streaming" value={inf.streaming as boolean} onChange={(v) => update("inference", "streaming", v)} />
+              <SettingToggle title="Flash Attention" value={inf.flashAttention as boolean} onChange={(v) => update("inference", "flashAttention", v)} />
+              <SettingToggle title="Speculative Decoding" value={inf.speculativeDecoding as boolean} onChange={(v) => update("inference", "speculativeDecoding", v)} />
             </>
           )}
           {tab === "appearance" && (

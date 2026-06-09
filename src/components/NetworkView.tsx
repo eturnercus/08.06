@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, NetworkLog } from "../api/tauri";
 import { Tooltip } from "./ui/Tooltip";
-import { PageIntro } from "./ui/PageIntro";
-import { EmptyState } from "./ui/EmptyState";
 import { isTauri } from "../api/browserFallback";
 
 export function NetworkView() {
@@ -37,8 +35,8 @@ export function NetworkView() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
-      <div className="network-header">
-        <PageIntro title={t("network.title")} description={t("network.pageIntro")} />
+      <div style={{ padding: 16, borderBottom: "1px solid var(--m3-outline-variant)" }}>
+        <h3 style={{ marginBottom: 8 }}>{t("network.title")}</h3>
         <div className="m3-tabs" style={{ marginBottom: 12 }}>
           <button type="button" className={`m3-tab ${tab === "http" ? "active" : ""}`} onClick={() => setTab("http")}>
             HTTP / API
@@ -49,7 +47,7 @@ export function NetworkView() {
         </div>
         {tab === "http" && (
           <>
-            <p className="form-hint network-ddg-hint">{t("network.ddgDesc")}</p>
+            <p style={{ fontSize: 13, color: "var(--m3-on-surface-variant)", marginBottom: 12 }}>{t("network.ddgDesc")}</p>
             <div style={{ display: "flex", gap: 8 }}>
               <Tooltip text={t("network.ddgTip")}>
                 <input className="m3-input" style={{ flex: 1 }} value={searchQ} onChange={(e) => setSearchQ(e.target.value)}
@@ -63,7 +61,7 @@ export function NetworkView() {
       <div className="scroll monitor-timeline" style={{ flex: 1 }}>
         {tab === "http" ? (
           logs.length === 0 ? (
-            <EmptyState icon="🌐" title={t("network.noLogsTitle")} description={t("network.noLogs")} />
+            <p style={{ color: "var(--m3-outline)", textAlign: "center", padding: 40 }}>{t("network.noLogs")}</p>
           ) : logs.map((log) => (
             <div key={log.id} className={`monitor-event ${log.blocked ? "error" : ""}`}>
               <span className="m3-chip" style={{ fontSize: 10 }}>{log.blocked ? t("network.blocked") : t("network.allowed")}</span>
@@ -85,7 +83,7 @@ export function NetworkView() {
             </div>
           ))
         ) : audit.length === 0 ? (
-          <EmptyState icon="📋" title={t("network.noAuditTitle")} description={t("network.noAudit")} />
+          <p style={{ color: "var(--m3-outline)", textAlign: "center", padding: 40 }}>{t("network.noAudit")}</p>
         ) : (
           audit.map((line, i) => (
             <div key={i} className="monitor-event">
