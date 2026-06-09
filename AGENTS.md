@@ -27,11 +27,15 @@ Rust **1.85+** required (use `rustup update stable`).
 npm install
 npm run lint
 npm run build
-npm run tauri:build    # production binary + .deb/.AppImage
+npm run tauri:build    # production binary + .deb / .msi (see tauri.conf bundle targets)
 npm run tauri:dev      # development with hot reload
 ```
 
 Built artifacts: `src-tauri/target/release/bundle/`
+
+### GitHub Releases
+
+CI does not publish releases on every push. To ship: bump `src-tauri/tauri.conf.json` `version`, merge to `main`, then either push tag `v{version}` or run **Actions → Build Silenium → Run workflow** with `release_tag` = `v{version}` on `main`. Tag must match config (`1.0.1` → `v1.0.1`). Workflow uploads Linux `.deb` + Windows `.msi` with `merge-multiple` artifacts.
 
 ### Notes
 
