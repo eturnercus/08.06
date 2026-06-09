@@ -53,7 +53,7 @@ export function SettingsView() {
     setSettings(draft);
     if (draft.language !== i18n.language) {
       i18n.changeLanguage(draft.language);
-      localStorage.setItem("neuroforge-lang", draft.language);
+      localStorage.setItem("silenium-lang", draft.language);
     }
     setSaved(true);
   };

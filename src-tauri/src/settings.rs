@@ -28,7 +28,7 @@ pub struct AppSettings {
     pub custom_models: Vec<CustomModelEntry>,
 }
 
-/// Передовые инновационные настройки NeuroForge
+/// Передовые инновационные настройки Silenium
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct InnovationSettings {
@@ -598,7 +598,7 @@ impl Default for AppSettings {
                 max_concurrent_requests: 4,
                 log_all_requests: true,
                 block_private_ips: true,
-                user_agent: "NeuroForge/1.0".into(),
+                user_agent: "Silenium/1.0".into(),
                 tls_verify: true,
                 websocket_enabled: false,
                 huggingface_mirror: String::new(),
@@ -729,9 +729,7 @@ impl Default for AppSettings {
 }
 
 pub fn settings_path() -> PathBuf {
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("neuroforge");
-    fs::create_dir_all(&path).ok();
+    let mut path = crate::app_paths::app_data_dir();
     path.push("settings.json");
     path
 }

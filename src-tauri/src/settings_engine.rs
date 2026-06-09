@@ -36,8 +36,7 @@ const EXFIL_PATTERNS: &[&str] = &[
 ];
 
 pub fn audit_log_raw(detail: &str) {
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("neuroforge");
+    let mut path = crate::app_paths::app_data_dir();
     path.push("audit.log");
     let _ = fs::create_dir_all(path.parent().unwrap_or(&path));
     let line = format!("{} [network] {}\n", Utc::now().to_rfc3339(), detail);
@@ -47,8 +46,7 @@ pub fn audit_log_raw(detail: &str) {
 }
 
 pub fn read_audit_log_tail(max_lines: usize) -> Vec<String> {
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("neuroforge");
+    let mut path = crate::app_paths::app_data_dir();
     path.push("audit.log");
     if !path.exists() {
         return Vec::new();
@@ -68,8 +66,7 @@ pub fn audit_log(settings: &AppSettings, category: &str, detail: &str) {
     if !settings.security.audit_log_enabled {
         return;
     }
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("neuroforge");
+    let mut path = crate::app_paths::app_data_dir();
     path.push("audit.log");
     let _ = fs::create_dir_all(path.parent().unwrap_or(&path));
     let line = format!(

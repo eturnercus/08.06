@@ -1,4 +1,5 @@
 mod agents;
+mod app_paths;
 mod desktop_agent;
 mod devices;
 mod gguf_runner;
@@ -591,5 +592,5 @@ pub fn run() {
             get_system_info,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running NeuroForge");
+        .expect("error while running Silenium");
 }

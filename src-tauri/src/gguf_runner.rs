@@ -423,5 +423,5 @@ impl Clone for GenerateParams {
 }
 
 pub fn is_legacy_stub(text: &str) -> bool {
-    text.starts_with("NeuroForge | Модель:") || text.starts_with("NeuroForge | Model:")
+    text.starts_with("Silenium | Модель:") || text.starts_with("Silenium | Model:")
 }

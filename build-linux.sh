@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# NeuroForge — автономная production-сборка для Linux
+# Silenium — автономная production-сборка для Linux
 # Создатель и правообладатель: eturnercus
 # Copyright (c) 2026 eturnercus. All Rights Reserved.
 # =============================================================================
@@ -55,7 +55,7 @@ done
 
 echo ""
 echo "============================================================"
-echo "  NeuroForge — сборка для Linux"
+echo "  Silenium — сборка для Linux"
 echo "  Создатель: eturnercus | Copyright (c) 2026"
 echo "============================================================"
 echo ""
@@ -161,7 +161,7 @@ export CC="${CC:-gcc}"
 npm run tauri build
 
 BUNDLE="$ROOT/src-tauri/target/release/bundle"
-BINARY="$ROOT/src-tauri/target/release/neuroforge"
+BINARY="$ROOT/src-tauri/target/release/silenium"
 
 echo ""
 echo "============================================================"

@@ -1,5 +1,5 @@
 {
-  "app": { "name": "NeuroForge", "tagline": "Next-generation local AI runtime" },
+  "app": { "name": "Silenium", "tagline": "Isolated local AI: agents, memory, dual mouse" },
   "layout": { "online": "Local" },
   "language": {
     "title": "Choose language",
@@ -20,7 +20,7 @@
       "permissions": "Permissions", "innovation": "Advanced", "ready": "Ready"
     },
     "welcome": {
-      "title": "Welcome to NeuroForge",
+      "title": "Welcome to Silenium",
       "desc": "A next-gen platform for running neural networks locally with full control over data, resources, and AI behavior.",
       "feat1": "Cross-platform: Windows and Linux",
       "feat2": "150+ performance and security settings",
@@ -70,7 +70,7 @@
     },
     "innovation": {
       "title": "Innovative technologies",
-      "desc": "NeuroForge includes cutting-edge algorithms: neuroplastic memory, quantum context layers, holographic compression.",
+      "desc": "Silenium includes cutting-edge algorithms: neuroplastic memory, quantum context layers, holographic compression.",
       "feat1": "Cognitive load balancer",
       "feat2": "Synaptic request routing",
       "feat3": "Meta-cognition and dream consolidation",
@@ -78,7 +78,7 @@
     },
     "ready": {
       "title": "All set!",
-      "desc": "NeuroForge is ready. All parameters can be changed in Settings — 150+ options available.",
+      "desc": "Silenium is ready. All parameters can be changed in Settings — 150+ options available.",
       "feat1": "One-click reset to defaults",
       "feat2": "Help with description of every feature"
     }
@@ -143,7 +143,7 @@
       "thermal": "Thermal throttle (°C)"
     },
     "innovation": {
-      "badge": "NEW", "title": "NeuroForge innovative technologies",
+      "badge": "NEW", "title": "Silenium innovative technologies",
       "desc": "Cutting-edge algorithms for context, memory, and cognitive load management.",
       "cognitive": "Cognitive layer", "context": "Context", "streaming": "Streaming", "advanced": "Advanced",
       "cognitiveLoadBalancer": "Cognitive load balancer",
@@ -282,7 +282,7 @@
     "mmprojWarn": "mmproj — not a text model"
   },
   "help": {
-    "title": "Help", "intro": "NeuroForge — local AI runtime: 79+ settings in 9 categories, Agent Studio, AI memory, network isolation.",
+    "title": "Help", "intro": "Silenium — local AI runtime: 79+ settings in 9 categories, Agent Studio, AI memory, network isolation.",
     "featureMatrix": "Feature checklist",
     "sections": {
       "system": "RAM, CPU, GPU, priorities, and turbo mode.",
@@ -292,7 +292,7 @@
       "agents": "Agents section: 10 strategies, 12 roles, 14 tools, permissions and resources.",
       "devices": "Camera, microphone, screen, files — multi-mode input.",
       "reset": "Reset all settings to defaults.",
-      "models": "Models tab: folder ~/.local/share/neuroforge/models (Linux). Drop .gguf files there or download from Hugging Face. Each chat and agent member has its own model selector."
+      "models": "Models tab: folder ~/.local/share/silenium/models (Linux). Drop .gguf files there or download from Hugging Face. Each chat and agent member has its own model selector."
     },
     "features": {
       "orchestration": "10 orchestration strategies",

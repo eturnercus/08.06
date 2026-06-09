@@ -1,11 +1,11 @@
 {
-  "name": "neuroforge",
+  "name": "silenium",
   "private": true,
   "version": "1.0.0",
   "type": "module",
   "author": "eturnercus",
   "license": "SEE LICENSE IN LICENSE",
-  "description": "NeuroForge © eturnercus — локальный AI-рантайм: Agent Studio, STM/LTM память, 79+ настроек, изоляция сети",
+  "description": "Silenium © eturnercus — локальный AI-рантайм: Agent Studio, STM/LTM память, 79+ настроек, изоляция сети",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",

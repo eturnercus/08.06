@@ -47,7 +47,7 @@ export default function App() {
         } else {
           if (s.language) {
             i18n.changeLanguage(s.language);
-            localStorage.setItem("neuroforge-lang", s.language);
+            localStorage.setItem("silenium-lang", s.language);
           }
           setPhase("app");
         }

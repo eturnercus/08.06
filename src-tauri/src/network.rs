@@ -63,7 +63,7 @@ impl NetworkManager {
 
     pub fn new() -> Self {
         let client = Client::builder()
-            .user_agent("NeuroForge/1.0")
+            .user_agent("Silenium/1.0")
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .unwrap_or_default();

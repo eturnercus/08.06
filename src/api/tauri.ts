@@ -161,7 +161,7 @@ export const api = {
   getModelsDirectory: () =>
     isTauri()
       ? invoke<string>("get_models_directory")
-      : Promise.resolve("~/.local/share/neuroforge/models"),
+      : Promise.resolve("~/.local/share/silenium/models"),
   getDeviceStatus: () => invoke<DeviceStatus>("get_device_status"),
   captureScreen: () => invoke("capture_screen"),
   captureAudio: () => invoke("capture_audio"),

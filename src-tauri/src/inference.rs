@@ -89,8 +89,7 @@ pub struct InferenceEngine {
 }
 
 pub fn models_directory() -> PathBuf {
-    let mut path = dirs::data_dir().unwrap_or_else(|| PathBuf::from("."));
-    path.push("neuroforge");
+    let mut path = crate::app_paths::app_data_dir();
     path.push("models");
     fs::create_dir_all(&path).ok();
     path
@@ -105,7 +104,7 @@ impl InferenceEngine {
         let engine = Self {
             loaded_models: RwLock::new(HashMap::new()),
             client: Client::builder()
-                .user_agent("NeuroForge/1.0")
+                .user_agent("Silenium/1.0")
                 .timeout(std::time::Duration::from_secs(600))
                 .build()
                 .unwrap_or_default(),

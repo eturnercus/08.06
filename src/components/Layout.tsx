@@ -23,7 +23,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const switchLang = async (lang: "ru" | "en") => {
     i18n.changeLanguage(lang);
-    localStorage.setItem("neuroforge-lang", lang);
+    localStorage.setItem("silenium-lang", lang);
     if (!settings) return;
     const updated = { ...settings, language: lang };
     await api.updateSettings(updated as never);
@@ -39,7 +39,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="m3-app">
       <nav className="m3-rail">
-        <div className="m3-rail-logo">NF</div>
+        <div className="m3-rail-logo">Si</div>
         {NAV.map(({ key, icon }) => (
           <button
             key={key}

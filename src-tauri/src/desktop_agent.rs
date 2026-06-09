@@ -75,7 +75,7 @@ impl DesktopAgent {
                     },
                     browser: AgentBrowserState {
                         url: String::new(),
-                        title: "NeuroForge Agent Browser".into(),
+                        title: "Silenium Agent Browser".into(),
                         html_srcdoc: welcome_srcdoc(),
                         status: "idle".into(),
                         message: String::new(),
@@ -394,7 +394,7 @@ fn welcome_srcdoc() -> String {
 body{font-family:system-ui,sans-serif;background:#12161f;color:#e2e8f0;padding:24px;line-height:1.5}
 h1{font-size:18px;color:#9d8fff}p{color:#94a3b8;font-size:13px}
 </style></head><body>
-<h1>NeuroForge Agent Browser</h1>
+<h1>Silenium Agent Browser</h1>
 <p>Встроенный браузер для агентов. Ваша системная мышь не затрагивается — фиолетовый курсор принадлежит ИИ.</p>
 <p>Включите «Browser automation» и «Desktop control» в настройках, затем дайте агенту разрешение «Экран» и инструменты browser_*.</p>
 </body></html>"#

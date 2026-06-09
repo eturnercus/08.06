@@ -3,7 +3,7 @@ import { initReactI18next } from "react-i18next";
 import ru from "./locales/ru.json";
 import en from "./locales/en.json";
 
-const savedLang = localStorage.getItem("neuroforge-lang") || "ru";
+const savedLang = localStorage.getItem("silenium-lang") || "ru";
 
 i18n.use(initReactI18next).init({
   resources: {

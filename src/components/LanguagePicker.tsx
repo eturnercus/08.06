@@ -14,7 +14,7 @@ export function LanguagePicker() {
 
   const select = async (lang: string) => {
     i18n.changeLanguage(lang);
-    localStorage.setItem("neuroforge-lang", lang);
+    localStorage.setItem("silenium-lang", lang);
     const base = settings ?? (await api.getSettings());
     const updated = { ...base, language: lang };
     await api.updateSettings(updated as never);
@@ -27,7 +27,7 @@ export function LanguagePicker() {
       <div className="lang-bg" />
       <div className="lang-inner">
         <div className="lang-logo-block">
-          <div className="lang-logo">NF</div>
+          <div className="lang-logo">Si</div>
           <h1>{t("app.name")}</h1>
           <p>{t("app.tagline")}</p>
         </div>

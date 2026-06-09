@@ -98,8 +98,8 @@ interface AppStore {
   persistChats: () => void;
 }
 
-const CHATS_KEY = "neuroforge-chats";
-const ACTIVE_KEY = "neuroforge-active-chat";
+const CHATS_KEY = "silenium-chats";
+const ACTIVE_KEY = "silenium-active-chat";
 
 const defaultPerms = (): ChatPermissions => ({
   internet: false, stm: true, ltm: true, camera: true,

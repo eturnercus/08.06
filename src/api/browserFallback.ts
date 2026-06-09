@@ -1,6 +1,6 @@
 import type { AppSettings, ModelInfo } from "./tauri";
 
-const SETTINGS_KEY = "neuroforge-browser-settings";
+const SETTINGS_KEY = "silenium-browser-settings";
 
 export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;

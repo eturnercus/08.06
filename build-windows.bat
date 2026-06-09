@@ -3,7 +3,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 chcp 65001 >nul 2>&1
 
 REM =============================================================================
-REM NeuroForge - Windows production build
+REM Silenium - Windows production build
 REM Creator and copyright holder: eturnercus
 REM Copyright (c) 2026 eturnercus. All Rights Reserved.
 REM =============================================================================
@@ -25,7 +25,7 @@ goto show_help
 
 echo.
 echo ============================================================
-echo   NeuroForge - Windows build
+echo   Silenium - Windows build
 echo   Creator: eturnercus ^| Copyright (c) 2026
 echo ============================================================
 echo.
@@ -175,7 +175,7 @@ if /i "!BUILD_MODE!"=="cli" (
 )
 if errorlevel 1 goto error_exit
 
-set "BINARY=%ROOT%\src-tauri\target\release\neuroforge.exe"
+set "BINARY=%ROOT%\src-tauri\target\release\silenium.exe"
 set "BUNDLE=%ROOT%\src-tauri\target\release\bundle"
 
 echo.
