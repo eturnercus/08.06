@@ -280,6 +280,9 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
       <div className="form-row">
         <label className="form-label">{t("chat.permsTitle")}</label>
         <div className="perm-chips">
+          {chat.permissions.internet && (
+            <p className="field-hint">{t("chat.internetSearchHint")}</p>
+          )}
           {(["internet", "stm", "ltm", "camera", "microphone", "screen", "files", "tools"] as const).map((k) => (
             <Tooltip key={k} text={t(`chat.permTip.${k}`)}>
               <button

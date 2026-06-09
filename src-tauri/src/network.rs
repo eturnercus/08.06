@@ -270,3 +270,114 @@ impl NetworkManager {
         }
     }
 }
+
+/// Heuristic: user explicitly asks to use the web / weather / lookup.
+pub fn message_wants_web_search(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    const TRIGGERS: &[&str] = &[
+        "интернет",
+        "в сети",
+        "онлайн",
+        "посмотри",
+        "найди",
+        "погугли",
+        "загугли",
+        "duckduckgo",
+        "погод",
+        "weather",
+        "look up",
+        "search the",
+        "search for",
+        "в интернете",
+        "из интернета",
+        "узнай в",
+    ];
+    TRIGGERS.iter().any(|t| lower.contains(t))
+}
+
+pub fn extract_search_query(message: &str) -> String {
+    message
+        .replace('\n', " ")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .chars()
+        .take(240)
+        .collect()
+}
+
+/// Parse DuckDuckGo Instant Answer JSON into text for the model.
+pub fn format_ddg_preview(json_text: &str) -> String {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(json_text) else {
+        let trimmed = json_text.trim();
+        return if trimmed.len() > 40 {
+            trimmed.chars().take(1500).collect()
+        } else {
+            String::new()
+        };
+    };
+    let mut parts: Vec<String> = Vec::new();
+    if let Some(t) = v.get("Heading").and_then(|x| x.as_str()) {
+        if !t.is_empty() {
+            parts.push(t.to_string());
+        }
+    }
+    if let Some(a) = v.get("AbstractText").and_then(|x| x.as_str()) {
+        if !a.is_empty() {
+            parts.push(a.to_string());
+        }
+    }
+    if let Some(a) = v.get("Answer").and_then(|x| x.as_str()) {
+        if !a.is_empty() {
+            parts.push(format!("Краткий ответ: {a}"));
+        }
+    }
+    if let Some(topics) = v.get("RelatedTopics").and_then(|x| x.as_array()) {
+        for item in topics.iter().take(5) {
+            if let Some(text) = item.get("Text").and_then(|x| x.as_str()) {
+                if !text.is_empty() {
+                    parts.push(text.to_string());
+                }
+            }
+        }
+    }
+    parts.join("\n").chars().take(2000).collect()
+}
+
+pub fn ensure_ddg_api_whitelist(endpoints: &mut Vec<String>) {
+    for ep in [
+        "https://api.duckduckgo.com",
+        "https://html.duckduckgo.com",
+    ] {
+        if !endpoints.iter().any(|e| url_matches_whitelist(ep, e)) {
+            endpoints.push(ep.into());
+        }
+    }
+}
+
+#[cfg(test)]
+mod web_search_tests {
+    use super::*;
+
+    #[test]
+    fn detects_weather_internet_query() {
+        let msg = "Мне нужно узнать погоду в москве посмотри в интернете";
+        assert!(message_wants_web_search(msg));
+    }
+
+    #[test]
+    fn ddg_whitelist_includes_api() {
+        let mut eps = vec!["https://huggingface.co".into()];
+        ensure_ddg_api_whitelist(&mut eps);
+        assert!(eps.iter().any(|e| e.contains("duckduckgo")));
+    }
+}
+
+fn url_matches_whitelist(url: &str, pattern: &str) -> bool {
+    if pattern.contains('*') {
+        let prefix = pattern.split('*').next().unwrap_or("");
+        url.starts_with(prefix)
+    } else {
+        url.starts_with(pattern)
+    }
+}

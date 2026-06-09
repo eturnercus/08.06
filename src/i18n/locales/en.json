@@ -98,6 +98,7 @@
     "delete": "Delete chat", "deleteConfirm": "Delete this chat permanently?", "export": "Save chat",
     "thinking": "Reasoning", "generating": "Model is generating (first run may take minutes)...",
     "attach": "Attach", "stm": "STM", "ltm": "LTM", "internet": "Internet",
+    "internetSearchHint": "With 🌐 on, Silenium queries DuckDuckGo and adds results to the prompt (e.g. “look online”, “weather”).",
     "tokens": "Tokens", "tokensOut": "out tok", "latency": "Latency", "offline": "No internet",
     "messageProps": "Message properties", "generatingShort": "generating…", "yes": "yes",
     "attachments": "Attachments", "attachmentsCount": "file(s)",

@@ -931,6 +931,12 @@ impl InferenceEngine {
             }
         };
 
+        let response_content = if response_content.trim().is_empty() {
+            "Модель не сгенерировала текст. Попробуйте другую модель (1B+ Q4), увеличьте лимит токенов в свойствах чата или переформулируйте вопрос.".into()
+        } else {
+            response_content
+        };
+
         maybe_dream_consolidate(memory, settings, &request.chat_id, &effective_model_id);
 
         if stm_enabled {

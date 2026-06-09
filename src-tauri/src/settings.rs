@@ -611,6 +611,8 @@ impl Default for AppSettings {
                 api_only_endpoints: vec![
                     "https://huggingface.co".into(),
                     "https://*.huggingface.co".into(),
+                    "https://api.duckduckgo.com".into(),
+                    "https://html.duckduckgo.com".into(),
                 ],
                 proxy_url: String::new(),
                 dns_over_https: true,
@@ -763,6 +765,7 @@ fn migrate_settings(mut settings: AppSettings) -> AppSettings {
     if settings.innovation.thought_streaming {
         settings.innovation.thought_streaming = false;
     }
+    crate::network::ensure_ddg_api_whitelist(&mut settings.network.api_only_endpoints);
     settings
 }
 
