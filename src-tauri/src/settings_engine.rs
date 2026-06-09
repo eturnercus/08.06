@@ -140,10 +140,11 @@ pub fn enrich_system_prompt(
     settings: &AppSettings,
     base: &str,
     user_message: &str,
-    stm_entries: &[StmEntry],
+    _stm_entries: &[StmEntry],
     turn_index: u32,
 ) -> String {
     let inv = &settings.innovation;
+    let ru = settings.language != "en";
     let mut parts: Vec<String> = Vec::new();
     if !base.is_empty() {
         parts.push(base.to_string());
@@ -152,90 +153,62 @@ pub fn enrich_system_prompt(
     if inv.persona_fluidity && !settings.global_message_injection.system_prefix.is_empty() {
         let blend = inv.persona_blend_ratio.clamp(0.0, 1.0);
         if blend > 0.0 {
-            parts.push(format!(
-                "[persona blend {:.0}%] {}",
-                blend * 100.0,
-                settings.global_message_injection.system_prefix
-            ));
+            parts.push(settings.global_message_injection.system_prefix.clone());
         }
     }
 
+    let mut hints: Vec<String> = Vec::new();
+
     if inv.emotion_mirror {
         let tone = detect_emotion_tone(user_message);
-        let intensity = inv.emotion_mirror_intensity.clamp(0.0, 1.0);
-        parts.push(format!(
-            "[emotion mirror {intensity:.1}] Отвечай с учётом тона пользователя: {tone}."
-        ));
+        hints.push(if ru {
+            format!("Учитывай тон пользователя ({tone}).")
+        } else {
+            format!("Match the user's tone ({tone}).")
+        });
     }
 
-    if inv.context_dna {
-        let dna = context_fingerprint(user_message, stm_entries, inv.context_dna_mutation_rate);
-        parts.push(format!("[context DNA] {dna}"));
-    }
-
-    if inv.temporal_anchoring {
-        let window = inv.temporal_anchor_window_min.max(1);
-        parts.push(format!(
-            "[temporal anchor] Учитывай контекст последних {window} минут разговора."
-        ));
-    }
-
-    if inv.holographic_context && !stm_entries.is_empty() {
-        let projection = holographic_project(stm_entries, inv.holographic_projection_dims as usize);
-        parts.push(format!("[holographic context] {projection}"));
-    }
-
-    if inv.quantum_context_layers > 0 && !stm_entries.is_empty() {
-        let layers = quantum_context_stack(stm_entries, inv.quantum_context_layers, inv.quantum_entanglement_strength);
-        parts.push(layers);
-    }
-
-    if inv.attention_cascade && !stm_entries.is_empty() {
-        let cascade = attention_cascade_summary(stm_entries, inv.attention_cascade_depth as usize);
-        parts.push(format!("[attention cascade] {cascade}"));
-    }
-
-    if inv.resonance_tuning {
-        parts.push(format!(
-            "[resonance {:.2} Hz] Подстрой ритм ответа под спокойный, связный стиль.",
-            inv.resonance_frequency_hz
-        ));
-    }
-
-    if inv.meta_cognition_loop && inv.meta_cognition_interval > 0 && turn_index % inv.meta_cognition_interval == 0 {
-        parts.push(
-            "[meta-cognition] Кратко проверь логику ответа и избегай противоречий с историей."
-                .into(),
-        );
+    if inv.meta_cognition_loop
+        && inv.meta_cognition_interval > 0
+        && turn_index % inv.meta_cognition_interval == 0
+    {
+        hints.push(if ru {
+            "Проверь ответ на логику и противоречия с историей диалога.".into()
+        } else {
+            "Check your answer for logic and consistency with the conversation.".into()
+        });
     }
 
     if inv.neural_whisper_mode {
-        parts.push(format!(
-            "[whisper mode] Ответь очень кратко, до {} токенов.",
-            inv.whisper_token_budget.max(16)
-        ));
+        let budget = inv.whisper_token_budget.max(16);
+        hints.push(if ru {
+            format!("Ответь очень кратко (до {budget} токенов).")
+        } else {
+            format!("Reply very briefly (up to {budget} tokens).")
+        });
     }
 
     if inv.thought_streaming {
-        parts.push(format!(
-            "[thought stream {}ms, max {} reasoning tokens] Сначала кратко рассуждай в блоке ..., затем финальный ответ.",
-            inv.thought_stream_buffer_ms.max(16),
-            inv.thought_max_tokens.max(64)
-        ));
-    }
-
-    if inv.neural_mesh_sync && !inv.neural_mesh_peers.is_empty() {
-        parts.push(format!(
-            "[neural mesh] Синхронизация с узлами: {}.",
-            inv.neural_mesh_peers.join(", ")
-        ));
+        hints.push(if ru {
+            "При необходимости кратко обдумай задачу, затем дай понятный ответ пользователю.".into()
+        } else {
+            "Think briefly if needed, then give a clear reply to the user.".into()
+        });
     }
 
     if inv.ambient_context_harvest {
-        parts.push(
-            "[ambient harvest] Учитывай недавний контекст окружения, если он передан во вложениях."
-                .into(),
-        );
+        hints.push(if ru {
+            "Учитывай контекст из вложений, если он есть.".into()
+        } else {
+            "Use attachment context when relevant.".into()
+        });
+    }
+
+    // context_dna, temporal_anchoring, holographic/quantum/cascade layers affect memory
+    // and routing only — not injected as bracketed text (small models echo them verbatim).
+
+    if !hints.is_empty() {
+        parts.push(hints.join(" "));
     }
 
     parts.join("\n")
@@ -252,67 +225,6 @@ fn detect_emotion_tone(text: &str) -> &'static str {
     } else {
         "нейтральный"
     }
-}
-
-fn context_fingerprint(user: &str, stm: &[StmEntry], mutation: f32) -> String {
-    let mut hash: u64 = 0xcbf29ce484222325;
-    for b in user.bytes().chain(stm.iter().flat_map(|e| e.content.bytes())) {
-        hash ^= b as u64;
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    let mut id = format!("{:016x}", hash);
-    if mutation > 0.0 {
-        let flip = ((mutation * 1000.0) as usize) % id.len().max(1);
-        let mut chars: Vec<char> = id.chars().collect();
-        if let Some(c) = chars.get_mut(flip) {
-            *c = if *c == '0' { '1' } else { '0' };
-        }
-        id = chars.into_iter().collect();
-    }
-    id
-}
-
-fn holographic_project(stm: &[StmEntry], dims: usize) -> String {
-    let dims = dims.clamp(64, 2048);
-    let joined: String = stm
-        .iter()
-        .map(|e| format!("{}:{}", e.role, e.content))
-        .collect::<Vec<_>>()
-        .join("|");
-    let step = (joined.len() / dims).max(1);
-    joined
-        .chars()
-        .step_by(step)
-        .take(dims)
-        .collect()
-}
-
-fn quantum_context_stack(stm: &[StmEntry], layers: u32, strength: f32) -> String {
-    let n = layers.max(1) as usize;
-    let chunk = (stm.len() / n).max(1);
-    let mut out = String::from("[quantum layers]");
-    for (i, slice) in stm.chunks(chunk).take(n).enumerate() {
-        let weight = (strength * (i as f32 + 1.0)).min(1.0);
-        let snippet: String = slice
-            .iter()
-            .map(|e| e.content.chars().take(40).collect::<String>())
-            .collect::<Vec<_>>()
-            .join(" / ");
-        out.push_str(&format!(" L{i}(w={weight:.2}): {snippet}"));
-    }
-    out
-}
-
-fn attention_cascade_summary(stm: &[StmEntry], depth: usize) -> String {
-    let depth = depth.max(1);
-    let mut summaries = Vec::new();
-    let chunk = (stm.len() / depth).max(1);
-    for (i, group) in stm.chunks(chunk).take(depth).enumerate() {
-        let text: String = group.iter().map(|e| &e.content).cloned().collect::<Vec<_>>().join(" ");
-        let brief: String = text.chars().take(120).collect();
-        summaries.push(format!("depth{i}:{brief}"));
-    }
-    summaries.join(" → ")
 }
 
 // ─── Memory helpers ─────────────────────────────────────────────────────────

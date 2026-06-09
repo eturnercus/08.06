@@ -240,7 +240,7 @@
       "quantumLayers": "Quantum context layers",
       "quantumEntangle": "Quantum entanglement",
       "thoughtStream": "Thought streaming",
-      "thoughtStreamDesc": "Intermediate model reasoning in real time",
+      "thoughtStreamDesc": "Streamed output plus a gentle think-first hint — no internal tags in the reply",
       "thoughtMaxTokens": "Reasoning token budget",
       "thoughtMaxTokensDesc": "Max tokens for the model reasoning (think) block",
       "streamBuffer": "Buffer (ms)",

@@ -31,9 +31,30 @@ const ROLE_LEAK_MARKERS: &[&str] = &[
     "\nВопрос:",
 ];
 
+/// Bracketed innovation/injection tags that small models often echo from the system prompt.
+const INNOVATION_LEAK_MARKERS: &[&str] = &[
+    "[context DNA]",
+    "[temporal anchor]",
+    "[thought stream",
+    "[holographic context]",
+    "[quantum layers]",
+    "[attention cascade]",
+    "[emotion mirror",
+    "[persona blend",
+    "[meta-cognition]",
+    "[whisper mode]",
+    "[neural mesh]",
+    "[ambient harvest]",
+    "[resonance ",
+];
+
 pub fn truncate_at_template_leak(text: &str) -> String {
     let mut cut = text.len();
-    for marker in TEMPLATE_MARKERS.iter().chain(ROLE_LEAK_MARKERS.iter()) {
+    for marker in TEMPLATE_MARKERS
+        .iter()
+        .chain(ROLE_LEAK_MARKERS.iter())
+        .chain(INNOVATION_LEAK_MARKERS.iter())
+    {
         if marker.is_empty() {
             continue;
         }
@@ -74,6 +95,7 @@ pub fn generation_should_stop(text: &str) -> bool {
         .filter(|m| !m.is_empty())
         .any(|m| text.contains(m))
         || ROLE_LEAK_MARKERS.iter().any(|m| text.contains(m))
+        || INNOVATION_LEAK_MARKERS.iter().any(|m| text.contains(m))
         || detect_repetition_loop(text)
 }
 
@@ -123,5 +145,20 @@ mod tests {
         let phrase = "Вариант 1: 1 яблоко = 1000 грамм. ";
         let raw = phrase.repeat(5);
         assert!(detect_repetition_loop(&raw));
+    }
+
+    #[test]
+    fn strips_innovation_context_dna_leak() {
+        let raw = "Test:[context DNA] 6af507f8cd7d77cc[temporal anchor] Учитывай контекст";
+        let s = sanitize_llm_output(raw);
+        assert!(!s.contains("[context DNA]"));
+        assert!(!s.contains("[temporal anchor]"));
+        assert_eq!(s, "Test:");
+    }
+
+    #[test]
+    fn stops_on_innovation_marker_during_generation() {
+        let raw = "Ответ.[context DNA] 6af507f8";
+        assert!(generation_should_stop(raw));
     }
 }
