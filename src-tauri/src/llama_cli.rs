@@ -91,12 +91,13 @@ impl LlamaCliRunner {
     }
 
     pub fn generate(cfg: &LlamaCliConfig) -> Result<String, String> {
-        Self::generate_with_callback(cfg, None)
+        Self::generate_with_callback(cfg, None, None)
     }
 
     pub fn generate_with_callback(
         cfg: &LlamaCliConfig,
         mut on_delta: Option<&mut dyn FnMut(&str)>,
+        cancel: Option<&std::sync::atomic::AtomicBool>,
     ) -> Result<String, String> {
         let bin = Self::find_binary().ok_or_else(|| {
             "llama-cli не найден. Запустите scripts\\download-llama-win.ps1 или соберите с LLVM/MSVC."
@@ -109,6 +110,8 @@ impl LlamaCliRunner {
         let mut child = cmd
             .spawn()
             .map_err(|e| format!("Не удалось запустить {}: {e}", bin.display()))?;
+
+        let pid = child.id();
 
         let stderr = child.stderr.take();
         if let Some(err_pipe) = stderr {
@@ -126,6 +129,10 @@ impl LlamaCliRunner {
             let mut reader = BufReader::new(stdout);
             let mut buf = [0u8; 128];
             loop {
+                if cancel.is_some_and(|f| f.load(std::sync::atomic::Ordering::SeqCst)) {
+                    let _ = child.kill();
+                    return Err("Генерация остановлена пользователем".into());
+                }
                 match reader.read(&mut buf) {
                     Ok(0) => break,
                     Ok(n) => {
@@ -140,9 +147,14 @@ impl LlamaCliRunner {
             }
         }
 
+        if cancel.is_some_and(|f| f.load(std::sync::atomic::Ordering::SeqCst)) {
+            let _ = child.kill();
+            return Err("Генерация остановлена пользователем".into());
+        }
+
         let status = child
             .wait()
-            .map_err(|e| format!("Ошибка ожидания llama-cli: {e}"))?;
+            .map_err(|e| format!("Ошибка ожидания llama-cli (pid {pid}): {e}"))?;
 
         if !status.success() {
             return Err(format!(

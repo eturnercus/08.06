@@ -78,6 +78,10 @@ impl NetworkManager {
         self.logs.read().iter().cloned().collect()
     }
 
+    pub fn record_log(&self, log: NetworkRequestLog) {
+        self.push_log(log);
+    }
+
     fn push_log(&self, log: NetworkRequestLog) {
         let mut logs = self.logs.write();
         logs.push_front(log);
@@ -114,7 +118,14 @@ impl NetworkManager {
         }
     }
 
-    pub async fn web_search(&self, query: &str, agent_id: Option<String>) -> Result<NetworkRequestLog, String> {
+    pub async fn web_search(
+        &self,
+        query: &str,
+        agent_id: Option<String>,
+        chat_id: Option<String>,
+        allow_internet: bool,
+        settings: &crate::settings::AppSettings,
+    ) -> Result<NetworkRequestLog, String> {
         let url = format!(
             "https://api.duckduckgo.com/?q={}&format=json&no_html=1",
             urlencoding::encode(query)
@@ -124,17 +135,14 @@ impl NetworkManager {
             method: "GET".into(),
             body: None,
             agent_id,
-            chat_id: None,
-            allow_internet: true,
-            isolation_mode: "api_only".into(),
-            api_endpoints: vec![
-                "https://api.duckduckgo.com".into(),
-                "https://*.duckduckgo.com".into(),
-            ],
-            data_exfiltration_guard: false,
-            audit_enabled: false,
-            block_private_ips: false,
-            network_fingerprint_check: false,
+            chat_id,
+            allow_internet,
+            isolation_mode: settings.network.isolation_mode.clone(),
+            api_endpoints: settings.network.api_only_endpoints.clone(),
+            data_exfiltration_guard: settings.security.data_exfiltration_guard,
+            audit_enabled: settings.security.audit_log_enabled,
+            block_private_ips: settings.network.block_private_ips,
+            network_fingerprint_check: settings.security.network_fingerprint_check,
         })
         .await
     }

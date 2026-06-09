@@ -64,6 +64,7 @@ export function InnovationPanel({ d, u }: { d: Draft; u: Updater }) {
       <SectionTitle>{t("settings.innovation.streaming")}</SectionTitle>
       <SettingToggle badge={badge} title={t("settings.innovation.thoughtStream")} desc={t("settings.innovation.thoughtStreamDesc")} value={(inv.thoughtStreaming as boolean) ?? true} onChange={(v) => u("innovation", "thoughtStreaming", v)} />
       <SettingNumber title={t("settings.innovation.streamBuffer")} value={(inv.thoughtStreamBufferMs as number) ?? 120} onChange={(v) => u("innovation", "thoughtStreamBufferMs", v)} />
+      <SettingNumber title={t("settings.innovation.thoughtMaxTokens")} desc={t("settings.innovation.thoughtMaxTokensDesc")} value={(inv.thoughtMaxTokens as number) ?? 1024} onChange={(v) => u("innovation", "thoughtMaxTokens", v)} min={64} max={8192} />
       <SettingToggle badge={badge} title={t("settings.innovation.attentionCascade")} value={(inv.attentionCascade as boolean) ?? true} onChange={(v) => u("innovation", "attentionCascade", v)} />
       <SettingNumber title={t("settings.innovation.cascadeDepth")} value={(inv.attentionCascadeDepth as number) ?? 6} onChange={(v) => u("innovation", "attentionCascadeDepth", v)} />
       <SectionTitle>{t("settings.innovation.advanced")}</SectionTitle>

@@ -84,7 +84,9 @@
     }
   },
   "chat": {
-    "newChat": "New chat", "placeholder": "Type a message...", "send": "Send", "generating": "Model is generating (first run may take minutes)...",
+    "newChat": "New chat", "placeholder": "Type a message...", "send": "Send", "stop": "Stop", "stopped": "Stopped",
+    "delete": "Delete chat", "deleteConfirm": "Delete this chat permanently?", "export": "Save chat",
+    "thinking": "Reasoning", "generating": "Model is generating (first run may take minutes)...",
     "attach": "Attach", "stm": "STM", "ltm": "LTM", "internet": "Internet",
     "tokens": "Tokens", "latency": "Latency", "offline": "No internet",
     "camera": "Camera", "mic": "Microphone", "stopMic": "Stop",
@@ -163,6 +165,8 @@
       "quantumEntangle": "Quantum entanglement",
       "thoughtStream": "Thought streaming",
       "thoughtStreamDesc": "Intermediate model reasoning in real time",
+      "thoughtMaxTokens": "Reasoning token budget",
+      "thoughtMaxTokensDesc": "Max tokens for the model reasoning (think) block",
       "streamBuffer": "Buffer (ms)",
       "attentionCascade": "Attention cascade",
       "cascadeDepth": "Cascade depth",
@@ -256,7 +260,8 @@
     "title": "Network monitor", "fetch": "Test", "blocked": "Blocked", "allowed": "Allowed", "noLogs": "No requests",
     "ddgDesc": "DuckDuckGo Instant Answer API search with real-time activity panel",
     "ddgTip": "Requires internet permission in network settings",
-    "ddgPlaceholder": "Search query...", "ddgSearch": "Search"
+    "ddgPlaceholder": "Search query...", "ddgSearch": "Search",
+    "audit": "Audit log", "noAudit": "Audit log is empty"
   },
   "models": {
     "localTab": "Local", "hfTab": "Hugging Face", "allTab": "All models",
@@ -320,6 +325,7 @@
     "permissions": "Permissions", "systemPrompt": "System role", "systemPromptPh": "Instructions for this role...",
     "maxTokens": "Max tokens", "model": "Neural network (model)", "runTeam": "Run team", "prompt": "Task for the team",
     "results": "Results", "monitorTitle": "Orchestration monitor",
+    "monitorLive": "Active", "monitorAgents": "Agents",
     "monitorDesc": "Real-time execution events: start, agent replies, errors",
     "clearMonitor": "Clear", "noEvents": "Run a team task — events will appear here",
     "tip": {

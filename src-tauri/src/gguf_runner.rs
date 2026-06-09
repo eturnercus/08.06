@@ -92,6 +92,7 @@ impl GgufRuntime {
         &self,
         p: GenerateParams,
         mut stream: Option<&mut dyn TokenSink>,
+        cancel: Option<&std::sync::atomic::AtomicBool>,
     ) -> Result<String, String> {
         if p.model_path.to_lowercase().contains("mmproj") {
             return Err(
@@ -187,6 +188,9 @@ impl GgufRuntime {
         let n_len = n_cur + max_tokens;
 
         while n_cur < n_len {
+            if cancel.is_some_and(|f| f.load(std::sync::atomic::Ordering::SeqCst)) {
+                return Err("Генерация остановлена пользователем".into());
+            }
             let token = sampler.sample(&ctx, batch.n_tokens() - 1);
             if model.is_eog_token(token) {
                 break;
@@ -228,10 +232,11 @@ pub fn generate_with_best_backend(
     embedded: Option<&GgufRuntime>,
     p: GenerateParams,
     stream: Option<&mut dyn TokenSink>,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
 ) -> Result<String, String> {
     match stream {
-        Some(sink) => generate_with_best_backend_streaming(embedded, p, sink),
-        None => generate_with_best_backend_blocking(embedded, p),
+        Some(sink) => generate_with_best_backend_streaming(embedded, p, sink, cancel),
+        None => generate_with_best_backend_blocking(embedded, p, cancel),
     }
 }
 
@@ -239,10 +244,11 @@ pub fn generate_with_best_backend(
 pub fn generate_with_best_backend(
     p: GenerateParams,
     stream: Option<&mut dyn TokenSink>,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
 ) -> Result<String, String> {
     match stream {
-        Some(sink) => generate_with_best_backend_streaming(None, p, sink),
-        None => generate_with_best_backend_blocking(None, p),
+        Some(sink) => generate_with_best_backend_streaming(None, p, sink, cancel),
+        None => generate_with_best_backend_blocking(None, p, cancel),
     }
 }
 
@@ -262,28 +268,29 @@ fn generate_with_best_backend_streaming(
     #[cfg(not(feature = "embedded-llama"))] _embedded: Option<()>,
     p: GenerateParams,
     sink: &mut dyn TokenSink,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
 ) -> Result<String, String> {
     mmproj_guard(&p.model_path)?;
     let try_cli_first = p.prefer_cli && !p.prefer_embedded;
 
     if try_cli_first {
-        if let Ok(text) = run_cli_backend(&p, Some(sink)) {
+        if let Ok(text) = run_cli_backend(&p, Some(sink), cancel) {
             return Ok(text);
         }
         #[cfg(feature = "embedded-llama")]
         if let Some(rt) = embedded {
-            if let Ok(text) = rt.generate(p.clone_for_embedded(), Some(sink)) {
+            if let Ok(text) = rt.generate(p.clone_for_embedded(), Some(sink), cancel) {
                 return Ok(text);
             }
         }
     } else {
         #[cfg(feature = "embedded-llama")]
         if let Some(rt) = embedded {
-            if let Ok(text) = rt.generate(p.clone_for_embedded(), Some(sink)) {
+            if let Ok(text) = rt.generate(p.clone_for_embedded(), Some(sink), cancel) {
                 return Ok(text);
             }
         }
-        if let Ok(text) = run_cli_backend(&p, Some(sink)) {
+        if let Ok(text) = run_cli_backend(&p, Some(sink), cancel) {
             return Ok(text);
         }
     }
@@ -295,28 +302,29 @@ fn generate_with_best_backend_blocking(
     #[cfg(feature = "embedded-llama")] embedded: Option<&GgufRuntime>,
     #[cfg(not(feature = "embedded-llama"))] _embedded: Option<()>,
     p: GenerateParams,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
 ) -> Result<String, String> {
     mmproj_guard(&p.model_path)?;
     let try_cli_first = p.prefer_cli && !p.prefer_embedded;
 
     if try_cli_first {
-        if let Ok(text) = run_cli_backend(&p, None) {
+        if let Ok(text) = run_cli_backend(&p, None, cancel) {
             return Ok(text);
         }
         #[cfg(feature = "embedded-llama")]
         if let Some(rt) = embedded {
-            if let Ok(text) = rt.generate(p.clone_for_embedded(), None) {
+            if let Ok(text) = rt.generate(p.clone_for_embedded(), None, cancel) {
                 return Ok(text);
             }
         }
     } else {
         #[cfg(feature = "embedded-llama")]
         if let Some(rt) = embedded {
-            if let Ok(text) = rt.generate(p.clone_for_embedded(), None) {
+            if let Ok(text) = rt.generate(p.clone_for_embedded(), None, cancel) {
                 return Ok(text);
             }
         }
-        if let Ok(text) = run_cli_backend(&p, None) {
+        if let Ok(text) = run_cli_backend(&p, None, cancel) {
             return Ok(text);
         }
     }
@@ -327,6 +335,7 @@ fn generate_with_best_backend_blocking(
 fn run_cli_backend(
     p: &GenerateParams,
     stream: Option<&mut dyn TokenSink>,
+    cancel: Option<&std::sync::atomic::AtomicBool>,
 ) -> Result<String, String> {
     let gpu_layers =
         resolve_gpu_layers(p.gpu_layers, p.gpu_memory_mb, p.vram_reserve_mb, p.model_size_bytes);
@@ -356,9 +365,9 @@ fn run_cli_backend(
 
     if let Some(s) = stream {
         let mut cb = |delta: &str| s.push(delta);
-        LlamaCliRunner::generate_with_callback(&cfg, Some(&mut cb))
+        LlamaCliRunner::generate_with_callback(&cfg, Some(&mut cb), cancel)
     } else {
-        LlamaCliRunner::generate(&cfg)
+        LlamaCliRunner::generate_with_callback(&cfg, None, cancel)
     }
 }
 

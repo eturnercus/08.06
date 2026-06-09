@@ -166,8 +166,7 @@ body {
 }
 .monitor-event.error { border-left-color: var(--m3-error); }
 
-.scroll { overflow-y: auto; scrollbar-width: thin; }
-.scroll-y { overflow-y: auto; scrollbar-width: thin; }
+.monitor-live { border-left: 3px solid var(--accent); background: rgba(124, 108, 255, 0.06); }
 .form-row { margin-bottom: 14px; }
 .form-label { display: block; font-size: 12px; color: var(--m3-on-surface-variant); margin-bottom: 6px; font-weight: 500; }
 .form-hint { font-size: 11px; color: var(--m3-outline); margin-top: 4px; }

@@ -8,9 +8,11 @@ mod network;
 mod settings;
 mod settings_engine;
 mod storage_crypto;
+mod inference_cancel;
 mod stream_sink;
 
 use agents::AgentOrchestrator;
+use inference_cancel::CancelRegistry;
 use inference::{ChatRequest, InferenceEngine};
 use memory::MemoryStore;
 use network::{FetchParams, NetworkManager};
@@ -25,6 +27,7 @@ pub struct AppState {
     pub network: Arc<NetworkManager>,
     pub inference: Arc<InferenceEngine>,
     pub agents: Arc<AgentOrchestrator>,
+    pub cancel: Arc<CancelRegistry>,
 }
 
 #[tauri::command]
@@ -59,19 +62,105 @@ async fn send_chat(
     let settings = state.settings.lock().clone();
     let inference = Arc::clone(&state.inference);
     let memory = Arc::clone(&state.memory);
+    let cancel_reg = Arc::clone(&state.cancel);
     let stream_enabled = stream_sink::should_stream_chat(&settings);
     let buffer_ms = stream_sink::stream_buffer_ms(&settings);
     let chat_id = request.chat_id.clone();
+    let cancel_flag = cancel_reg.begin(&chat_id);
     tauri::async_runtime::spawn_blocking(move || {
         let mut stream_sink = if stream_enabled {
-            Some(stream_sink::StreamSink::for_chat(app, chat_id, buffer_ms))
+            Some(stream_sink::StreamSink::for_chat(app, chat_id.clone(), buffer_ms))
         } else {
             None
         };
-        inference.chat(&settings, &memory, &request, &mut stream_sink)
+        let resp = inference.chat(
+            &settings,
+            &memory,
+            &request,
+            &mut stream_sink,
+            Some(&cancel_flag),
+        );
+        cancel_reg.finish(&chat_id);
+        resp
     })
     .await
     .map_err(|e| format!("inference task: {e}"))
+}
+
+#[tauri::command]
+fn stop_chat(state: State<'_, AppState>, chat_id: String) {
+    state.cancel.cancel(&chat_id);
+}
+
+#[tauri::command]
+fn sync_chat_overrides(
+    state: State<'_, AppState>,
+    chat_id: String,
+    allow_internet: bool,
+    stm_enabled: bool,
+    ltm_enabled: bool,
+    agent_group_id: Option<String>,
+) -> Result<(), String> {
+    let mut settings = state.settings.lock();
+    settings
+        .per_chat_overrides
+        .insert(chat_id, settings::ChatOverride {
+            allow_internet: Some(allow_internet),
+            stm_enabled: Some(stm_enabled),
+            ltm_enabled: Some(ltm_enabled),
+            agent_group_id,
+            ..Default::default()
+        });
+    save_settings(&settings)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn get_audit_logs(max_lines: Option<usize>) -> Vec<String> {
+    settings_engine::read_audit_log_tail(max_lines.unwrap_or(200))
+}
+
+#[tauri::command]
+async fn open_browser_url(
+    state: State<'_, AppState>,
+    url: String,
+    chat_id: Option<String>,
+    agent_id: Option<String>,
+) -> Result<network::NetworkRequestLog, String> {
+    let settings = state.settings.lock().clone();
+    if !settings.devices.browser_automation_enabled {
+        return Err("Управление браузером отключено в Настройки → Устройства".into());
+    }
+    let allow = chat_id
+        .as_ref()
+        .and_then(|id| settings.per_chat_overrides.get(id))
+        .and_then(|o| o.allow_internet)
+        .unwrap_or(settings.network.allow_internet);
+    if !allow {
+        return Err("Интернет отключён для этого чата".into());
+    }
+    open_system_url(&url)?;
+    settings_engine::audit_log(
+        &settings,
+        "browser",
+        &format!("open url={url} chat={chat_id:?} agent={agent_id:?}"),
+    );
+    let log = network::NetworkRequestLog {
+        id: uuid::Uuid::new_v4().to_string(),
+        agent_id,
+        chat_id,
+        method: "OPEN".into(),
+        url: url.clone(),
+        status: Some(200),
+        request_headers: std::collections::HashMap::new(),
+        response_preview: "Открыто во внешнем браузере".into(),
+        duration_ms: 0,
+        blocked: false,
+        block_reason: None,
+        timestamp: chrono::Utc::now(),
+    };
+    state.network.record_log(log.clone());
+    Ok(log)
 }
 
 #[tauri::command]
@@ -116,8 +205,48 @@ async fn web_search(
     state: State<'_, AppState>,
     query: String,
     agent_id: Option<String>,
+    chat_id: Option<String>,
 ) -> Result<network::NetworkRequestLog, String> {
-    state.network.web_search(&query, agent_id).await
+    let settings = state.settings.lock().clone();
+    let allow = chat_id
+        .as_ref()
+        .and_then(|id| settings.per_chat_overrides.get(id))
+        .and_then(|o| o.allow_internet)
+        .unwrap_or(settings.network.allow_internet);
+    state
+        .network
+        .web_search(&query, agent_id, chat_id, allow, &settings)
+        .await
+}
+
+fn open_system_url(url: &str) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", url])
+            .spawn()
+            .map_err(|e| format!("Не удалось открыть браузер: {e}"))?;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(url)
+            .spawn()
+            .map_err(|e| format!("Не удалось открыть браузер: {e}"))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(url)
+            .spawn()
+            .map_err(|e| format!("Не удалось открыть браузер: {e}"))?;
+    }
+    #[cfg(not(any(target_os = "windows", target_os = "linux", target_os = "macos")))]
+    {
+        let _ = url;
+        return Err("Платформа не поддерживает открытие браузера".into());
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -168,6 +297,7 @@ async fn run_agent_team(
     state: State<'_, AppState>,
     group_id: String,
     prompt: String,
+    chat_id: Option<String>,
 ) -> Result<agents::AgentTask, String> {
     let settings = state.settings.lock().clone();
     let inference = Arc::clone(&state.inference);
@@ -181,6 +311,7 @@ async fn run_agent_team(
             &state.network,
             &inference,
             app,
+            chat_id,
         )
         .await
 }
@@ -279,6 +410,7 @@ pub fn run() {
         network: Arc::new(NetworkManager::new()),
         inference: Arc::new(InferenceEngine::new()),
         agents: Arc::new(AgentOrchestrator::new()),
+        cancel: Arc::new(CancelRegistry::new()),
     };
 
     tauri::Builder::default()
@@ -291,6 +423,10 @@ pub fn run() {
             update_settings,
             reset_settings_cmd,
             send_chat,
+            stop_chat,
+            sync_chat_overrides,
+            get_audit_logs,
+            open_browser_url,
             agent_fetch,
             get_network_logs,
             web_search,

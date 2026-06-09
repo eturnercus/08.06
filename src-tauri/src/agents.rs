@@ -63,6 +63,7 @@ impl AgentOrchestrator {
         network: &NetworkManager,
         inference: &InferenceEngine,
         app: AppHandle,
+        chat_id: Option<String>,
     ) -> Result<AgentTask, String> {
         let prompt = check_user_input(settings, prompt)?;
         settings_engine::audit_log(settings, "agents", &format!("team task group={group_id}"));
@@ -73,6 +74,7 @@ impl AgentOrchestrator {
             .ok_or("Группа агентов не найдена или отключена")?;
 
         let task_id = Uuid::new_v4().to_string();
+        let memory_scope = chat_id.as_deref().unwrap_or(&task_id);
         let mode = group.orchestration_mode.clone();
         let mut task = AgentTask {
             id: task_id.clone(),
@@ -139,7 +141,7 @@ impl AgentOrchestrator {
 
                 if member.permissions.stm {
                     memory.add_stm(
-                        &task_id,
+                        memory_scope,
                         &member.role,
                         &response,
                         settings.memory.stm_max_tokens,
@@ -147,7 +149,7 @@ impl AgentOrchestrator {
                 }
                 if member.permissions.ltm {
                     memory.add_ltm(
-                        &task_id,
+                        memory_scope,
                         &member.model_id,
                         &response,
                         importance_for_role(&member.role),
@@ -265,13 +267,30 @@ async fn execute_member(
         && member.tools.iter().any(|t| t == "web_search")
     {
         let q = prompt.chars().take(120).collect::<String>();
-        if let Ok(log) = network.web_search(&q, Some(member.id.clone())).await {
-            used_internet = !log.blocked;
-            tool_notes.push(format!(
-                "web_search: {}",
-                log.response_preview.chars().take(80).collect::<String>()
-            ));
+        match network
+            .web_search(
+                &q,
+                Some(member.id.clone()),
+                Some(task_id.to_string()),
+                true,
+                settings,
+            )
+            .await
+        {
+            Ok(log) => {
+                used_internet = !log.blocked;
+                let status = if log.blocked { "blocked" } else { "ok" };
+                tool_notes.push(format!(
+                    "web_search [{status}]: {}",
+                    log.response_preview.chars().take(120).collect::<String>()
+                ));
+            }
+            Err(e) => {
+                tool_notes.push(format!("web_search [error]: {e}"));
+            }
         }
+    } else if member.tools.iter().any(|t| t == "web_search") && !member.permissions.internet {
+        tool_notes.push("web_search [skipped]: интернет отключён для этого агента".into());
     }
 
     if member.tools.iter().any(|t| t == "memory_query") {

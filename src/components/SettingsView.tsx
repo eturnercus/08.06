@@ -115,7 +115,24 @@ export function SettingsView() {
               <SecurityPanel d={d} u={update} />
             </>
           )}
-          {tab === "permissions" && <SecurityPanel d={d} u={update} />}
+          {tab === "permissions" && (
+            <>
+              <SecurityPanel d={d} u={update} />
+              <SectionTitle>{t("settings.tabs.devices")}</SectionTitle>
+              <SettingToggle
+                title="Browser automation (open URLs)"
+                desc="Позволяет агентам открывать ссылки во внешнем браузере с записью в аудит"
+                value={(d.devices?.browserAutomationEnabled as boolean) ?? false}
+                onChange={(v) => update("devices", "browserAutomationEnabled", v)}
+              />
+              <SettingToggle
+                title="Desktop control (experimental)"
+                desc="Зарезервировано для управления мышью/окнами — требует отдельного разрешения ОС"
+                value={(d.devices?.desktopControlEnabled as boolean) ?? false}
+                onChange={(v) => update("devices", "desktopControlEnabled", v)}
+              />
+            </>
+          )}
           {tab === "injection" && <InjectionPanel d={d} u={update} />}
           {tab === "inference" && (
             <>
@@ -133,7 +150,9 @@ export function SettingsView() {
             <>
               <SettingSelect title={t("settings.language")} value={draft.language} options={[{ v: "ru", l: "Русский" }, { v: "en", l: "English" }]} onChange={(v) => setDraft({ ...draft, language: v })} />
               <SettingSelect title="Theme" value={ui.theme as string} options={["dark", "light", "oled", "midnight", "aurora"]} onChange={(v) => update("ui", "theme", v)} />
-              <SettingSlider title="Font size" value={ui.fontSize as number} onChange={(v) => update("ui", "fontSize", v)} min={12} max={20} />
+              <SettingSlider title="Font size" value={ui.fontSize as number} onChange={(v) => update("ui", "fontSize", v)} min={12} max={24} />
+              <SettingToggle title="Compact UI" value={ui.compactMode as boolean} onChange={(v) => update("ui", "compactMode", v)} />
+              <SettingToggle title="Show token counter" value={ui.showTokenCounter as boolean} onChange={(v) => update("ui", "showTokenCounter", v)} />
               <SettingToggle title="Animations" value={ui.animationsEnabled as boolean} onChange={(v) => update("ui", "animationsEnabled", v)} />
             </>
           )}

@@ -395,15 +395,15 @@ impl InferenceEngine {
             let gguf_guard = self.gguf.lock();
             return match agent_stream.as_mut() {
                 Some(sink) => {
-                    generate_with_best_backend(gguf_guard.as_ref(), gen, Some(sink as &mut dyn TokenSink))
+                    generate_with_best_backend(gguf_guard.as_ref(), gen, Some(sink as &mut dyn TokenSink), None)
                 }
-                None => generate_with_best_backend(gguf_guard.as_ref(), gen, None),
+                None => generate_with_best_backend(gguf_guard.as_ref(), gen, None, None),
             };
         }
         #[cfg(not(feature = "embedded-llama"))]
         match agent_stream.as_mut() {
-            Some(sink) => generate_with_best_backend(gen, Some(sink as &mut dyn TokenSink)),
-            None => generate_with_best_backend(gen, None),
+            Some(sink) => generate_with_best_backend(gen, Some(sink as &mut dyn TokenSink), None),
+            None => generate_with_best_backend(gen, None, None),
         }
     }
 
@@ -483,6 +483,7 @@ impl InferenceEngine {
         memory: &MemoryStore,
         request: &ChatRequest,
         stream: &mut Option<StreamSink>,
+        cancel: Option<&std::sync::atomic::AtomicBool>,
     ) -> ChatResponse {
         settings_engine::audit_log(
             settings,
@@ -630,8 +631,9 @@ impl InferenceEngine {
                         gguf_guard.as_ref(),
                         gen,
                         Some(sink as &mut dyn TokenSink),
+                        cancel,
                     ),
-                    None => generate_with_best_backend(gguf_guard.as_ref(), gen, None),
+                    None => generate_with_best_backend(gguf_guard.as_ref(), gen, None, cancel),
                 }
             };
             #[cfg(not(feature = "embedded-llama"))]
