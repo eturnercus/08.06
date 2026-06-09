@@ -108,6 +108,9 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
             value={chat.modelId === "default" ? STARTER_ID : chat.modelId}
             onChange={(modelId) => updateChat(chatId, { modelId })}
           />
+          {(chat.modelId === STARTER_ID || chat.modelId === "default") && (
+            <p className="field-hint">{t("chat.starterLimitHint")}</p>
+          )}
           {starterNeedsDownload && isTauri() && (
             <div className="form-row starter-download-row">
               <p className="field-hint">{t("chat.starterDownloadHint")}</p>

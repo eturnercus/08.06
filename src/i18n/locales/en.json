@@ -133,6 +133,7 @@
     "teamModelHint": "Each agent uses its own model — chat-wide model selection is hidden.",
     "starterDownloadHint": "Built-in lightweight model (~200 MB) for a quick start without Hugging Face.",
     "starterDownloadBtn": "Download Silenium Starter",
+    "starterLimitHint": "Starter (~360M) — for complex or slang questions, use a 1B+ Q4 GGUF model from Models.",
     "agentGroup": "Agent team", "noAgentGroup": "No team",
     "agentTeam": "Agent team", "agentNoResponse": "Team returned no response",
     "workspaceFolder": "Agent workspace folder", "workspaceHint": "Agents with file_read/file_write work only inside this folder and subfolders.",

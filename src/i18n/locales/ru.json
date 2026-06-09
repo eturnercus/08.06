@@ -133,6 +133,7 @@
     "teamModelHint": "Модели задаются у каждого агента в команде — общий выбор модели для чата скрыт.",
     "starterDownloadHint": "Встроенная лёгкая модель (~200 МБ) для быстрого старта без Hugging Face.",
     "starterDownloadBtn": "Скачать Silenium Starter",
+    "starterLimitHint": "Starter (~360M) — для сложных и шутливых вопросов лучше модель 1B+ (Q4 GGUF) в разделе «Модели».",
     "agentGroup": "Команда агентов", "noAgentGroup": "Без команды",
     "agentTeam": "Команда агентов", "agentNoResponse": "Команда не вернула ответ",
     "workspaceFolder": "Рабочая папка агентов", "workspaceHint": "Агенты с file_read/file_write работают только в этой папке и подпапках.",

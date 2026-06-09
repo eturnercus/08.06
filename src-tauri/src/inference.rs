@@ -15,7 +15,8 @@ use crate::memory::MemoryStore;
 use crate::settings::AppSettings;
 use crate::settings_engine::{
     self, check_user_input, cross_modal_user_note, default_reply_max_tokens, effective_max_tokens,
-    effective_temperature, enrich_system_prompt, filter_model_output, filter_stm,
+    default_chat_system_prompt, effective_temperature, enrich_system_prompt, filter_model_output,
+    filter_stm,
     maybe_dream_consolidate, recall_ltm, resolve_gguf_runtime_pref, tune_generate_params,
 };
 use crate::stream_sink::{AgentStreamSink, StreamSink, TokenSink};
@@ -680,10 +681,10 @@ impl InferenceEngine {
         let mut parts = Vec::new();
         let mut injection_applied = false;
 
-        if let Some(sp) = chat_system {
-            if !sp.is_empty() {
-                parts.push(sp.to_string());
-            }
+        if let Some(sp) = chat_system.filter(|s| !s.trim().is_empty()) {
+            parts.push(sp.to_string());
+        } else {
+            parts.push(default_chat_system_prompt(settings));
         }
 
         if settings.global_message_injection.enabled {

@@ -18,6 +18,7 @@ const TEMPLATE_MARKERS: &[&str] = &[
     "[/INST]",
     "<<SYS>>",
     "<</SYS>>",
+    "<|",
 ];
 
 const ROLE_LEAK_MARKERS: &[&str] = &[
@@ -123,6 +124,13 @@ pub fn sanitize_llm_output(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn strips_trailing_partial_chatml() {
+        let raw = "Назовите то, что вы хотите.<|";
+        let s = sanitize_llm_output(raw);
+        assert_eq!(s, "Назовите то, что вы хотите.");
+    }
 
     #[test]
     fn strips_im_start_leak() {

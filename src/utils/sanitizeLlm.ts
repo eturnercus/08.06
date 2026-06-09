@@ -18,6 +18,7 @@ const TEMPLATE_MARKERS = [
   "[/INST]",
   "<<SYS>>",
   "<</SYS>>",
+  "<|",
 ];
 
 const ROLE_LEAK_MARKERS = [

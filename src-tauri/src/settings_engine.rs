@@ -134,6 +134,17 @@ pub fn filter_model_output(settings: &AppSettings, text: &str) -> String {
     crate::llm_sanitize::sanitize_llm_output(&out)
 }
 
+// ─── Default chat system ────────────────────────────────────────────────────
+
+/// Used when the chat has no custom system instructions — keeps small models from deflecting.
+pub fn default_chat_system_prompt(settings: &AppSettings) -> String {
+    if settings.language == "en" {
+        "You are Silenium, a helpful local AI assistant. Answer the user's question directly in their language. Do not ask them to rephrase unless the message is empty or nonsense.".into()
+    } else {
+        "Ты — Silenium, полезный локальный ассистент. Отвечай по существу на языке пользователя. Не проси переформулировать вопрос, если он уже понятен — дай прямой ответ, даже краткий.".into()
+    }
+}
+
 // ─── Innovation: context enrichment ─────────────────────────────────────────
 
 pub fn enrich_system_prompt(

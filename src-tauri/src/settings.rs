@@ -473,7 +473,7 @@ impl Default for InnovationSettings {
             synaptic_path_priority: "adaptive".into(),
             context_dna: false,
             context_dna_mutation_rate: 0.02,
-            thought_streaming: true,
+            thought_streaming: false,
             thought_stream_buffer_ms: 120,
             thought_max_tokens: 1024,
             emotion_mirror: false,
@@ -759,6 +759,10 @@ fn migrate_settings(mut settings: AppSettings) -> AppSettings {
     // Bracketed innovation injections removed in v1.0.1+; disable legacy flags on disk.
     settings.innovation.context_dna = false;
     settings.innovation.holographic_context = false;
+    // Thought-stream hint confused small models; use Settings → Output → Streaming instead.
+    if settings.innovation.thought_streaming {
+        settings.innovation.thought_streaming = false;
+    }
     settings
 }
 
