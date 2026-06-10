@@ -72,6 +72,17 @@ export interface AgentMember {
   systemPromptCustomized?: boolean;
 }
 
+export interface MoeInfo {
+  isMoe: boolean;
+  architecture: string;
+  expertCount?: number;
+  activeExperts?: number;
+  activeRatio?: number;
+  hintRu: string;
+  hintEn: string;
+  family?: string;
+}
+
 export interface ModelInfo {
   id: string;
   name: string;
@@ -82,6 +93,7 @@ export interface ModelInfo {
   sizeBytes?: number;
   verified?: boolean;
   downloadProgress?: number;
+  moe?: MoeInfo;
 }
 
 export interface DownloadResult {

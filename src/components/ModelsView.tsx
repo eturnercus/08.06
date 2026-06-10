@@ -1,10 +1,16 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import i18n from "i18next";
+import type { MoeInfo } from "../api/tauri";
 import { HuggingFaceBrowser } from "./models/HuggingFaceBrowser";
 import { LocalModelsPanel } from "./models/LocalModelsPanel";
 import { useModels } from "../hooks/useModels";
 import { PageIntro } from "./ui/PageIntro";
 import { EmptyState } from "./ui/EmptyState";
+
+function moeHint(moe: MoeInfo) {
+  return i18n.language === "en" ? moe.hintEn : moe.hintRu;
+}
 
 export function ModelsView() {
   const { t } = useTranslation();
@@ -31,7 +37,18 @@ export function ModelsView() {
               <strong>{m.name}</strong>
               <span className="m3-chip">{m.format}</span>
               <span className="m3-chip">{m.source}</span>
+              {m.moe?.isMoe && (
+                <span
+                  className="m3-chip model-moe-chip"
+                  title={moeHint(m.moe)}
+                >
+                  MoE{m.moe.expertCount ? ` ${m.moe.activeExperts ?? "?"}/${m.moe.expertCount}` : ""}
+                </span>
+              )}
               {m.verified && <span className="m3-chip active">✓ {t("models.verified")}</span>}
+              {m.moe?.isMoe && (
+                <p className="model-moe-hint">{moeHint(m.moe)}</p>
+              )}
               {m.path && <div className="model-card-meta mono">{m.path}</div>}
             </div>
           ))}

@@ -232,7 +232,7 @@
       "neuroplasticDesc": "Memory adapts to user's communication style",
       "adaptationRate": "Adaptation rate",
       "synapticRouting": "Synaptic routing",
-      "synapticRoutingDesc": "Optimal processing path through neural network graph",
+      "synapticRoutingDesc": "Inference path selection (Silenium Core vs llama-cli). Not in-model MoE — see Help → Mixture of Experts",
       "synapticPriority": "Path priority",
       "contextDna": "Context DNA",
       "contextDnaDesc": "Unique genetic code of each chat's context",
@@ -445,7 +445,9 @@
     "starterRedownload": "Re-download Starter",
     "hfSearch": "Search models...", "hfSearchBtn": "Search", "hfSearchTip": "Search for gguf-tagged models",
     "hfLoad": "Load", "load": "Load", "hfPopular": "Popular", "downloads": "downloads",
-    "mmprojWarn": "mmproj — not a text model"
+    "mmprojWarn": "mmproj — not a text model",
+    "moeBadge": "MoE",
+    "moeHintLink": "What is MoE? Help →"
   },
   "help": {
     "title": "Help", "intro": "Silenium — local AI runtime: 79+ settings in 9 categories, Agent Studio, AI memory, network isolation.",
@@ -474,7 +476,47 @@
       "onboarding9": "9-step onboarding",
       "tooltips": "Tooltips for settings",
       "hf": "Hugging Face browser",
-      "m3": "Material 3 UI"
+      "m3": "Material 3 UI",
+      "moeGuide": "Mixture of Experts (MoE) guide"
+    },
+    "moe": {
+      "title": "Mixture of Experts (MoE) in plain language",
+      "subtitle": "How Mixtral, DeepSeek V3/R1 and similar models work",
+      "whatTitle": "What is Mixture of Experts?",
+      "whatBody": "In a dense model every token uses all layers and weights — expensive. MoE splits the network into experts: sub-blocks stronger on different tasks. A small gating (routing) network decides which expert outputs to blend for each token.",
+      "diagInput": "Prompt",
+      "diagGating": "Gating / routing",
+      "diagOutput": "Reply",
+      "diagCaption": "Simplified: the router picks experts for the current token",
+      "notAgentsTitle": "MoE experts ≠ Silenium agents",
+      "notAgentsBody": "An MoE expert is an internal layer chunk, not a standalone AI or multi-bot chat. Agent Studio expert_panel runs several models as a team; sparse MoE is architecture inside one .gguf file.",
+      "sparseTitle": "Sparse MoE — why it's faster",
+      "sparseBody": "Sparse MoE skips inactive experts: routing selects a small group per step.",
+      "sparsePoint1": "Mixtral 8×7B: 8 experts, typically 2 active per token — ~13B active of ~47B total.",
+      "sparsePoint2": "DeepSeek V3/R1: hundreds of experts, small active fraction per token (~37B of ~671B in reviews).",
+      "sparsePoint3": "Quality stays close to dense models while VRAM/time track the active subset.",
+      "examplesTitle": "Example MoE models",
+      "examples": {
+        "mixtral": {
+          "name": "Mixtral 8×7B / 8×22B (Mistral)",
+          "desc": "Classic sparse MoE: 2 of 8 experts per token."
+        },
+        "deepseek": {
+          "name": "DeepSeek V3 / R1",
+          "desc": "Large MoE with aggressive routing — cheaper inference at high quality."
+        },
+        "phi": {
+          "name": "Phi-3.5-MoE (Microsoft)",
+          "desc": "Compact Microsoft MoE in the Phi family."
+        }
+      },
+      "sileniumTitle": "How Silenium fits in",
+      "sileniumBody": "Silenium runs MoE GGUF models locally via llama.cpp / Silenium Core.",
+      "sileniumPoint1": "Models tab marks Mixtral, DeepSeek-MoE, Phi-MoE, etc. with an MoE chip and active-expert hint.",
+      "sileniumPoint2": "Synaptic routing in settings picks inference engine (embedded / CLI), not in-model gating.",
+      "sileniumPoint3": "MoE needs enough RAM/VRAM and Q4 quants: only part of weights activate, but the file stays large.",
+      "sourceNote": "Adapted from the «AI in human language» series:",
+      "sourceLink": "Mixture of Experts (MoE) architecture — Habr (RU)"
     }
   },
   "agents": {

@@ -232,7 +232,7 @@
       "neuroplasticDesc": "Память адаптируется к стилю общения пользователя",
       "adaptationRate": "Скорость адаптации",
       "synapticRouting": "Синаптическая маршрутизация",
-      "synapticRoutingDesc": "Оптимальный путь обработки через граф нейросетей",
+      "synapticRoutingDesc": "Выбор пути инференса (Silenium Core или llama-cli). Это не MoE внутри модели — см. Справка → Mixture of Experts",
       "synapticPriority": "Приоритет пути",
       "contextDna": "Context DNA",
       "contextDnaDesc": "Уникальный «генетический код» контекста каждого чата",
@@ -445,7 +445,9 @@
     "starterRedownload": "Перекачать Starter",
     "hfSearch": "Поиск моделей...", "hfSearchBtn": "Найти", "hfSearchTip": "Ищите модели с тегом gguf",
     "hfLoad": "Загрузить", "load": "Загрузить", "hfPopular": "Популярные", "downloads": "загрузок",
-    "mmprojWarn": "mmproj — не языковая модель"
+    "mmprojWarn": "mmproj — не языковая модель",
+    "moeBadge": "MoE",
+    "moeHintLink": "Что такое MoE? Справка →"
   },
   "help": {
     "title": "Справка", "intro": "Silenium — локальный AI-рантайм: 79+ настроек в 9 категориях, Agent Studio, память ИИ, изоляция сети.",
@@ -474,7 +476,47 @@
       "onboarding9": "9-шаговый онбординг",
       "tooltips": "Подсказки для настроек",
       "hf": "Браузер Hugging Face",
-      "m3": "Material 3 UI"
+      "m3": "Material 3 UI",
+      "moeGuide": "Справочник Mixture of Experts (MoE)"
+    },
+    "moe": {
+      "title": "Mixture of Experts (MoE) — простыми словами",
+      "subtitle": "Как устроены Mixtral, DeepSeek V3/R1 и другие «смешанные» модели",
+      "whatTitle": "Что такое Mixture of Experts?",
+      "whatBody": "В обычной модели каждый токен проходит через все слои и все веса — это дорого. В MoE модель делится на «экспертов» — независимые куски сети, каждый сильнее в своём типе задач. Небольшая gating-модель (маршрутизатор) решает, чьи ответы смешать в финальный токен и с каким весом.",
+      "diagInput": "Запрос",
+      "diagGating": "Gating / routing",
+      "diagOutput": "Ответ",
+      "diagCaption": "Упрощённая схема: маршрутизатор выбирает экспертов для текущего токена",
+      "notAgentsTitle": "Эксперты MoE ≠ агенты Silenium",
+      "notAgentsBody": "«Эксперт» в MoE — это слой внутри одной модели, а не отдельный ИИ и не чат между ботами. Режим expert_panel в Agent Studio — это несколько моделей в команде; sparse MoE — архитектура одного файла .gguf.",
+      "sparseTitle": "Sparse MoE — почему это быстрее",
+      "sparseBody": "Sparse (разреженная) версия не считает всех экспертов на каждом шаге: routing заранее выбирает малую группу, остальные пропускаются.",
+      "sparsePoint1": "Mixtral 8×7B: 8 экспертов, на токен обычно активны 2 — ~13B активных параметров из ~47B.",
+      "sparsePoint2": "DeepSeek V3/R1: сотни экспертов в архитектуре, на токен — малая доля (~37B из ~671B по оценкам обзоров).",
+      "sparsePoint3": "Качество близко к плотной модели, а VRAM и время — как у меньшей активной части.",
+      "examplesTitle": "Примеры MoE-моделей",
+      "examples": {
+        "mixtral": {
+          "name": "Mixtral 8×7B / 8×22B (Mistral)",
+          "desc": "Классический sparse MoE: 2 эксперта из 8 на токен."
+        },
+        "deepseek": {
+          "name": "DeepSeek V3 / R1",
+          "desc": "Крупная MoE-архитектура с агрессивным routing — дешевле инференс при высоком качестве."
+        },
+        "phi": {
+          "name": "Phi-3.5-MoE (Microsoft)",
+          "desc": "Компактная MoE от Microsoft в линейке Phi."
+        }
+      },
+      "sileniumTitle": "Как это связано с Silenium",
+      "sileniumBody": "Silenium помогает работать с MoE-моделями локально через GGUF и llama.cpp/Silenium Core.",
+      "sileniumPoint1": "В разделе «Модели» файлы Mixtral, DeepSeek-MoE, Phi-MoE и др. помечаются чипом MoE с подсказкой об активных экспертах.",
+      "sileniumPoint2": "«Синаптическая маршрутизация» в настройках — выбор движка (встроенный / CLI), а не gating внутри MoE.",
+      "sileniumPoint3": "Для MoE важны RAM/VRAM и квантизация Q4: активируется лишь часть весов, но файл на диске остаётся большим.",
+      "sourceNote": "Материал адаптирован по мотивам серии «ИИ человеческим языком»:",
+      "sourceLink": "ИИ простыми словами, часть 1. Архитектура Mixture of Experts (MoE) — Habr"
     }
   },
   "agents": {

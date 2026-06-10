@@ -10,6 +10,7 @@ mod inference;
 mod llama_cli;
 mod llama_runtime;
 mod memory;
+mod moe;
 mod network;
 mod settings;
 mod settings_engine;

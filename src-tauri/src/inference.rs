@@ -37,6 +37,8 @@ pub struct ModelInfo {
     pub verified: bool,
     #[serde(default)]
     pub download_progress: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub moe: Option<crate::moe::MoeInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -239,7 +241,7 @@ impl InferenceEngine {
                     "local-{}",
                     path.to_string_lossy().replace(['/', '\\', ':'], "-")
                 );
-                out.push(ModelInfo {
+                let mut info = ModelInfo {
                     id,
                     name,
                     path: path.to_string_lossy().to_string(),
@@ -250,7 +252,10 @@ impl InferenceEngine {
                     source: "local".into(),
                     verified: Self::verify_file(&path),
                     download_progress: 100,
-                });
+                    moe: None,
+                };
+                crate::moe::attach_moe(&mut info);
+                out.push(info);
             }
         }
     }
@@ -280,7 +285,7 @@ impl InferenceEngine {
         if require_integrity && !Self::verify_file(Path::new(path)) {
             return Err("Проверка целостности модели не пройдена".into());
         }
-        let info = ModelInfo {
+        let mut info = ModelInfo {
             id: id.clone(),
             name: name.to_string(),
             path: path.to_string(),
@@ -291,7 +296,9 @@ impl InferenceEngine {
             source: "local".into(),
             verified: true,
             download_progress: 100,
+            moe: None,
         };
+        crate::moe::attach_moe(&mut info);
         self.loaded_models.write().insert(id.clone(), info.clone());
         Ok(info)
     }
@@ -448,6 +455,7 @@ impl InferenceEngine {
                     source: "builtin".into(),
                     verified: false,
                     download_progress: 0,
+                    moe: None,
                 },
             );
         }

@@ -1,10 +1,11 @@
 import { useTranslation } from "react-i18next";
+import { MoeGuide } from "./help/MoeGuide";
 
 const SECTIONS = ["system", "network", "memory", "injection", "agents", "devices", "models", "reset"] as const;
 
 const FEATURE_KEYS = [
   "orchestration", "roles", "tools", "permissions", "resources", "groupSettings",
-  "triggers", "monitor", "memoryLevels", "settings79", "onboarding9", "tooltips", "hf", "m3",
+  "triggers", "monitor", "memoryLevels", "settings79", "onboarding9", "tooltips", "hf", "m3", "moeGuide",
 ] as const;
 
 export function HelpView() {
@@ -14,6 +15,8 @@ export function HelpView() {
     <div className="help-view scroll">
       <h2>{t("help.title")}</h2>
       <p className="help-intro">{t("help.intro")}</p>
+
+      <MoeGuide />
 
       <div className="m3-card" style={{ marginBottom: 20 }}>
         <h3 style={{ fontSize: 15, marginBottom: 12 }}>✓ {t("help.featureMatrix")}</h3>
