@@ -51,6 +51,12 @@ export interface Chat {
   temperature: number;
 }
 
+/** Legacy chats used 64; bump to a safe default before sending to inference. */
+export function resolveReplyMaxTokens(maxTokens: number): number {
+  if (maxTokens < 128) return 512;
+  return Math.min(2048, maxTokens);
+}
+
 export interface MonitorEvent {
   id: string;
   timestamp: string;
@@ -182,7 +188,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
         const chats = (JSON.parse(raw) as Chat[]).map((c) => ({
           ...c,
           modelId: c.modelId === "default" ? "silenium-starter" : c.modelId,
-          maxTokens: c.maxTokens >= 4096 ? 512 : c.maxTokens,
+          maxTokens:
+            c.maxTokens >= 4096 || c.maxTokens < 128 ? 512 : c.maxTokens,
           messages: c.messages.map((m, i) => ({
             ...m,
             id: m.id ?? `legacy-${c.id}-${i}`,

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useAppStore } from "../../store/appStore";
+import { resolveReplyMaxTokens, useAppStore } from "../../store/appStore";
 import { Tooltip } from "../ui/Tooltip";
 import { ModelSelect } from "../models/ModelSelect";
 import { MEMORY_ACCESS_LEVELS } from "../../constants/agents";
@@ -20,6 +20,18 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const lang = i18n.language === "ru" ? "ru" : "en";
+  const whisperOn = Boolean(
+    (settings as { innovation?: { neuralWhisperMode?: boolean } } | null)?.innovation
+      ?.neuralWhisperMode
+  );
+  const whisperBudget =
+    (settings as { innovation?: { whisperTokenBudget?: number } } | null)?.innovation
+      ?.whisperTokenBudget ?? 64;
+
+  useEffect(() => {
+    if (!chat || chat.maxTokens >= 128) return;
+    updateChat(chatId, { maxTokens: resolveReplyMaxTokens(chat.maxTokens) });
+  }, [chatId, chat?.maxTokens, updateChat, chat]);
 
   if (!chat) return null;
 
@@ -199,15 +211,23 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
           </label>
           <input
             type="number"
-            min={64}
+            min={128}
             max={2048}
             step={64}
             className="m3-input"
-            value={chat.maxTokens}
+            value={chat.maxTokens < 128 ? 512 : chat.maxTokens}
             onChange={(e) =>
-              updateChat(chatId, { maxTokens: Math.min(2048, Math.max(64, Number(e.target.value))) })
+              updateChat(chatId, {
+                maxTokens: Math.min(2048, Math.max(128, Number(e.target.value))),
+              })
             }
           />
+          {whisperOn && (
+            <p className="field-hint field-hint-warn">{t("chat.whisperModeWarn", { budget: whisperBudget })}</p>
+          )}
+          {chat.maxTokens <= 128 && (
+            <p className="field-hint field-hint-warn">{t("chat.lowMaxTokensWarn")}</p>
+          )}
         </div>
         <div>
           <label className="form-label">{t("chat.ramLimit")}</label>

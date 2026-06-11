@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useAppStore } from "../store/appStore";
+import { resolveReplyMaxTokens, useAppStore } from "../store/appStore";
 import { useModels } from "../hooks/useModels";
 import { useChatStream } from "../hooks/useChatStream";
 import { useChatScroll } from "../hooks/useChatScroll";
@@ -127,13 +127,14 @@ export function ChatView() {
           },
         });
       } else {
+        const replyMaxTokens = resolveReplyMaxTokens(chat.maxTokens);
         const resp = await api.sendChat({
           chatId: chat.id,
           modelId: chat.modelId,
           message: userText,
           systemPrompt: chat.systemPrompt || undefined,
           temperature: chat.temperature,
-          maxTokens: chat.maxTokens,
+          maxTokens: replyMaxTokens,
           attachments: sentAttachments.map((a) => ({
             name: a.name,
             mimeType: a.mimeType,
