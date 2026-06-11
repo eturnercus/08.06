@@ -94,7 +94,7 @@ export function InnovationPanel({ d, u }: { d: Draft; u: Updater }) {
       <SettingToggle innovationHint title={t("settings.innovation.chronosync")} value={(inv.chronosyncMemory as boolean) ?? true} onChange={(v) => u("innovation", "chronosyncMemory", v)} />
       <SettingToggle innovationHint title={t("settings.innovation.swarm")} value={(inv.swarmIntelligence as boolean) ?? false} onChange={(v) => u("innovation", "swarmIntelligence", v)} />
       <SettingToggle innovationHint title={t("settings.innovation.latentNav")} value={(inv.latentSpaceNavigation as boolean) ?? true} onChange={(v) => u("innovation", "latentSpaceNavigation", v)} />
-      <SettingToggle innovationHint title={t("settings.innovation.whisperMode")} value={(inv.neuralWhisperMode as boolean) ?? false} onChange={(v) => u("innovation", "neuralWhisperMode", v)} />
+      <SettingToggle innovationHint title={t("settings.innovation.whisperMode")} desc={t("settings.innovation.whisperModeDesc")} value={(inv.neuralWhisperMode as boolean) ?? false} onChange={(v) => u("innovation", "neuralWhisperMode", v)} />
       <SettingNumber title={t("settings.innovation.whisperBudget")} value={(inv.whisperTokenBudget as number) ?? 64} onChange={(v) => u("innovation", "whisperTokenBudget", v)} />
       <SettingNumber title={t("settings.innovation.prefetchHorizon")} value={(inv.prefetchHorizonTokens as number) ?? 256} onChange={(v) => u("innovation", "prefetchHorizonTokens", v)} />
       <SettingToggle innovationHint title={t("settings.innovation.personaFluidity")} desc={t("settings.innovation.personaFluidityDesc")} value={(inv.personaFluidity as boolean) ?? false} onChange={(v) => u("innovation", "personaFluidity", v)} />

@@ -104,7 +104,9 @@
     "attachments": "Attachments", "attachmentsCount": "file(s)",
     "teamParamsHint": "Temperature, token limit, and RAM are set per agent in Agents.",
     "maxTokensReply": "Max reply tokens",
-    "maxTokensReplyHint": "Limit per single model reply (not context window). If the model loops, try 256–512.",
+    "maxTokensReplyHint": "Limit per single model reply (not context window). Use 512–1024 for longer answers.",
+    "whisperModeWarn": "Whisper mode is on in Settings → Innovation (~{{budget}} token hint). Turn off for long replies.",
+    "lowMaxTokensWarn": "Reply limit is very low — answers may cut off mid-sentence. Use 512 or higher.",
     "meta": {
       "model": "Model",
       "promptTokens": "Prompt tokens",
@@ -269,6 +271,7 @@
       "swarm": "Swarm intelligence",
       "latentNav": "Latent space navigation",
       "whisperMode": "Whisper mode",
+      "whisperModeDesc": "Soft hint for shorter replies. Does not hard-cap output — use chat max tokens for the limit.",
       "whisperBudget": "Whisper token budget",
       "prefetchHorizon": "Prefetch horizon (tokens)",
       "personaFluidity": "Persona fluidity",

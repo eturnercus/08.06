@@ -766,6 +766,10 @@ fn migrate_settings(mut settings: AppSettings) -> AppSettings {
     if settings.innovation.thought_streaming {
         settings.innovation.thought_streaming = false;
     }
+    // v1.0.2: whisper mode used to hard-cap every reply at whisper_token_budget (often 64).
+    if settings.innovation.neural_whisper_mode {
+        settings.innovation.neural_whisper_mode = false;
+    }
     crate::network::ensure_ddg_api_whitelist(&mut settings.network.api_only_endpoints);
     settings
 }

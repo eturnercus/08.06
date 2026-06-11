@@ -195,11 +195,15 @@ pub fn enrich_system_prompt(
     }
 
     if inv.neural_whisper_mode {
-        let budget = inv.whisper_token_budget.max(16);
+        let budget = inv.whisper_token_budget.max(64);
         hints.push(if ru {
-            format!("Ответь очень кратко (до {budget} токенов).")
+            format!(
+                "По возможности отвечай лаконично (ориентир ~{budget} токенов), но не обрывай списки и ответ на полуслове."
+            )
         } else {
-            format!("Reply very briefly (up to {budget} tokens).")
+            format!(
+                "Prefer concise replies (~{budget} tokens) but do not cut off lists or mid-sentence."
+            )
         });
     }
 
@@ -564,9 +568,7 @@ pub fn tune_generate_params(settings: &AppSettings, mut p: GenerateParams) -> Ge
         }
     }
 
-    if inv.neural_whisper_mode {
-        p.max_tokens = p.max_tokens.min(inv.whisper_token_budget.max(16));
-    }
+    // Whisper mode only nudges brevity via system hint — chat max_tokens is not hard-capped here.
 
     if perf.warmup_tokens > 0 && settings.innovation.predictive_prefetch {
         let _ = perf.warmup_tokens.min(inv.prefetch_horizon_tokens);
@@ -584,9 +586,7 @@ pub fn tune_generate_params(settings: &AppSettings, mut p: GenerateParams) -> Ge
 
 pub fn effective_max_tokens(settings: &AppSettings, requested: u32) -> u32 {
     let mut max = requested.clamp(32, 2048);
-    if settings.innovation.neural_whisper_mode {
-        max = max.min(settings.innovation.whisper_token_budget.max(16));
-    }
+    // neural_whisper_mode: soft hint in enrich_system_prompt only (was hard-capping at 64).
     if settings.performance.latency_target_ms < 150 {
         max = max.min(512);
     }
@@ -631,5 +631,20 @@ pub fn swarm_agent_count(settings: &AppSettings, default_members: usize) -> usiz
         settings.innovation.swarm_particle_count.max(2) as usize
     } else {
         default_members
+    }
+}
+
+#[cfg(test)]
+mod token_limit_tests {
+    use super::*;
+    use crate::settings::AppSettings;
+
+    #[test]
+    fn whisper_mode_does_not_cap_at_64() {
+        let mut s = AppSettings::default();
+        s.innovation.neural_whisper_mode = true;
+        s.innovation.whisper_token_budget = 64;
+        assert_eq!(effective_max_tokens(&s, 512), 512);
+        assert_eq!(effective_max_tokens(&s, 1024), 1024);
     }
 }
