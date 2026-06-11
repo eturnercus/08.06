@@ -42,9 +42,9 @@
     },
     "memory": {
       "title": "Dual-layer memory",
-      "desc": "Short-term (STM) and long-term (LTM) memory with semantic search and cross-chat/model transfer.",
+      "desc": "STM and LTM with semantic search and automatic synaptic bridge when you switch models.",
       "feat1": "STM — current dialogue context",
-      "feat2": "LTM — facts transferable between chats",
+      "feat2": "LTM — facts; cross-model bridge without a transfer button",
       "feat3": "Auto consolidate STM → LTM"
     },
     "injection": {
@@ -247,10 +247,12 @@
     "models": { "formats": "GGUF, ONNX, Safetensors, PT, BIN, GGML", "localPath": "Model path", "add": "Load" }
   },
   "memory": {
-    "title": "Memory", "stm": "STM", "ltm": "LTM", "transfer": "Transfer",
-    "fromChat": "From chat", "toChat": "To chat", "consolidate": "Consolidate STM→LTM",
+    "title": "Memory", "stm": "STM", "ltm": "LTM",
+    "consolidate": "Consolidate STM→LTM", "consolidating": "Consolidating…", "consolidateDone": "STM merged into LTM",
     "accessLevel": "Memory access level", "importance": "Importance",
-    "autoSummary": "Auto-summarize", "retention": "Retention period"
+    "pageIntro": "STM holds the live dialogue; LTM stores facts. When you switch models in a chat, Silenium builds a synaptic bridge automatically — no manual transfer.",
+    "synapticLane": "Synaptic memory lane", "synapticLaneDesc": "Shared context lane for this chat. Facts stay in the chat; each model sees relevant LTM via semantic recall.",
+    "bridgeCount": "Model bridges", "autoBridgeHint": "Switching the model in chat settings snapshots recent dialogue into LTM for the new model."
   },
   "network": {
     "title": "Network monitor", "fetch": "Test", "blocked": "Blocked", "allowed": "Allowed", "noLogs": "No requests",

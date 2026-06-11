@@ -134,7 +134,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       modelId: "default",
       messages: [],
       permissions: defaultPerms(),
-      memoryAccess: "CHAT_ONLY",
+      memoryAccess: "MODEL_SHARED",
       systemPrompt: "",
       ramLimitMb: 4096,
       maxTokens: 4096,

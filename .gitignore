@@ -7,3 +7,4 @@ src-tauri/gen/
 .env
 .env.*
 !.env.example
+llama-libs/

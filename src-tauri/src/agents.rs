@@ -275,7 +275,7 @@ async fn execute_member(
     }
 
     if member.tools.iter().any(|t| t == "memory_query") {
-        let recalled = settings_engine::recall_ltm(memory, settings, task_id, prompt);
+        let recalled = settings_engine::recall_ltm(memory, settings, task_id, prompt, None);
         if !recalled.is_empty() {
             tool_notes.push(format!("memory_query: {} записей LTM", recalled.len()));
         }

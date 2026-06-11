@@ -126,7 +126,11 @@ export const api = {
     memoryType: string;
   }) => invoke("transfer_memory", p),
   consolidateMemory: (chatId: string, modelId: string) =>
-    invoke("consolidate_memory", { chatId, modelId }),
+    invoke<LtmEntry | null>("consolidate_memory", { chatId, modelId }),
+  bridgeMemoryModels: (p: { chatId: string; fromModel: string; toModel: string }) =>
+    invoke<MemoryBridgeResult | null>("bridge_memory_models", p),
+  getMemoryOverview: (chatId: string) =>
+    invoke<MemoryOverview>("get_memory_overview", { chatId }),
   runAgentTeam: (groupId: string, prompt: string) =>
     invoke<AgentTask>("run_agent_team", { groupId, prompt }),
   listAgentTasks: () => invoke<AgentTask[]>("list_agent_tasks"),
@@ -173,6 +177,21 @@ export interface LtmEntry {
   importance: number;
   transferable: boolean;
   chatId: string;
+}
+
+export interface MemoryBridgeResult {
+  bridgeId: string;
+  stmMessagesBridged: number;
+  summaryChars: number;
+  fromModelId: string;
+  toModelId: string;
+}
+
+export interface MemoryOverview {
+  stmCount: number;
+  ltmCount: number;
+  bridgeCount: number;
+  crossModelReady: boolean;
 }
 
 export interface AgentTask {

@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -40,6 +41,25 @@ pub struct MemoryTransferRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct MemoryBridgeResult {
+    pub bridge_id: String,
+    pub stm_messages_bridged: u32,
+    pub summary_chars: u32,
+    pub from_model_id: String,
+    pub to_model_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemoryOverview {
+    pub stm_count: u32,
+    pub ltm_count: u32,
+    pub bridge_count: u32,
+    pub cross_model_ready: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct StmBuffer {
     pub chat_id: String,
     pub entries: Vec<StmEntry>,
@@ -61,6 +81,7 @@ pub struct MemoryStore {
     transfers: RwLock<Vec<MemoryTransferRequest>>,
     pools: RwLock<HashMap<String, Vec<String>>>,
     encrypt_at_rest: RwLock<bool>,
+    ltm_dirty: AtomicBool,
 }
 
 impl MemoryStore {
@@ -71,6 +92,7 @@ impl MemoryStore {
             transfers: RwLock::new(Vec::new()),
             pools: RwLock::new(HashMap::new()),
             encrypt_at_rest: RwLock::new(false),
+            ltm_dirty: AtomicBool::new(false),
         };
         store.load_from_disk();
         store
@@ -104,12 +126,22 @@ impl MemoryStore {
         }
     }
 
-    pub fn persist(&self) -> Result<(), String> {
+    fn mark_ltm_dirty(&self) {
+        self.ltm_dirty.store(true, Ordering::Release);
+    }
+
+    /// Writes LTM to disk only when entries changed — avoids blocking the UI on every token.
+    pub fn flush_ltm_if_dirty(&self) -> Result<(), String> {
+        if !self.ltm_dirty.load(Ordering::Acquire) {
+            return Ok(());
+        }
         let ltm_path = Self::data_dir().join("ltm.json");
         let json = serde_json::to_string_pretty(&*self.ltm.read()).map_err(|e| e.to_string())?;
         let encrypt = *self.encrypt_at_rest.read();
         let data = crate::storage_crypto::encrypt_at_rest(&json, encrypt);
-        fs::write(ltm_path, data).map_err(|e| e.to_string())
+        fs::write(ltm_path, data).map_err(|e| e.to_string())?;
+        self.ltm_dirty.store(false, Ordering::Release);
+        Ok(())
     }
 
     pub fn touch_ltm(&self, id: &str) {
@@ -175,17 +207,31 @@ impl MemoryStore {
             source_agent_id: agent_id,
         };
         self.ltm.write().insert(entry.id.clone(), entry.clone());
-        let _ = self.persist();
+        self.mark_ltm_dirty();
         entry
     }
 
-    pub fn recall_ltm(&self, chat_id: &str, query: &str, top_k: u32) -> Vec<MemoryEntry> {
+    pub fn recall_ltm(
+        &self,
+        chat_id: &str,
+        model_id: Option<&str>,
+        query: &str,
+        top_k: u32,
+        cross_model: bool,
+    ) -> Vec<MemoryEntry> {
         let query_emb = simple_embedding(query);
+        let pool_ids: Vec<String> = self
+            .pools
+            .read()
+            .get(&format!("chat:{chat_id}"))
+            .cloned()
+            .unwrap_or_default();
+
         let mut entries: Vec<MemoryEntry> = self
             .ltm
             .read()
             .values()
-            .filter(|e| e.chat_id == chat_id || e.transferable)
+            .filter(|e| entry_visible(e, chat_id, model_id, cross_model, &pool_ids))
             .cloned()
             .collect();
         entries.sort_by(|a, b| {
@@ -199,6 +245,82 @@ impl MemoryStore {
         entries
     }
 
+    /// Automatic handoff when the user picks another model in the same chat.
+    /// Compresses recent STM into one LTM «bridge» card — no manual transfer button.
+    pub fn synaptic_bridge_on_model_switch(
+        &self,
+        chat_id: &str,
+        from_model: &str,
+        to_model: &str,
+    ) -> Option<MemoryBridgeResult> {
+        if from_model == to_model {
+            return None;
+        }
+        let stm = self.get_stm(chat_id);
+        if stm.is_empty() {
+            return None;
+        }
+
+        let recent: Vec<&StmEntry> = stm.iter().rev().take(10).collect();
+        let summary: String = recent
+            .iter()
+            .rev()
+            .map(|e| {
+                let snippet: String = e.content.chars().take(140).collect();
+                format!("[{}] {snippet}", e.role)
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        let summary = truncate_chars(&summary, 900);
+
+        let entry = self.add_ltm(
+            chat_id,
+            to_model,
+            &format!("Синаптический мост ({from_model} → {to_model}): {summary}"),
+            0.92,
+            vec![
+                "synaptic_bridge".into(),
+                format!("from:{from_model}"),
+                format!("to:{to_model}"),
+            ],
+            true,
+            None,
+        );
+
+        let pool_id = format!("chat:{chat_id}");
+        self.pools
+            .write()
+            .entry(pool_id)
+            .or_default()
+            .push(entry.id.clone());
+
+        let _ = self.flush_ltm_if_dirty();
+
+        Some(MemoryBridgeResult {
+            bridge_id: entry.id,
+            stm_messages_bridged: recent.len() as u32,
+            summary_chars: summary.chars().count() as u32,
+            from_model_id: from_model.to_string(),
+            to_model_id: to_model.to_string(),
+        })
+    }
+
+    pub fn memory_overview(&self, chat_id: &str) -> MemoryOverview {
+        let stm_count = self.get_stm(chat_id).len() as u32;
+        let ltm: Vec<MemoryEntry> = self.get_all_ltm(Some(chat_id));
+        let bridge_count = ltm
+            .iter()
+            .filter(|e| e.tags.iter().any(|t| t == "synaptic_bridge"))
+            .count() as u32;
+        MemoryOverview {
+            stm_count,
+            ltm_count: ltm.len() as u32,
+            bridge_count,
+            cross_model_ready: bridge_count > 0 || ltm.iter().any(|e| e.transferable),
+        }
+    }
+
+    /// Legacy explicit transfer — copies facts into target chat (does not move originals).
     pub fn transfer_memory(
         &self,
         entry_ids: Vec<String>,
@@ -208,17 +330,46 @@ impl MemoryStore {
         to_model: &str,
         memory_type: &str,
     ) -> MemoryTransferRequest {
-        let mut ltm = self.ltm.write();
-        for id in &entry_ids {
-            if let Some(entry) = ltm.get_mut(id) {
-                if entry.transferable {
-                    entry.chat_id = to_chat.to_string();
-                    entry.model_id = to_model.to_string();
-                    entry.last_accessed = Utc::now();
+        let mut copied = Vec::new();
+        {
+            let ltm = self.ltm.read();
+            for id in &entry_ids {
+                let Some(src) = ltm.get(id) else {
+                    continue;
+                };
+                if !src.transferable || src.chat_id != from_chat {
+                    continue;
                 }
+                let clone = MemoryEntry {
+                    id: Uuid::new_v4().to_string(),
+                    chat_id: to_chat.to_string(),
+                    model_id: to_model.to_string(),
+                    memory_type: src.memory_type.clone(),
+                    content: src.content.clone(),
+                    importance: src.importance,
+                    tags: {
+                        let mut t = src.tags.clone();
+                        t.push(format!("cloned_from:{id}"));
+                        t
+                    },
+                    embedding_stub: src.embedding_stub.clone(),
+                    created_at: Utc::now(),
+                    last_accessed: Utc::now(),
+                    access_count: 0,
+                    transferable: true,
+                    source_agent_id: src.source_agent_id.clone(),
+                };
+                copied.push(clone);
             }
         }
-        let _ = self.persist();
+        if !copied.is_empty() {
+            let mut ltm = self.ltm.write();
+            for entry in copied {
+                ltm.insert(entry.id.clone(), entry);
+            }
+            self.mark_ltm_dirty();
+        }
+        let _ = self.flush_ltm_if_dirty();
 
         let request = MemoryTransferRequest {
             id: Uuid::new_v4().to_string(),
@@ -262,7 +413,8 @@ impl MemoryStore {
             .map(|e| format!("[{}] {}", e.role, e.content))
             .collect::<Vec<_>>()
             .join("\n");
-        Some(self.add_ltm(
+        let summary = truncate_chars(&summary, 4000);
+        let entry = self.add_ltm(
             chat_id,
             model_id,
             &summary,
@@ -270,7 +422,47 @@ impl MemoryStore {
             vec!["consolidated".into()],
             true,
             None,
-        ))
+        );
+        if let Some(buffer) = self.stm.write().get_mut(chat_id) {
+            buffer.entries.clear();
+        }
+        let _ = self.flush_ltm_if_dirty();
+        Some(entry)
+    }
+}
+
+fn entry_visible(
+    e: &MemoryEntry,
+    chat_id: &str,
+    model_id: Option<&str>,
+    cross_model: bool,
+    pool_ids: &[String],
+) -> bool {
+    if e.chat_id == chat_id || pool_ids.contains(&e.id) {
+        return true;
+    }
+    if !e.transferable {
+        return false;
+    }
+    if !cross_model {
+        return false;
+    }
+    let Some(mid) = model_id else {
+        return true;
+    };
+    if e.model_id == mid {
+        return true;
+    }
+    e.tags
+        .iter()
+        .any(|t| t == &format!("to:{mid}") || t == "synaptic_bridge")
+}
+
+fn truncate_chars(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        s.to_string()
+    } else {
+        format!("{}…", s.chars().take(max).collect::<String>())
     }
 }
 
@@ -296,5 +488,30 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
         dot / (na * nb)
     } else {
         0.0
+    }
+}
+
+#[cfg(test)]
+mod bridge_tests {
+    use super::*;
+
+    #[test]
+    fn bridge_creates_ltm_entry() {
+        let store = MemoryStore::new();
+        store.add_stm("c1", "user", "hello world", 512);
+        store.add_stm("c1", "assistant", "hi there", 512);
+        let r = store
+            .synaptic_bridge_on_model_switch("c1", "model-a", "model-b")
+            .expect("bridge");
+        assert_eq!(r.from_model_id, "model-a");
+        assert!(r.stm_messages_bridged >= 2);
+        let ltm = store.get_all_ltm(Some("c1"));
+        assert!(ltm.iter().any(|e| e.tags.contains(&"synaptic_bridge".to_string())));
+    }
+
+    #[test]
+    fn deferred_persist_skips_when_clean() {
+        let store = MemoryStore::new();
+        assert!(store.flush_ltm_if_dirty().is_ok());
     }
 }

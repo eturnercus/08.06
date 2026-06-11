@@ -134,7 +134,7 @@ fn get_memory_ltm(
 }
 
 #[tauri::command]
-fn transfer_memory(
+async fn transfer_memory(
     state: State<'_, AppState>,
     entry_ids: Vec<String>,
     from_chat: String,
@@ -142,24 +142,57 @@ fn transfer_memory(
     from_model: String,
     to_model: String,
     memory_type: String,
-) -> memory::MemoryTransferRequest {
-    state.memory.transfer_memory(
-        entry_ids,
-        &from_chat,
-        &to_chat,
-        &from_model,
-        &to_model,
-        &memory_type,
-    )
+) -> Result<memory::MemoryTransferRequest, String> {
+    let memory = Arc::clone(&state.memory);
+    tauri::async_runtime::spawn_blocking(move || {
+        memory.transfer_memory(
+            entry_ids,
+            &from_chat,
+            &to_chat,
+            &from_model,
+            &to_model,
+            &memory_type,
+        )
+    })
+    .await
+    .map_err(|e| format!("transfer_memory: {e}"))
 }
 
 #[tauri::command]
-fn consolidate_memory(
+async fn consolidate_memory(
     state: State<'_, AppState>,
     chat_id: String,
     model_id: String,
-) -> Option<memory::MemoryEntry> {
-    state.memory.consolidate_stm_to_ltm(&chat_id, &model_id)
+) -> Result<Option<memory::MemoryEntry>, String> {
+    let memory = Arc::clone(&state.memory);
+    tauri::async_runtime::spawn_blocking(move || {
+        memory.consolidate_stm_to_ltm(&chat_id, &model_id)
+    })
+    .await
+    .map_err(|e| format!("consolidate_memory: {e}"))
+}
+
+#[tauri::command]
+async fn bridge_memory_models(
+    state: State<'_, AppState>,
+    chat_id: String,
+    from_model: String,
+    to_model: String,
+) -> Result<Option<memory::MemoryBridgeResult>, String> {
+    let memory = Arc::clone(&state.memory);
+    tauri::async_runtime::spawn_blocking(move || {
+        memory.synaptic_bridge_on_model_switch(&chat_id, &from_model, &to_model)
+    })
+    .await
+    .map_err(|e| format!("bridge_memory_models: {e}"))
+}
+
+#[tauri::command]
+fn get_memory_overview(
+    state: State<'_, AppState>,
+    chat_id: String,
+) -> memory::MemoryOverview {
+    state.memory.memory_overview(&chat_id)
 }
 
 #[tauri::command]
@@ -298,6 +331,8 @@ pub fn run() {
             get_memory_ltm,
             transfer_memory,
             consolidate_memory,
+            bridge_memory_models,
+            get_memory_overview,
             run_agent_team,
             list_agent_tasks,
             load_model,

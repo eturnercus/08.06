@@ -413,6 +413,7 @@ impl InferenceEngine {
         ltm_enabled: bool,
         memory: &MemoryStore,
         chat_id: &str,
+        model_id: &str,
         user_message: &str,
         chat_system: Option<&str>,
     ) -> (String, bool) {
@@ -438,7 +439,7 @@ impl InferenceEngine {
                 parts.push(inj.hidden_context.clone());
             }
             if inj.inject_memory_summary && ltm_enabled {
-                let recalled = recall_ltm(memory, settings, chat_id, user_message);
+                let recalled = recall_ltm(memory, settings, chat_id, user_message, Some(model_id));
                 if !recalled.is_empty() {
                     let summary: String = recalled
                         .iter()
@@ -549,6 +550,7 @@ impl InferenceEngine {
             ltm_enabled,
             memory,
             &request.chat_id,
+            &request.model_id,
             &user_message,
             request.system_prompt.as_deref(),
         );
@@ -688,12 +690,20 @@ impl InferenceEngine {
         if let Some(sink) = stream.as_mut() {
             sink.finish(tokens_used, latency_ms);
         }
+        let _ = memory.flush_ltm_if_dirty();
         ChatResponse {
             content: response_content,
             tokens_used,
             latency_ms,
             memory_recalled: if ltm_enabled {
-                recall_ltm(memory, settings, &request.chat_id, &user_message).len() as u32
+                recall_ltm(
+                    memory,
+                    settings,
+                    &request.chat_id,
+                    &user_message,
+                    Some(&request.model_id),
+                )
+                .len() as u32
             } else {
                 0
             },

@@ -3,6 +3,8 @@ import { useAppStore } from "../../store/appStore";
 import { Tooltip } from "../ui/Tooltip";
 import { ModelSelect } from "../models/ModelSelect";
 import { MEMORY_ACCESS_LEVELS } from "../../constants/agents";
+import { api } from "../../api/tauri";
+import { isTauri } from "../../api/browserFallback";
 
 export function ChatSettingsPanel({ chatId }: { chatId: string }) {
   const { t, i18n } = useTranslation();
@@ -31,8 +33,18 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
       <ModelSelect
         label={t("models.select")}
         value={chat.modelId}
-        onChange={(modelId) => updateChat(chatId, { modelId })}
+        onChange={async (modelId) => {
+          const prev = chat.modelId;
+          if (prev === modelId) return;
+          updateChat(chatId, { modelId });
+          if (isTauri() && chat.permissions.ltm && prev && prev !== "default") {
+            api
+              .bridgeMemoryModels({ chatId, fromModel: prev, toModel: modelId })
+              .catch(() => {});
+          }
+        }}
       />
+      <p className="field-hint">{t("memory.autoBridgeHint")}</p>
 
       <div className="form-row">
         <label className="form-label">{t("chat.systemPrompt")}</label>

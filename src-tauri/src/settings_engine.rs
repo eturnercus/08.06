@@ -306,12 +306,22 @@ pub fn recall_ltm(
     settings: &AppSettings,
     chat_id: &str,
     query: &str,
+    model_id: Option<&str>,
 ) -> Vec<MemoryEntry> {
     let top_k = settings.memory.recall_top_k.max(1);
+    let cross_model = settings.memory.cross_model_transfer;
     let mut entries = if settings.innovation.latent_space_navigation {
-        latent_recall(memory, chat_id, query, top_k, settings.innovation.latent_navigation_steps)
+        latent_recall(
+            memory,
+            chat_id,
+            model_id,
+            query,
+            top_k,
+            settings.innovation.latent_navigation_steps,
+            cross_model,
+        )
     } else {
-        memory.recall_ltm(chat_id, query, top_k)
+        memory.recall_ltm(chat_id, model_id, query, top_k, cross_model)
     };
 
     if settings.innovation.temporal_anchoring {
@@ -338,13 +348,21 @@ pub fn recall_ltm(
     entries
 }
 
-fn latent_recall(memory: &MemoryStore, chat_id: &str, query: &str, top_k: u32, steps: u32) -> Vec<MemoryEntry> {
+fn latent_recall(
+    memory: &MemoryStore,
+    chat_id: &str,
+    model_id: Option<&str>,
+    query: &str,
+    top_k: u32,
+    steps: u32,
+    cross_model: bool,
+) -> Vec<MemoryEntry> {
     let mut q = query.to_string();
-    let mut best = memory.recall_ltm(chat_id, &q, top_k);
+    let mut best = memory.recall_ltm(chat_id, model_id, &q, top_k, cross_model);
     for step in 1..=steps.max(1) {
         if let Some(top) = best.first() {
             q = format!("{query} {} [step {step}]", top.content.chars().take(80).collect::<String>());
-            best = memory.recall_ltm(chat_id, &q, top_k);
+            best = memory.recall_ltm(chat_id, model_id, &q, top_k, cross_model);
         }
     }
     best
