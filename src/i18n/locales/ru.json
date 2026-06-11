@@ -98,6 +98,7 @@
     "delete": "Удалить чат", "deleteConfirm": "Удалить этот чат безвозвратно?", "export": "Сохранить чат",
     "thinking": "Размышление", "generating": "Модель генерирует ответ (первый запуск может занять минуты)...",
     "attach": "Прикрепить", "stm": "STM", "ltm": "LTM", "internet": "Интернет",
+    "internetSearchHint": "При 🌐 Silenium ищет в интернете (погода — wttr.in, остальное — DuckDuckGo) и подставляет результат в промпт («посмотри в интернете», «погода» и т.п.).",
     "tokens": "Токены", "tokensOut": "ток. ответа", "latency": "Задержка", "offline": "Без интернета",
     "messageProps": "Свойства сообщения", "generatingShort": "генерация…", "yes": "да",
     "attachments": "Вложения", "attachmentsCount": "файл(ов)",
@@ -133,6 +134,7 @@
     "teamModelHint": "Модели задаются у каждого агента в команде — общий выбор модели для чата скрыт.",
     "starterDownloadHint": "Встроенная лёгкая модель (~200 МБ) для быстрого старта без Hugging Face.",
     "starterDownloadBtn": "Скачать Silenium Starter",
+    "starterLimitHint": "Starter (~360M) — для сложных и шутливых вопросов лучше модель 1B+ (Q4 GGUF) в разделе «Модели».",
     "agentGroup": "Команда агентов", "noAgentGroup": "Без команды",
     "agentTeam": "Команда агентов", "agentNoResponse": "Команда не вернула ответ",
     "workspaceFolder": "Рабочая папка агентов", "workspaceHint": "Агенты с file_read/file_write работают только в этой папке и подпапках.",
@@ -219,7 +221,8 @@
       }
     },
     "innovation": {
-      "badge": "NEW", "title": "Инновационные технологии Silenium",
+      "badgeHint": "Экспериментальная функция Silenium — наведите на ! для описания",
+      "title": "Инновационные технологии Silenium",
       "desc": "Передовые алгоритмы управления контекстом, памятью и когнитивной нагрузкой нейросетей.",
       "cognitive": "Когнитивный слой", "context": "Контекст", "streaming": "Потоковая обработка", "advanced": "Продвинутое",
       "cognitiveLoadBalancer": "Когнитивный балансировщик",
@@ -229,7 +232,7 @@
       "neuroplasticDesc": "Память адаптируется к стилю общения пользователя",
       "adaptationRate": "Скорость адаптации",
       "synapticRouting": "Синаптическая маршрутизация",
-      "synapticRoutingDesc": "Оптимальный путь обработки через граф нейросетей",
+      "synapticRoutingDesc": "Выбор пути инференса (Silenium Core или llama-cli). Это не MoE внутри модели — см. Справка → Mixture of Experts",
       "synapticPriority": "Приоритет пути",
       "contextDna": "Context DNA",
       "contextDnaDesc": "Уникальный «генетический код» контекста каждого чата",
@@ -265,7 +268,29 @@
       "chronosync": "ChronoSync память",
       "swarm": "Роевой интеллект",
       "latentNav": "Навигация в латентном пространстве",
-      "whisperMode": "Режим шёпота"
+      "whisperMode": "Режим шёпота",
+      "whisperBudget": "Лимит токенов (шёпот)",
+      "prefetchHorizon": "Горизонт предзагрузки (токены)",
+      "personaFluidity": "Гибкая персона",
+      "personaFluidityDesc": "Плавно смешивает глобальный системный префикс с ролью ассистента",
+      "personaBlend": "Доля смешивания персоны",
+      "temporalAnchor": "Временная привязка",
+      "temporalAnchorDesc": "Учитывает только свежую память в заданном окне времени",
+      "temporalWindow": "Окно привязки (мин)",
+      "metaInterval": "Интервал мета-познания",
+      "echoBoost": "Буст разнообразия (анти-эхо)",
+      "chronosyncGranularity": "Гранулярность ChronoSync",
+      "chronosyncMessage": "По сообщениям",
+      "chronosyncSession": "По сессии",
+      "chronosyncDay": "По дню",
+      "swarmParticles": "Частицы роя",
+      "latentSteps": "Шаги латентной навигации",
+      "ambientHarvest": "Сбор фонового контекста",
+      "ambientHarvestDesc": "Периодически подмешивает контекст окружения в память",
+      "ambientInterval": "Интервал сбора (сек)",
+      "resonance": "Резонансная подстройка",
+      "resonanceDesc": "Экспериментальная настройка «ритма» генерации",
+      "resonanceHz": "Частота резонанса (Гц)"
     },
     "performance": {
       "turbo": "Турбо-режим", "turboDesc": "Максимальная производительность за счёт RAM",
@@ -275,7 +300,12 @@
       "kvOffload": "KV-cache offload", "kvDevice": "Устройство offload",
       "mixedPrecision": "Смешанная точность", "compileGraph": "Компиляция графа",
       "warmup": "Прогрев (токены)", "idlePower": "Энергосбережение",
-      "latencyTarget": "Целевая задержка (мс)", "queueDepth": "Глубина очереди"
+      "latencyTarget": "Целевая задержка (мс)", "queueDepth": "Глубина очереди",
+      "dynamicBatchMax": "Макс. динамический батч",
+      "prefixCacheTtl": "TTL кэша префиксов (мин)",
+      "idleThreshold": "Порог простоя (мин)",
+      "priorityQueue": "Приоритетная очередь инференса",
+      "tensorShards": "Шарды тензорного параллелизма"
     },
     "security": {
       "encryptSettings": "Шифровать настройки", "encryptMemory": "Шифровать память",
@@ -283,7 +313,16 @@
       "auditLog": "Журнал аудита", "sandbox": "Изоляция процессов",
       "promptShield": "Защита от injection", "shieldAggro": "Агрессивность",
       "exfilGuard": "Защита от утечек", "clipboard": "Санитизация буфера",
-      "modelIntegrity": "Проверка целостности модели", "autoLock": "Автоблокировка (мин)"
+      "modelIntegrity": "Проверка целостности модели", "autoLock": "Автоблокировка (мин)",
+      "auditRetention": "Хранение журнала (дней)",
+      "apiKeyVault": "Хранилище API-ключей",
+      "networkFingerprint": "Проверка сетевого отпечатка"
+    },
+    "advanced": {
+      "debugMode": "Режим отладки",
+      "watchdog": "Сторожевой таймер",
+      "sandbox": "Песочница",
+      "logLevel": "Уровень логов"
     },
     "memory": {
       "stmSection": "Краткосрочная (STM)", "ltmSection": "Долгосрочная (LTM)", "transferSection": "Перенос",
@@ -353,7 +392,13 @@
       "section": "Устройства ввода/вывода",
       "camera": "Камера", "microphone": "Микрофон", "screen": "Экран",
       "virtualDisplay": "Виртуальный дисплей", "resolution": "Разрешение",
-      "maxAttachment": "Макс. вложение (МБ)", "ocr": "OCR", "transcribe": "Транскрибация", "frameRate": "FPS"
+      "maxAttachment": "Макс. вложение (МБ)", "ocr": "OCR", "transcribe": "Транскрибация", "frameRate": "FPS",
+      "browserAutomation": "Автоматизация браузера",
+      "browserAutomationDesc": "Агенты открывают страницы во встроенном браузере (или во внешнем, если управление рабочим столом выкл.)",
+      "desktopControl": "Управление рабочим столом (двойная мышь)",
+      "desktopControlDesc": "Виртуальная ИИ-мышь и агент-браузер на вкладке «Устройства». Системный курсор не затрагивается.",
+      "statusOn": "Вкл",
+      "statusOff": "Выкл"
     },
     "agents": { "addGroup": "Добавить группу" },
     "models": { "formats": "GGUF, ONNX, Safetensors, PT, BIN, GGML", "localPath": "Путь к модели", "add": "Загрузить" }
@@ -400,7 +445,9 @@
     "starterRedownload": "Перекачать Starter",
     "hfSearch": "Поиск моделей...", "hfSearchBtn": "Найти", "hfSearchTip": "Ищите модели с тегом gguf",
     "hfLoad": "Загрузить", "load": "Загрузить", "hfPopular": "Популярные", "downloads": "загрузок",
-    "mmprojWarn": "mmproj — не языковая модель"
+    "mmprojWarn": "mmproj — не языковая модель",
+    "moeBadge": "MoE",
+    "moeHintLink": "Что такое MoE? Справка →"
   },
   "help": {
     "title": "Справка", "intro": "Silenium — локальный AI-рантайм: 79+ настроек в 9 категориях, Agent Studio, память ИИ, изоляция сети.",
@@ -429,7 +476,47 @@
       "onboarding9": "9-шаговый онбординг",
       "tooltips": "Подсказки для настроек",
       "hf": "Браузер Hugging Face",
-      "m3": "Material 3 UI"
+      "m3": "Material 3 UI",
+      "moeGuide": "Справочник Mixture of Experts (MoE)"
+    },
+    "moe": {
+      "title": "Mixture of Experts (MoE) — простыми словами",
+      "subtitle": "Как устроены Mixtral, DeepSeek V3/R1 и другие «смешанные» модели",
+      "whatTitle": "Что такое Mixture of Experts?",
+      "whatBody": "В обычной модели каждый токен проходит через все слои и все веса — это дорого. В MoE модель делится на «экспертов» — независимые куски сети, каждый сильнее в своём типе задач. Небольшая gating-модель (маршрутизатор) решает, чьи ответы смешать в финальный токен и с каким весом.",
+      "diagInput": "Запрос",
+      "diagGating": "Gating / routing",
+      "diagOutput": "Ответ",
+      "diagCaption": "Упрощённая схема: маршрутизатор выбирает экспертов для текущего токена",
+      "notAgentsTitle": "Эксперты MoE ≠ агенты Silenium",
+      "notAgentsBody": "«Эксперт» в MoE — это слой внутри одной модели, а не отдельный ИИ и не чат между ботами. Режим expert_panel в Agent Studio — это несколько моделей в команде; sparse MoE — архитектура одного файла .gguf.",
+      "sparseTitle": "Sparse MoE — почему это быстрее",
+      "sparseBody": "Sparse (разреженная) версия не считает всех экспертов на каждом шаге: routing заранее выбирает малую группу, остальные пропускаются.",
+      "sparsePoint1": "Mixtral 8×7B: 8 экспертов, на токен обычно активны 2 — ~13B активных параметров из ~47B.",
+      "sparsePoint2": "DeepSeek V3/R1: сотни экспертов в архитектуре, на токен — малая доля (~37B из ~671B по оценкам обзоров).",
+      "sparsePoint3": "Качество близко к плотной модели, а VRAM и время — как у меньшей активной части.",
+      "examplesTitle": "Примеры MoE-моделей",
+      "examples": {
+        "mixtral": {
+          "name": "Mixtral 8×7B / 8×22B (Mistral)",
+          "desc": "Классический sparse MoE: 2 эксперта из 8 на токен."
+        },
+        "deepseek": {
+          "name": "DeepSeek V3 / R1",
+          "desc": "Крупная MoE-архитектура с агрессивным routing — дешевле инференс при высоком качестве."
+        },
+        "phi": {
+          "name": "Phi-3.5-MoE (Microsoft)",
+          "desc": "Компактная MoE от Microsoft в линейке Phi."
+        }
+      },
+      "sileniumTitle": "Как это связано с Silenium",
+      "sileniumBody": "Silenium помогает работать с MoE-моделями локально через GGUF и llama.cpp/Silenium Core.",
+      "sileniumPoint1": "В разделе «Модели» файлы Mixtral, DeepSeek-MoE, Phi-MoE и др. помечаются чипом MoE с подсказкой об активных экспертах.",
+      "sileniumPoint2": "«Синаптическая маршрутизация» в настройках — выбор движка (встроенный / CLI), а не gating внутри MoE.",
+      "sileniumPoint3": "Для MoE важны RAM/VRAM и квантизация Q4: активируется лишь часть весов, но файл на диске остаётся большим.",
+      "sourceNote": "Материал адаптирован по мотивам серии «ИИ человеческим языком»:",
+      "sourceLink": "ИИ простыми словами, часть 1. Архитектура Mixture of Experts (MoE) — Habr"
     }
   },
   "agents": {
@@ -515,7 +602,13 @@
       "liveHint": "Live WebView: реальная страница в отдельном окне, клики через elementFromPoint / querySelector.",
       "previewHint": "Preview: HTML через сеть в iframe; клики по ссылкам перехватываются postMessage.",
       "showWindow": "Показать окно",
-      "domAction": "Последнее DOM-действие"
+      "domAction": "Последнее DOM-действие",
+      "status": {
+        "idle": "ожидание",
+        "ready": "готово",
+        "loading": "загрузка",
+        "error": "ошибка"
+      }
     },
     "capture": {
       "ocr": "OCR экрана",

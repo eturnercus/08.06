@@ -118,19 +118,15 @@ impl NetworkManager {
         }
     }
 
-    pub async fn web_search(
+    fn fetch_params(
         &self,
-        query: &str,
+        url: String,
         agent_id: Option<String>,
         chat_id: Option<String>,
         allow_internet: bool,
         settings: &crate::settings::AppSettings,
-    ) -> Result<NetworkRequestLog, String> {
-        let url = format!(
-            "https://api.duckduckgo.com/?q={}&format=json&no_html=1",
-            urlencoding::encode(query)
-        );
-        self.fetch(FetchParams {
+    ) -> FetchParams {
+        FetchParams {
             url,
             method: "GET".into(),
             body: None,
@@ -143,7 +139,55 @@ impl NetworkManager {
             audit_enabled: settings.security.audit_log_enabled,
             block_private_ips: settings.network.block_private_ips,
             network_fingerprint_check: settings.security.network_fingerprint_check,
-        })
+        }
+    }
+
+    pub async fn web_search(
+        &self,
+        query: &str,
+        agent_id: Option<String>,
+        chat_id: Option<String>,
+        allow_internet: bool,
+        settings: &crate::settings::AppSettings,
+    ) -> Result<NetworkRequestLog, String> {
+        let url = format!(
+            "https://api.duckduckgo.com/?q={}&format=json&no_html=1",
+            urlencoding::encode(query)
+        );
+        self.fetch(self.fetch_params(
+            url,
+            agent_id,
+            chat_id,
+            allow_internet,
+            settings,
+        ))
+        .await
+    }
+
+    /// wttr.in — compact weather line (DuckDuckGo Instant Answer has no weather data).
+    pub async fn fetch_weather(
+        &self,
+        location: &str,
+        agent_id: Option<String>,
+        chat_id: Option<String>,
+        allow_internet: bool,
+        settings: &crate::settings::AppSettings,
+    ) -> Result<NetworkRequestLog, String> {
+        let loc = location.trim();
+        if loc.is_empty() {
+            return Err("Не указан город для погоды".into());
+        }
+        let url = format!(
+            "https://wttr.in/{loc}?format=3&lang=ru",
+            loc = urlencoding::encode(loc)
+        );
+        self.fetch(self.fetch_params(
+            url,
+            agent_id,
+            chat_id,
+            allow_internet,
+            settings,
+        ))
         .await
     }
 
@@ -268,5 +312,325 @@ impl NetworkManager {
                 Err(e.to_string())
             }
         }
+    }
+}
+
+/// Heuristic: user explicitly asks to use the web / weather / lookup.
+pub fn message_wants_web_search(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    const TRIGGERS: &[&str] = &[
+        "интернет",
+        "в сети",
+        "онлайн",
+        "посмотри",
+        "найди",
+        "погугли",
+        "загугли",
+        "duckduckgo",
+        "погод",
+        "weather",
+        "look up",
+        "search the",
+        "search for",
+        "в интернете",
+        "из интернета",
+        "узнай в",
+    ];
+    TRIGGERS.iter().any(|t| lower.contains(t))
+}
+
+const QUERY_STOP_WORDS: &[&str] = &[
+    "посмотри",
+    "посмотреть",
+    "найди",
+    "найти",
+    "узнай",
+    "узнать",
+    "интернет",
+    "интернете",
+    "онлайн",
+    "погугли",
+    "загугли",
+    "please",
+    "look",
+    "online",
+    "search",
+    "что",
+    "там",
+    "мне",
+    "нужно",
+    "надо",
+    "хочу",
+    "хотел",
+    "бы",
+    "ли",
+];
+
+pub fn is_weather_query(text: &str) -> bool {
+    let lower = text.to_lowercase();
+    lower.contains("погод") || lower.contains("weather")
+}
+
+/// City/place after «погода в …» or «weather in …».
+pub fn extract_weather_location(message: &str) -> Option<String> {
+    if !is_weather_query(message) {
+        return None;
+    }
+    let lower = message.to_lowercase();
+    let start = lower
+        .find(" в ")
+        .or_else(|| lower.find(" in "))
+        .map(|i| {
+            if lower[i..].starts_with(" в ") {
+                i + 3
+            } else {
+                i + 4
+            }
+        })?;
+    let tail = message[start..].trim();
+    let words: Vec<&str> = tail.split_whitespace().collect();
+    let mut picked: Vec<&str> = Vec::new();
+    for w in words {
+        let wl = w.trim_matches(|c: char| !c.is_alphanumeric()).to_lowercase();
+        if wl.is_empty() {
+            continue;
+        }
+        if QUERY_STOP_WORDS.contains(&wl.as_str()) {
+            break;
+        }
+        picked.push(w.trim_matches(|c: char| !c.is_alphanumeric()));
+        if picked.len() >= 4 {
+            break;
+        }
+    }
+    if picked.is_empty() {
+        None
+    } else {
+        Some(picked.join(" "))
+    }
+}
+
+pub fn extract_search_query(message: &str) -> String {
+    if let Some(loc) = extract_weather_location(message) {
+        return format!("погода {loc}");
+    }
+    let normalized = message.replace('\n', " ");
+    let words: Vec<&str> = normalized
+        .split_whitespace()
+        .filter(|w| {
+            let wl = w.to_lowercase();
+            !QUERY_STOP_WORDS.iter().any(|s| wl == *s)
+        })
+        .collect();
+    let joined: String = words.join(" ");
+    if joined.chars().count() > 240 {
+        joined.chars().take(240).collect()
+    } else {
+        joined
+    }
+}
+
+/// Result of auto web lookup for a chat message.
+pub struct WebLookupResult {
+    pub summary: String,
+    pub blocked: bool,
+    pub block_reason: Option<String>,
+    pub error: Option<String>,
+}
+
+impl NetworkManager {
+    /// DuckDuckGo + wttr.in for weather when DDG has no instant answer.
+    pub async fn lookup_for_chat_message(
+        &self,
+        message: &str,
+        chat_id: &str,
+        allow_internet: bool,
+        settings: &crate::settings::AppSettings,
+    ) -> WebLookupResult {
+        let query = extract_search_query(message);
+        let chat_id_opt = Some(chat_id.to_string());
+
+        if is_weather_query(message) {
+            let location = extract_weather_location(message).unwrap_or_else(|| query.clone());
+            match self
+                .fetch_weather(
+                    &location,
+                    None,
+                    chat_id_opt.clone(),
+                    allow_internet,
+                    settings,
+                )
+                .await
+            {
+                Ok(log) if !log.blocked => {
+                    let line = log.response_preview.trim().to_string();
+                    if !line.is_empty() {
+                        return WebLookupResult {
+                            summary: format!("Погода (wttr.in): {line}"),
+                            blocked: false,
+                            block_reason: None,
+                            error: None,
+                        };
+                    }
+                }
+                Ok(log) => {
+                    return WebLookupResult {
+                        summary: String::new(),
+                        blocked: true,
+                        block_reason: log.block_reason,
+                        error: None,
+                    };
+                }
+                Err(e) => {
+                    tracing::warn!("wttr.in weather failed: {e}");
+                }
+            }
+        }
+
+        match self
+            .web_search(&query, None, chat_id_opt, allow_internet, settings)
+            .await
+        {
+            Ok(log) if !log.blocked => {
+                let summary = format_ddg_preview(&log.response_preview);
+                WebLookupResult {
+                    summary,
+                    blocked: false,
+                    block_reason: None,
+                    error: None,
+                }
+            }
+            Ok(log) => WebLookupResult {
+                summary: String::new(),
+                blocked: true,
+                block_reason: log.block_reason,
+                error: None,
+            },
+            Err(e) => WebLookupResult {
+                summary: String::new(),
+                blocked: false,
+                block_reason: None,
+                error: Some(e),
+            },
+        }
+    }
+}
+
+/// Append web lookup context to the user message for the model.
+pub fn inject_web_lookup_into_message(message: &str, lookup: &WebLookupResult) -> String {
+    if lookup.blocked {
+        let reason = lookup
+            .block_reason
+            .clone()
+            .unwrap_or_else(|| "запрос заблокирован политикой сети".into());
+        return format!(
+            "{message}\n\n[Веб-поиск не выполнен: {reason}. Проверьте Настройки → Сеть: режим API и белый список DuckDuckGo / wttr.in.]"
+        );
+    }
+    if let Some(err) = &lookup.error {
+        return format!("{message}\n\n[Ошибка веб-поиска: {err}]");
+    }
+    if lookup.summary.is_empty() {
+        return format!(
+            "{message}\n\n[Веб-поиск выполнен, но краткого ответа нет. Дай ответ по общим знаниям и укажи, что точных данных из поиска нет.]"
+        );
+    }
+    format!(
+        "{message}\n\n[Данные из интернета]:\n{}\n\nСформируй ответ пользователю на основе этих данных.",
+        lookup.summary
+    )
+}
+
+/// Parse DuckDuckGo Instant Answer JSON into text for the model.
+pub fn format_ddg_preview(json_text: &str) -> String {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(json_text) else {
+        let trimmed = json_text.trim();
+        return if trimmed.len() > 40 {
+            trimmed.chars().take(1500).collect()
+        } else {
+            String::new()
+        };
+    };
+    let mut parts: Vec<String> = Vec::new();
+    if let Some(t) = v.get("Heading").and_then(|x| x.as_str()) {
+        if !t.is_empty() {
+            parts.push(t.to_string());
+        }
+    }
+    if let Some(a) = v.get("AbstractText").and_then(|x| x.as_str()) {
+        if !a.is_empty() {
+            parts.push(a.to_string());
+        }
+    }
+    if let Some(a) = v.get("Answer").and_then(|x| x.as_str()) {
+        if !a.is_empty() {
+            parts.push(format!("Краткий ответ: {a}"));
+        }
+    }
+    if let Some(topics) = v.get("RelatedTopics").and_then(|x| x.as_array()) {
+        for item in topics.iter().take(5) {
+            if let Some(text) = item.get("Text").and_then(|x| x.as_str()) {
+                if !text.is_empty() {
+                    parts.push(text.to_string());
+                }
+            }
+        }
+    }
+    parts.join("\n").chars().take(2000).collect()
+}
+
+pub fn ensure_ddg_api_whitelist(endpoints: &mut Vec<String>) {
+    for ep in [
+        "https://api.duckduckgo.com",
+        "https://html.duckduckgo.com",
+        "https://wttr.in",
+    ] {
+        if !endpoints.iter().any(|e| url_matches_whitelist(ep, e)) {
+            endpoints.push(ep.into());
+        }
+    }
+}
+
+#[cfg(test)]
+mod web_search_tests {
+    use super::*;
+
+    #[test]
+    fn detects_weather_internet_query() {
+        let msg = "Мне нужно узнать погоду в москве посмотри в интернете";
+        assert!(message_wants_web_search(msg));
+    }
+
+    #[test]
+    fn ddg_whitelist_includes_api() {
+        let mut eps = vec!["https://huggingface.co".into()];
+        ensure_ddg_api_whitelist(&mut eps);
+        assert!(eps.iter().any(|e| e.contains("duckduckgo")));
+        assert!(eps.iter().any(|e| e.contains("wttr.in")));
+    }
+
+    #[test]
+    fn extracts_moscow_from_weather_message() {
+        let msg = "Мне нужно узнать погоду в москве посмотри в интернете";
+        assert_eq!(
+            extract_weather_location(msg).as_deref(),
+            Some("москве")
+        );
+        assert!(is_weather_query(msg));
+    }
+
+    #[test]
+    fn search_query_strips_filler_words() {
+        let q = extract_search_query("Мне нужно узнать погоду в москве посмотри в интернете");
+        assert_eq!(q, "погода москве");
+    }
+}
+
+fn url_matches_whitelist(url: &str, pattern: &str) -> bool {
+    if pattern.contains('*') {
+        let prefix = pattern.split('*').next().unwrap_or("");
+        url.starts_with(prefix)
+    } else {
+        url.starts_with(pattern)
     }
 }

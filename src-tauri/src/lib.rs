@@ -1,6 +1,7 @@
 mod agent_webview;
 mod agent_workspace;
 mod agents;
+mod chat_template;
 mod app_paths;
 mod desktop_agent;
 mod devices;
@@ -9,6 +10,7 @@ mod inference;
 mod llama_cli;
 mod llama_runtime;
 mod memory;
+mod moe;
 mod network;
 mod settings;
 mod settings_engine;
@@ -67,15 +69,33 @@ fn reset_settings_cmd(state: State<'_, AppState>) -> AppSettings {
 async fn send_chat(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
-    request: ChatRequest,
+    mut request: ChatRequest,
 ) -> Result<inference::ChatResponse, String> {
     let settings = state.settings.lock().clone();
+    let chat_id = request.chat_id.clone();
+
+    if network::message_wants_web_search(&request.message) {
+        let allow = desktop_agent::internet_allowed(&settings, Some(&chat_id));
+        if allow {
+            let lookup = state
+                .network
+                .lookup_for_chat_message(&request.message, &chat_id, true, &settings)
+                .await;
+            request.message =
+                network::inject_web_lookup_into_message(&request.message, &lookup);
+        } else {
+            request.message = format!(
+                "{}\n\n[Интернет выключен для этого чата. Включите 🌐 в правах чата (⚙) и при необходимости Настройки → Сеть.]",
+                request.message
+            );
+        }
+    }
+
     let inference = Arc::clone(&state.inference);
     let memory = Arc::clone(&state.memory);
     let cancel_reg = Arc::clone(&state.cancel);
     let stream_enabled = stream_sink::should_stream_chat(&settings);
     let buffer_ms = stream_sink::stream_buffer_ms(&settings);
-    let chat_id = request.chat_id.clone();
     let cancel_flag = cancel_reg.begin(&chat_id);
     tauri::async_runtime::spawn_blocking(move || {
         let mut stream_sink = if stream_enabled {
@@ -485,8 +505,11 @@ async fn web_search(
 fn open_system_url(url: &str) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
         std::process::Command::new("cmd")
             .args(["/C", "start", "", url])
+            .creation_flags(CREATE_NO_WINDOW)
             .spawn()
             .map_err(|e| format!("Не удалось открыть браузер: {e}"))?;
     }

@@ -473,7 +473,7 @@ impl Default for InnovationSettings {
             synaptic_path_priority: "adaptive".into(),
             context_dna: false,
             context_dna_mutation_rate: 0.02,
-            thought_streaming: true,
+            thought_streaming: false,
             thought_stream_buffer_ms: 120,
             thought_max_tokens: 1024,
             emotion_mirror: false,
@@ -611,6 +611,9 @@ impl Default for AppSettings {
                 api_only_endpoints: vec![
                     "https://huggingface.co".into(),
                     "https://*.huggingface.co".into(),
+                    "https://api.duckduckgo.com".into(),
+                    "https://html.duckduckgo.com".into(),
+                    "https://wttr.in".into(),
                 ],
                 proxy_url: String::new(),
                 dns_over_https: true,
@@ -755,17 +758,29 @@ pub fn settings_path() -> PathBuf {
     path
 }
 
+fn migrate_settings(mut settings: AppSettings) -> AppSettings {
+    // Bracketed innovation injections removed in v1.0.1+; disable legacy flags on disk.
+    settings.innovation.context_dna = false;
+    settings.innovation.holographic_context = false;
+    // Thought-stream hint confused small models; use Settings → Output → Streaming instead.
+    if settings.innovation.thought_streaming {
+        settings.innovation.thought_streaming = false;
+    }
+    crate::network::ensure_ddg_api_whitelist(&mut settings.network.api_only_endpoints);
+    settings
+}
+
 pub fn load_settings() -> AppSettings {
     let path = settings_path();
     if path.exists() {
         if let Ok(raw) = fs::read_to_string(&path) {
             let try_plain = serde_json::from_str::<AppSettings>(&raw);
             if let Ok(settings) = try_plain {
-                return settings;
+                return migrate_settings(settings);
             }
             let decrypted = crate::storage_crypto::decrypt_at_rest(&raw, true);
             if let Ok(settings) = serde_json::from_str::<AppSettings>(&decrypted) {
-                return settings;
+                return migrate_settings(settings);
             }
         }
     }

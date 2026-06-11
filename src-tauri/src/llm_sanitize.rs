@@ -18,6 +18,7 @@ const TEMPLATE_MARKERS: &[&str] = &[
     "[/INST]",
     "<<SYS>>",
     "<</SYS>>",
+    "<|",
 ];
 
 const ROLE_LEAK_MARKERS: &[&str] = &[
@@ -33,6 +34,7 @@ const ROLE_LEAK_MARKERS: &[&str] = &[
 
 /// Bracketed innovation/injection tags that small models often echo from the system prompt.
 const INNOVATION_LEAK_MARKERS: &[&str] = &[
+    "[context DNA",
     "[context DNA]",
     "[temporal anchor]",
     "[thought stream",
@@ -46,7 +48,14 @@ const INNOVATION_LEAK_MARKERS: &[&str] = &[
     "[neural mesh]",
     "[ambient harvest]",
     "[resonance ",
+    "context DNA]",
+    "temporal anchor]",
 ];
+
+/// True when text is a known innovation-prompt echo (old builds injected bracket tags).
+pub fn is_innovation_artifact(text: &str) -> bool {
+    INNOVATION_LEAK_MARKERS.iter().any(|m| text.contains(m)) || detect_repetition_loop(text)
+}
 
 pub fn truncate_at_template_leak(text: &str) -> String {
     let mut cut = text.len();
@@ -99,6 +108,33 @@ pub fn generation_should_stop(text: &str) -> bool {
         || detect_repetition_loop(text)
 }
 
+/// Trailing partial ChatML token the model started but did not finish.
+pub fn strip_trailing_template_fragment(text: &str) -> String {
+    let mut s = text.to_string();
+    const FRAGS: &[&str] = &[
+        "<|im_start|>",
+        "<|im_end|>",
+        "<|redacted_im_start|>",
+        "<|eot_id|>",
+        "<|endoftext|>",
+        "<|im",
+        "<|",
+        "<",
+    ];
+    loop {
+        let before = s.len();
+        for frag in FRAGS {
+            if s.ends_with(frag) {
+                s.truncate(s.len().saturating_sub(frag.len()));
+            }
+        }
+        if s.len() == before {
+            break;
+        }
+    }
+    s.trim_end().to_string()
+}
+
 pub fn sanitize_llm_output(text: &str) -> String {
     let mut out = truncate_at_template_leak(text);
     for marker in TEMPLATE_MARKERS {
@@ -109,12 +145,36 @@ pub fn sanitize_llm_output(text: &str) -> String {
     while out.contains("\n\n\n") {
         out = out.replace("\n\n\n", "\n\n");
     }
-    out.trim().to_string()
+    strip_trailing_template_fragment(&out)
+}
+
+/// Sanitize a streaming buffer and return only the new safe suffix for the UI.
+pub fn stream_delta_since(prev_sanitized: &str, accumulated_raw: &str) -> (String, String) {
+    let sanitized = sanitize_llm_output(accumulated_raw);
+    let delta = if sanitized.len() > prev_sanitized.len() {
+        sanitized[prev_sanitized.len()..].to_string()
+    } else {
+        String::new()
+    };
+    (delta, sanitized)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn strips_trailing_partial_chatml() {
+        let raw = "Назовите то, что вы хотите.<|";
+        let s = sanitize_llm_output(raw);
+        assert_eq!(s, "Назовите то, что вы хотите.");
+    }
+
+    #[test]
+    fn strips_reported_nelzya_leak() {
+        let raw = "Нельзя.<|";
+        assert_eq!(sanitize_llm_output(raw), "Нельзя.");
+    }
 
     #[test]
     fn strips_im_start_leak() {
@@ -160,5 +220,13 @@ mod tests {
     fn stops_on_innovation_marker_during_generation() {
         let raw = "Ответ.[context DNA] 6af507f8";
         assert!(generation_should_stop(raw));
+    }
+
+    #[test]
+    fn strips_reported_user_artifact_loop() {
+        let raw = "Test:[context DNA] 6af507f8cd7d77cc[temporal anchor] Учитывай контекст последних 60 минут разговор.[thought stream 120ms, max 1024 reasoning tokens] Сначала кратко рассуждай";
+        let s = sanitize_llm_output(raw);
+        assert_eq!(s, "Test:");
+        assert!(is_innovation_artifact(raw));
     }
 }

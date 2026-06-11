@@ -98,6 +98,7 @@
     "delete": "Delete chat", "deleteConfirm": "Delete this chat permanently?", "export": "Save chat",
     "thinking": "Reasoning", "generating": "Model is generating (first run may take minutes)...",
     "attach": "Attach", "stm": "STM", "ltm": "LTM", "internet": "Internet",
+    "internetSearchHint": "With 🌐 on, Silenium fetches online data (weather via wttr.in, other queries via DuckDuckGo) and adds it to the prompt.",
     "tokens": "Tokens", "tokensOut": "out tok", "latency": "Latency", "offline": "No internet",
     "messageProps": "Message properties", "generatingShort": "generating…", "yes": "yes",
     "attachments": "Attachments", "attachmentsCount": "file(s)",
@@ -133,6 +134,7 @@
     "teamModelHint": "Each agent uses its own model — chat-wide model selection is hidden.",
     "starterDownloadHint": "Built-in lightweight model (~200 MB) for a quick start without Hugging Face.",
     "starterDownloadBtn": "Download Silenium Starter",
+    "starterLimitHint": "Starter (~360M) — for complex or slang questions, use a 1B+ Q4 GGUF model from Models.",
     "agentGroup": "Agent team", "noAgentGroup": "No team",
     "agentTeam": "Agent team", "agentNoResponse": "Team returned no response",
     "workspaceFolder": "Agent workspace folder", "workspaceHint": "Agents with file_read/file_write work only inside this folder and subfolders.",
@@ -219,7 +221,8 @@
       }
     },
     "innovation": {
-      "badge": "NEW", "title": "Silenium innovative technologies",
+      "badgeHint": "Experimental Silenium feature — hover ! for description",
+      "title": "Silenium innovative technologies",
       "desc": "Cutting-edge algorithms for context, memory, and cognitive load management.",
       "cognitive": "Cognitive layer", "context": "Context", "streaming": "Streaming", "advanced": "Advanced",
       "cognitiveLoadBalancer": "Cognitive load balancer",
@@ -229,7 +232,7 @@
       "neuroplasticDesc": "Memory adapts to user's communication style",
       "adaptationRate": "Adaptation rate",
       "synapticRouting": "Synaptic routing",
-      "synapticRoutingDesc": "Optimal processing path through neural network graph",
+      "synapticRoutingDesc": "Inference path selection (Silenium Core vs llama-cli). Not in-model MoE — see Help → Mixture of Experts",
       "synapticPriority": "Path priority",
       "contextDna": "Context DNA",
       "contextDnaDesc": "Unique genetic code of each chat's context",
@@ -265,7 +268,29 @@
       "chronosync": "ChronoSync memory",
       "swarm": "Swarm intelligence",
       "latentNav": "Latent space navigation",
-      "whisperMode": "Whisper mode"
+      "whisperMode": "Whisper mode",
+      "whisperBudget": "Whisper token budget",
+      "prefetchHorizon": "Prefetch horizon (tokens)",
+      "personaFluidity": "Persona fluidity",
+      "personaFluidityDesc": "Blends global system prefix with assistant role",
+      "personaBlend": "Persona blend ratio",
+      "temporalAnchor": "Temporal anchoring",
+      "temporalAnchorDesc": "Weights recent memory within a time window",
+      "temporalWindow": "Anchor window (min)",
+      "metaInterval": "Meta-cognition interval",
+      "echoBoost": "Echo diversity boost",
+      "chronosyncGranularity": "ChronoSync granularity",
+      "chronosyncMessage": "Per message",
+      "chronosyncSession": "Per session",
+      "chronosyncDay": "Per day",
+      "swarmParticles": "Swarm particles",
+      "latentSteps": "Latent nav steps",
+      "ambientHarvest": "Ambient context harvest",
+      "ambientHarvestDesc": "Periodically harvests ambient context into memory",
+      "ambientInterval": "Harvest interval (sec)",
+      "resonance": "Resonance tuning",
+      "resonanceDesc": "Experimental generation rhythm tuning",
+      "resonanceHz": "Resonance frequency (Hz)"
     },
     "performance": {
       "turbo": "Turbo mode", "turboDesc": "Maximum performance at RAM cost",
@@ -275,7 +300,12 @@
       "kvOffload": "KV-cache offload", "kvDevice": "Offload device",
       "mixedPrecision": "Mixed precision", "compileGraph": "Graph compilation",
       "warmup": "Warmup tokens", "idlePower": "Idle power save",
-      "latencyTarget": "Latency target (ms)", "queueDepth": "Queue depth"
+      "latencyTarget": "Latency target (ms)", "queueDepth": "Queue depth",
+      "dynamicBatchMax": "Dynamic batch max",
+      "prefixCacheTtl": "Prefix cache TTL (min)",
+      "idleThreshold": "Idle power threshold (min)",
+      "priorityQueue": "Priority queue inference",
+      "tensorShards": "Tensor parallel shards"
     },
     "security": {
       "encryptSettings": "Encrypt settings", "encryptMemory": "Encrypt memory",
@@ -283,7 +313,16 @@
       "auditLog": "Audit log", "sandbox": "Process isolation",
       "promptShield": "Injection shield", "shieldAggro": "Aggressiveness",
       "exfilGuard": "Exfiltration guard", "clipboard": "Clipboard sanitization",
-      "modelIntegrity": "Model integrity check", "autoLock": "Auto-lock (min)"
+      "modelIntegrity": "Model integrity check", "autoLock": "Auto-lock (min)",
+      "auditRetention": "Audit log retention (days)",
+      "apiKeyVault": "API key vault",
+      "networkFingerprint": "Network fingerprint check"
+    },
+    "advanced": {
+      "debugMode": "Debug mode",
+      "watchdog": "Watchdog",
+      "sandbox": "Sandbox",
+      "logLevel": "Log level"
     },
     "memory": {
       "stmSection": "Short-term (STM)", "ltmSection": "Long-term (LTM)", "transferSection": "Transfer",
@@ -353,7 +392,13 @@
       "section": "Input/output devices",
       "camera": "Camera", "microphone": "Microphone", "screen": "Screen",
       "virtualDisplay": "Virtual display", "resolution": "Resolution",
-      "maxAttachment": "Max attachment (MB)", "ocr": "OCR", "transcribe": "Transcription", "frameRate": "FPS"
+      "maxAttachment": "Max attachment (MB)", "ocr": "OCR", "transcribe": "Transcription", "frameRate": "FPS",
+      "browserAutomation": "Browser automation",
+      "browserAutomationDesc": "Agents open pages in the built-in browser (or external if desktop control is off)",
+      "desktopControl": "Desktop control (dual mouse)",
+      "desktopControlDesc": "Virtual AI mouse and agent browser on Devices tab. Does not move your system cursor.",
+      "statusOn": "On",
+      "statusOff": "Off"
     },
     "agents": { "addGroup": "Add group" },
     "models": { "formats": "GGUF, ONNX, Safetensors, PT, BIN, GGML", "localPath": "Model path", "add": "Load" }
@@ -400,7 +445,9 @@
     "starterRedownload": "Re-download Starter",
     "hfSearch": "Search models...", "hfSearchBtn": "Search", "hfSearchTip": "Search for gguf-tagged models",
     "hfLoad": "Load", "load": "Load", "hfPopular": "Popular", "downloads": "downloads",
-    "mmprojWarn": "mmproj — not a text model"
+    "mmprojWarn": "mmproj — not a text model",
+    "moeBadge": "MoE",
+    "moeHintLink": "What is MoE? Help →"
   },
   "help": {
     "title": "Help", "intro": "Silenium — local AI runtime: 79+ settings in 9 categories, Agent Studio, AI memory, network isolation.",
@@ -429,7 +476,47 @@
       "onboarding9": "9-step onboarding",
       "tooltips": "Tooltips for settings",
       "hf": "Hugging Face browser",
-      "m3": "Material 3 UI"
+      "m3": "Material 3 UI",
+      "moeGuide": "Mixture of Experts (MoE) guide"
+    },
+    "moe": {
+      "title": "Mixture of Experts (MoE) in plain language",
+      "subtitle": "How Mixtral, DeepSeek V3/R1 and similar models work",
+      "whatTitle": "What is Mixture of Experts?",
+      "whatBody": "In a dense model every token uses all layers and weights — expensive. MoE splits the network into experts: sub-blocks stronger on different tasks. A small gating (routing) network decides which expert outputs to blend for each token.",
+      "diagInput": "Prompt",
+      "diagGating": "Gating / routing",
+      "diagOutput": "Reply",
+      "diagCaption": "Simplified: the router picks experts for the current token",
+      "notAgentsTitle": "MoE experts ≠ Silenium agents",
+      "notAgentsBody": "An MoE expert is an internal layer chunk, not a standalone AI or multi-bot chat. Agent Studio expert_panel runs several models as a team; sparse MoE is architecture inside one .gguf file.",
+      "sparseTitle": "Sparse MoE — why it's faster",
+      "sparseBody": "Sparse MoE skips inactive experts: routing selects a small group per step.",
+      "sparsePoint1": "Mixtral 8×7B: 8 experts, typically 2 active per token — ~13B active of ~47B total.",
+      "sparsePoint2": "DeepSeek V3/R1: hundreds of experts, small active fraction per token (~37B of ~671B in reviews).",
+      "sparsePoint3": "Quality stays close to dense models while VRAM/time track the active subset.",
+      "examplesTitle": "Example MoE models",
+      "examples": {
+        "mixtral": {
+          "name": "Mixtral 8×7B / 8×22B (Mistral)",
+          "desc": "Classic sparse MoE: 2 of 8 experts per token."
+        },
+        "deepseek": {
+          "name": "DeepSeek V3 / R1",
+          "desc": "Large MoE with aggressive routing — cheaper inference at high quality."
+        },
+        "phi": {
+          "name": "Phi-3.5-MoE (Microsoft)",
+          "desc": "Compact Microsoft MoE in the Phi family."
+        }
+      },
+      "sileniumTitle": "How Silenium fits in",
+      "sileniumBody": "Silenium runs MoE GGUF models locally via llama.cpp / Silenium Core.",
+      "sileniumPoint1": "Models tab marks Mixtral, DeepSeek-MoE, Phi-MoE, etc. with an MoE chip and active-expert hint.",
+      "sileniumPoint2": "Synaptic routing in settings picks inference engine (embedded / CLI), not in-model gating.",
+      "sileniumPoint3": "MoE needs enough RAM/VRAM and Q4 quants: only part of weights activate, but the file stays large.",
+      "sourceNote": "Adapted from the «AI in human language» series:",
+      "sourceLink": "Mixture of Experts (MoE) architecture — Habr (RU)"
     }
   },
   "agents": {
@@ -515,7 +602,13 @@
       "liveHint": "Live WebView: real page in a separate window; clicks via elementFromPoint / querySelector.",
       "previewHint": "Preview: fetched HTML in iframe; link clicks use postMessage bridge.",
       "showWindow": "Show window",
-      "domAction": "Last DOM action"
+      "domAction": "Last DOM action",
+      "status": {
+        "idle": "idle",
+        "ready": "ready",
+        "loading": "loading",
+        "error": "error"
+      }
     },
     "capture": {
       "ocr": "Screen OCR",

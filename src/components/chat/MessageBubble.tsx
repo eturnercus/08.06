@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ChatMessage } from "../../store/appStore";
+import { sanitizeLlmOutput } from "../../utils/sanitizeLlm";
 
 const META_LABELS: Record<string, string> = {
   modelId: "chat.meta.model",
@@ -26,6 +27,8 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
     message.completionTokens ?? message.tokens ?? undefined;
   const prompt = message.promptTokens;
   const hasAttachments = Boolean(message.attachments?.length);
+
+  const displayContent = sanitizeLlmOutput(message.content || "");
 
   const hasProps =
     (isAssistant &&
@@ -127,7 +130,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
           </details>
         )}
         <div className="bubble-text">
-          {message.content}
+          {displayContent}
           {message.streaming && <span className="stream-cursor">▍</span>}
         </div>
       </div>

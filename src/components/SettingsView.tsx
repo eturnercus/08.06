@@ -142,14 +142,14 @@ export function SettingsView() {
               <SecurityPanel d={d} u={update} />
               <SectionTitle>{t("settings.tabs.devices")}</SectionTitle>
               <SettingToggle
-                title="Browser automation"
-                desc="Агенты открывают страницы во встроенном браузере (или во внешнем, если Desktop control выкл.)"
+                title={t("settings.devices.browserAutomation")}
+                desc={t("settings.devices.browserAutomationDesc")}
                 value={(d.devices?.browserAutomationEnabled as boolean) ?? false}
                 onChange={(v) => update("devices", "browserAutomationEnabled", v)}
               />
               <SettingToggle
-                title="Desktop control (dual mouse)"
-                desc="Виртуальная ИИ-мышь и агент-браузер на вкладке «Устройства». Системный курсор не затрагивается."
+                title={t("settings.devices.desktopControl")}
+                desc={t("settings.devices.desktopControlDesc")}
                 value={(d.devices?.desktopControlEnabled as boolean) ?? false}
                 onChange={(v) => update("devices", "desktopControlEnabled", v)}
               />
@@ -200,10 +200,10 @@ export function SettingsView() {
             <>
               <InnovationPanel d={d} u={update} />
               <SectionTitle>{t("settings.tabs.advanced")}</SectionTitle>
-              <SettingToggle title="Debug mode" value={adv.debugMode as boolean} onChange={(v) => update("advanced", "debugMode", v)} />
-              <SettingToggle title="Watchdog" value={adv.watchdogEnabled as boolean} onChange={(v) => update("advanced", "watchdogEnabled", v)} />
-              <SettingSelect title="Sandbox" value={adv.sandboxLevel as string} options={["minimal", "standard", "strict", "maximum"]} onChange={(v) => update("advanced", "sandboxLevel", v)} />
-              <SettingSelect title="Log level" value={adv.logLevel as string} options={["trace", "debug", "info", "warn", "error"]} onChange={(v) => update("advanced", "logLevel", v)} />
+              <SettingToggle title={t("settings.advanced.debugMode")} value={adv.debugMode as boolean} onChange={(v) => update("advanced", "debugMode", v)} />
+              <SettingToggle title={t("settings.advanced.watchdog")} value={adv.watchdogEnabled as boolean} onChange={(v) => update("advanced", "watchdogEnabled", v)} />
+              <SettingSelect title={t("settings.advanced.sandbox")} value={adv.sandboxLevel as string} options={["minimal", "standard", "strict", "maximum"]} onChange={(v) => update("advanced", "sandboxLevel", v)} />
+              <SettingSelect title={t("settings.advanced.logLevel")} value={adv.logLevel as string} options={["trace", "debug", "info", "warn", "error"]} onChange={(v) => update("advanced", "logLevel", v)} />
               <AgentGroupsEditor draft={draft} setDraft={setDraft} />
             </>
           )}

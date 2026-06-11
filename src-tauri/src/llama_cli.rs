@@ -119,6 +119,13 @@ impl LlamaCliRunner {
         let mut cmd = Self::build_command(&bin, cfg)?;
         cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
 
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
         let mut child = cmd
             .spawn()
             .map_err(|e| format!("Не удалось запустить {}: {e}", bin.display()))?;
@@ -137,6 +144,7 @@ impl LlamaCliRunner {
         }
 
         let mut full = String::new();
+        let mut stream_sanitized = String::new();
         if let Some(stdout) = child.stdout.take() {
             let mut reader = BufReader::new(stdout);
             let mut buf = [0u8; 128];
@@ -149,10 +157,18 @@ impl LlamaCliRunner {
                     Ok(0) => break,
                     Ok(n) => {
                         let chunk = String::from_utf8_lossy(&buf[..n]);
-                        if let Some(cb) = on_delta.as_mut() {
-                            cb(&chunk);
-                        }
                         full.push_str(&chunk);
+                        if crate::llm_sanitize::generation_should_stop(&full) {
+                            break;
+                        }
+                        let (delta, sanitized) =
+                            crate::llm_sanitize::stream_delta_since(&stream_sanitized, &full);
+                        stream_sanitized = sanitized;
+                        if let Some(cb) = on_delta.as_mut() {
+                            if !delta.is_empty() {
+                                cb(&delta);
+                            }
+                        }
                     }
                     Err(e) => return Err(format!("Ошибка чтения stdout llama-cli: {e}")),
                 }
@@ -175,7 +191,7 @@ impl LlamaCliRunner {
             ));
         }
 
-        let text = full.trim().to_string();
+        let text = crate::llm_sanitize::sanitize_llm_output(full.trim());
         if text.is_empty() {
             return Err(
                 "llama-cli не вернул текст. Увеличьте файл подкачки, уменьшите контекст или выберите Q4-квантизацию."

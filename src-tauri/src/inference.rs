@@ -15,8 +15,10 @@ use crate::memory::MemoryStore;
 use crate::settings::AppSettings;
 use crate::settings_engine::{
     self, check_user_input, cross_modal_user_note, default_reply_max_tokens, effective_max_tokens,
-    effective_temperature, enrich_system_prompt, filter_model_output, filter_stm,
-    maybe_dream_consolidate, recall_ltm, resolve_gguf_runtime_pref, tune_generate_params,
+    default_chat_system_prompt, effective_temperature, enrich_system_prompt, filter_model_output,
+    filter_stm,
+    anti_repeat_hint, maybe_dream_consolidate, recall_ltm, resolve_gguf_runtime_pref,
+    should_boost_anti_repeat, tune_generate_params,
 };
 use crate::stream_sink::{AgentStreamSink, StreamSink, TokenSink};
 
@@ -35,6 +37,8 @@ pub struct ModelInfo {
     pub verified: bool,
     #[serde(default)]
     pub download_progress: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub moe: Option<crate::moe::MoeInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -237,7 +241,7 @@ impl InferenceEngine {
                     "local-{}",
                     path.to_string_lossy().replace(['/', '\\', ':'], "-")
                 );
-                out.push(ModelInfo {
+                let mut info = ModelInfo {
                     id,
                     name,
                     path: path.to_string_lossy().to_string(),
@@ -248,7 +252,10 @@ impl InferenceEngine {
                     source: "local".into(),
                     verified: Self::verify_file(&path),
                     download_progress: 100,
-                });
+                    moe: None,
+                };
+                crate::moe::attach_moe(&mut info);
+                out.push(info);
             }
         }
     }
@@ -278,7 +285,7 @@ impl InferenceEngine {
         if require_integrity && !Self::verify_file(Path::new(path)) {
             return Err("Проверка целостности модели не пройдена".into());
         }
-        let info = ModelInfo {
+        let mut info = ModelInfo {
             id: id.clone(),
             name: name.to_string(),
             path: path.to_string(),
@@ -289,7 +296,9 @@ impl InferenceEngine {
             source: "local".into(),
             verified: true,
             download_progress: 100,
+            moe: None,
         };
+        crate::moe::attach_moe(&mut info);
         self.loaded_models.write().insert(id.clone(), info.clone());
         Ok(info)
     }
@@ -446,6 +455,7 @@ impl InferenceEngine {
                     source: "builtin".into(),
                     verified: false,
                     download_progress: 0,
+                    moe: None,
                 },
             );
         }
@@ -680,10 +690,10 @@ impl InferenceEngine {
         let mut parts = Vec::new();
         let mut injection_applied = false;
 
-        if let Some(sp) = chat_system {
-            if !sp.is_empty() {
-                parts.push(sp.to_string());
-            }
+        if let Some(sp) = chat_system.filter(|s| !s.trim().is_empty()) {
+            parts.push(sp.to_string());
+        } else {
+            parts.push(default_chat_system_prompt(settings));
         }
 
         if settings.global_message_injection.enabled {
@@ -845,6 +855,11 @@ impl InferenceEngine {
         if let Some(note) = cross_modal_user_note(settings, Self::attachment_note(request)) {
             user_turn = format!("{user_turn}\n[{note}]");
         }
+        if stm_enabled {
+            if let Some(hint) = anti_repeat_hint(settings, &stm_snapshot) {
+                user_turn = format!("{user_turn}\n\n[{hint}]");
+            }
+        }
 
         let mut messages: Vec<(String, String)> = Vec::new();
         if !system_prompt.is_empty() {
@@ -853,7 +868,9 @@ impl InferenceEngine {
 
         if stm_enabled {
             for entry in &stm_snapshot {
-                if is_legacy_stub(&entry.content) {
+                if is_legacy_stub(&entry.content)
+                    || crate::llm_sanitize::is_innovation_artifact(&entry.content)
+                {
                     continue;
                 }
                 let role = if entry.role == "assistant" {
@@ -866,6 +883,14 @@ impl InferenceEngine {
         }
 
         messages.push(("user".into(), user_turn.clone()));
+
+        let n_ctx_budget = settings.inference.context_length.max(2048);
+        messages = crate::chat_template::trim_messages_for_context(
+            &model_path,
+            messages,
+            n_ctx_budget,
+            max_tok.saturating_add(64),
+        );
 
         let response_content = if model_path.is_empty() || effective_model_id == "default" {
             "Скачайте встроенную модель Silenium Starter в свойствах чата или выберите локальную GGUF в разделе «Модели».".into()
@@ -900,6 +925,10 @@ impl InferenceEngine {
                 prefer_cli: backend.prefer_cli,
             };
             gen = tune_generate_params(settings, gen);
+            if stm_enabled && should_boost_anti_repeat(settings, &stm_snapshot) {
+                gen.repeat_penalty = (gen.repeat_penalty * 1.2).min(2.0);
+                gen.temperature = (gen.temperature + 0.12).min(1.25);
+            }
             #[cfg(feature = "embedded-llama")]
             let inference_result = {
                 let gguf_guard = self.gguf.lock();
@@ -926,6 +955,12 @@ impl InferenceEngine {
                 }
                 Err(err) => format!("Ошибка инференса ({model_name}): {err}"),
             }
+        };
+
+        let response_content = if response_content.trim().is_empty() {
+            "Модель не сгенерировала текст. Попробуйте другую модель (1B+ Q4), увеличьте лимит токенов в свойствах чата или переформулируйте вопрос.".into()
+        } else {
+            response_content
         };
 
         maybe_dream_consolidate(memory, settings, &request.chat_id, &effective_model_id);
@@ -980,6 +1015,7 @@ impl InferenceEngine {
             {
                 sink.cancelled(latency_ms);
             } else {
+                sink.ensure_content(&response_content);
                 sink.finish(
                     tokens_used,
                     prompt_tokens,

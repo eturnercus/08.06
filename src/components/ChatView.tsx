@@ -8,6 +8,7 @@ import { MessageBubble } from "./chat/MessageBubble";
 import { ChatSettingsPanel } from "./chats/ChatSettingsPanel";
 import { api } from "../api/tauri";
 import { isTauri } from "../api/browserFallback";
+import { sanitizeLlmOutput } from "../utils/sanitizeLlm";
 import { MediaCapture, MediaAttachment } from "./chat/MediaCapture";
 import { EmptyState } from "./ui/EmptyState";
 
@@ -19,6 +20,7 @@ export function ChatView() {
     addChat,
     addMessage,
     finalizeStreamMessage,
+    closeOrphanStreamMessages,
     setActiveGeneration,
     settings,
   } = useAppStore();
@@ -82,7 +84,7 @@ export function ChatView() {
   };
 
   const handleSend = async () => {
-    if ((!input.trim() && attachments.length === 0) || !chat) return;
+    if (loading || (!input.trim() && attachments.length === 0) || !chat) return;
     const userText = input.trim() || t("chat.mediaOnly");
     const sentAttachments = [...attachments];
     setInput("");
@@ -102,6 +104,7 @@ export function ChatView() {
 
     const useAgentTeam = Boolean(chat.agentGroupId && isTauri());
     if (streamOn && !useAgentTeam) {
+      closeOrphanStreamMessages(chat.id);
       addMessage(chat.id, { role: "assistant", content: "", streaming: true });
     }
 
@@ -138,10 +141,25 @@ export function ChatView() {
             dataBase64: a.dataBase64,
           })),
         });
-        if (!streamOn) {
+        if (streamOn) {
+          finalizeStreamMessage(chat.id, {
+            content: sanitizeLlmOutput(resp.content),
+            completionTokens: resp.completionTokens ?? resp.tokensUsed,
+            promptTokens: resp.promptTokens,
+            latencyMs: resp.latencyMs,
+            meta: {
+              modelId: resp.modelId,
+              promptTokens: resp.promptTokens,
+              completionTokens: resp.completionTokens ?? resp.tokensUsed,
+              maxTokensLimit: resp.maxTokensLimit,
+              memoryRecalled: resp.memoryRecalled,
+              injection: resp.injectionApplied,
+            },
+          });
+        } else {
           addMessage(chat.id, {
             role: "assistant",
-            content: resp.content,
+            content: sanitizeLlmOutput(resp.content),
             tokens: resp.completionTokens ?? resp.tokensUsed,
             promptTokens: resp.promptTokens,
             completionTokens: resp.completionTokens ?? resp.tokensUsed,
