@@ -586,6 +586,10 @@ pub fn tune_generate_params(settings: &AppSettings, mut p: GenerateParams) -> Ge
 
 pub fn effective_max_tokens(settings: &AppSettings, requested: u32) -> u32 {
     let mut max = requested.clamp(32, 2048);
+    // Legacy chats/settings often stored 64 — never hard-cap replies that low.
+    if max < 128 {
+        max = default_reply_max_tokens();
+    }
     // neural_whisper_mode: soft hint in enrich_system_prompt only (was hard-capping at 64).
     if settings.performance.latency_target_ms < 150 {
         max = max.min(512);
@@ -646,5 +650,13 @@ mod token_limit_tests {
         s.innovation.whisper_token_budget = 64;
         assert_eq!(effective_max_tokens(&s, 512), 512);
         assert_eq!(effective_max_tokens(&s, 1024), 1024);
+    }
+
+    #[test]
+    fn legacy_low_request_gets_default_floor() {
+        let s = AppSettings::default();
+        assert_eq!(effective_max_tokens(&s, 64), 512);
+        assert_eq!(effective_max_tokens(&s, 127), 512);
+        assert_eq!(effective_max_tokens(&s, 128), 128);
     }
 }

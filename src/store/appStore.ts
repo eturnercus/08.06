@@ -51,6 +51,12 @@ export interface Chat {
   temperature: number;
 }
 
+/** Legacy chats used 64; bump to a safe default before sending to inference. */
+export function resolveReplyMaxTokens(maxTokens: number): number {
+  if (maxTokens < 128) return 512;
+  return Math.min(2048, maxTokens);
+}
+
 export interface MonitorEvent {
   id: string;
   timestamp: string;

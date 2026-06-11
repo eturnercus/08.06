@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
-import { useAppStore } from "../../store/appStore";
+import { resolveReplyMaxTokens, useAppStore } from "../../store/appStore";
 import { Tooltip } from "../ui/Tooltip";
 import { ModelSelect } from "../models/ModelSelect";
 import { MEMORY_ACCESS_LEVELS } from "../../constants/agents";
@@ -27,6 +27,11 @@ export function ChatSettingsPanel({ chatId }: { chatId: string }) {
   const whisperBudget =
     (settings as { innovation?: { whisperTokenBudget?: number } } | null)?.innovation
       ?.whisperTokenBudget ?? 64;
+
+  useEffect(() => {
+    if (!chat || chat.maxTokens >= 128) return;
+    updateChat(chatId, { maxTokens: resolveReplyMaxTokens(chat.maxTokens) });
+  }, [chatId, chat?.maxTokens, updateChat, chat]);
 
   if (!chat) return null;
 
