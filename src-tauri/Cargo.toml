@@ -1,6 +1,6 @@
 [package]
 name = "silenium"
-version = "1.0.0"
+version = "1.0.1"
 description = "Silenium — локальный AI-рантайм (© 2026 eturnercus)"
 authors = ["eturnercus"]
 license-file = "../LICENSE"
